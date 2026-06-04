@@ -4,6 +4,7 @@ from sqlalchemy import pool
 from alembic import context
 from app.database import Base
 from app.domains.institutions.models import Institution
+from app.domains.users.models import User
 import sys, os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
