@@ -6,6 +6,7 @@ from app.database import Base
 import enum
 
 class PlanName(str, enum.Enum):
+    free = "free"
     basic = "basic"
     professional = "professional"
     enterprise = "enterprise"

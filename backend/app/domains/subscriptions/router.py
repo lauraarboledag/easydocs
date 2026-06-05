@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.auth import get_current_user
+from app.core.features import get_active_subscription, require_feature
 from app.domains.users.models import User
 from app.domains.subscriptions.schemas import (
     PlanCreate, PlanResponse, SubscriptionCreate,
