@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer
 from app.domains.institutions.router import router as institutions_router
 from app.domains.users.router import router as users_router
 from app.domains.subscriptions.router import router as subscriptions_router
+from app.domains.documents.router import router as documents_router
 
 security = HTTPBearer()
 
@@ -16,6 +17,7 @@ app = FastAPI(
 app.include_router(institutions_router)
 app.include_router(users_router)
 app.include_router(subscriptions_router)
+app.include_router(documents_router)
 
 @app.get("/")
 def root():

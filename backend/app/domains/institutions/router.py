@@ -6,10 +6,6 @@ from app.domains.institutions.schemas import InstitutionCreate, InstitutionRespo
 
 router = APIRouter(prefix="/institutions", tags=["Instituciones"])
 
-@router.post("/", response_model=InstitutionResponse, status_code=201)
-def register_institution(data: InstitutionCreate, db: Session = Depends(get_db)):
-    return create_institution(db, data)
-
 @router.get("/", response_model=list[InstitutionResponse])
 def get_institutions(db: Session = Depends(get_db)):
     return list_institutions(db)

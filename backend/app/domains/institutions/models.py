@@ -31,4 +31,5 @@ class Institution(Base):
     
     users = relationship("User", back_populates="institution")
     subscription = relationship("Subscription", back_populates="institution", uselist=False)
+    documents = relationship("Document", back_populates="institution")
     

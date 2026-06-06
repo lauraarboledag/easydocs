@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+from app.domains.institutions.schemas import InstitutionCreate
 import enum
 
 class UserRole(str, enum.Enum):
@@ -10,7 +11,7 @@ class UserRole(str, enum.Enum):
     representative = "representative"
     teacher = "teacher"
     secretary = "secretary"
-
+    
 class User(Base):
     __tablename__ = "users"
 
@@ -33,3 +34,4 @@ class User(Base):
     )
 
     institution = relationship("Institution", back_populates="users")
+    documents = relationship("Document", back_populates="creator", foreign_keys="Document.created_by")
