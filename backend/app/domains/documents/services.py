@@ -122,3 +122,17 @@ def cancel_document(db: Session, document_id: str, institution_id: str) -> Docum
     db.commit()
     db.refresh(document)
     return document
+
+def update_template(db: Session, template_id: str, data: DocumentTemplateCreate) -> DocumentTemplate:
+    template = db.execute(
+        select(DocumentTemplate).where(DocumentTemplate.id == template_id)
+    ).scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada.")
+
+    for key, value in data.model_dump().items():
+        setattr(template, key, value)
+
+    db.commit()
+    db.refresh(template)
+    return template

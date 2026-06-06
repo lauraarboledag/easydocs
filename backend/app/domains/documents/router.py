@@ -11,7 +11,7 @@ from app.domains.documents.schemas import (
 )
 from app.domains.documents.services import (
     create_template, list_templates, create_document,
-    generate_pdf, list_documents, cancel_document
+    generate_pdf, list_documents, cancel_document, update_template
 )
 
 router = APIRouter(tags=["Documentos"])
@@ -23,6 +23,15 @@ def add_template(
     current_user: User = Depends(require_superadmin)
 ):
     return create_template(db, data)
+
+@router.put("/templates/{template_id}", response_model=DocumentTemplateResponse)
+def edit_template(
+    template_id: str,
+    data: DocumentTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    return update_template(db, template_id, data)
 
 @router.get("/templates/", response_model=list[DocumentTemplateResponse])
 def get_templates(
