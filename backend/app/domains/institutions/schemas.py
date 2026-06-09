@@ -8,10 +8,10 @@ class InstitutionCreate(BaseModel):
     department: str
     municipality: str
     address: Optional[str] = None
-    phone: str
-    email: EmailStr
+    phone: Optional[str] = None
+    email: Optional[str] = None
     education_level: str
-    license_number: str
+    license_number: Optional[str] = None
 
 class InstitutionResponse(BaseModel):
     id: str
@@ -19,11 +19,11 @@ class InstitutionResponse(BaseModel):
     dane_code: str
     department: str
     municipality: str
-    address: Optional[str]
-    phone: str
-    email: str
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     education_level: str
-    license_number: str
+    license_number: Optional[str] = None
     is_verified: bool
     is_active: bool
     created_at: datetime
