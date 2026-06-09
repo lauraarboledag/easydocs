@@ -7,6 +7,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import DocumentList from "./pages/DocumentList";
+import DocumentNew from "./pages/DocumentNew";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -38,6 +40,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <AdminDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/documentos"
+        element={
+          <PrivateRoute>
+            <DocumentList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/documentos/nuevo"
+        element={
+          <PrivateRoute>
+            <DocumentNew />
           </PrivateRoute>
         }
       />
