@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import DocumentList from "./pages/DocumentList";
 import DocumentNew from "./pages/DocumentNew";
+import UserList from "./pages/UserList";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -56,6 +57,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <DocumentNew />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/usuarios"
+        element={
+          <PrivateRoute>
+            <UserList />
           </PrivateRoute>
         }
       />
