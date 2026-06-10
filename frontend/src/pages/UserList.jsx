@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import LogoutModal from "../components/LogoutModal";
 import {
   Users,
   Plus,
@@ -53,6 +54,7 @@ const ROLE_CONFIG = {
 
 export default function UserList() {
   const { user, logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +114,8 @@ export default function UserList() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = () => setShowLogout(true);
+  const confirmLogout = () => {
     logout();
     navigate("/");
   };
@@ -478,6 +481,12 @@ export default function UserList() {
       <button className="fixed bottom-6 right-6 w-14 h-14 bg-[#1a2b4a] hover:bg-[#2952cc] text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50">
         <MessageSquare size={22} />
       </button>
+      {showLogout && (
+        <LogoutModal
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogout(false)}
+        />
+      )}
     </div>
   );
 }

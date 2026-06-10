@@ -10,6 +10,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import DocumentList from "./pages/DocumentList";
 import DocumentNew from "./pages/DocumentNew";
 import UserList from "./pages/UserList";
+import AdminInstitutions from "./pages/AdminInstitutions";
+import AdminTemplates from "./pages/AdminTemplates";
+import AdminTransactions from "./pages/AdminTransactions";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -65,6 +68,30 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <UserList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/instituciones"
+        element={
+          <PrivateRoute>
+            <AdminInstitutions />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/plantillas"
+        element={
+          <PrivateRoute>
+            <AdminTemplates />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/transacciones"
+        element={
+          <PrivateRoute>
+            <AdminTransactions />
           </PrivateRoute>
         }
       />

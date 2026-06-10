@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import LogoutModal from "../components/LogoutModal";
 import {
   FileText,
   Plus,
@@ -64,6 +65,7 @@ export default function DocumentList() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [downloading, setDownloading] = useState(null);
+  const [showLogout, setShowLogout] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,7 +138,8 @@ export default function DocumentList() {
     return matchSearch && matchStatus;
   });
 
-  const handleLogout = () => {
+  const handleLogout = () => setShowLogout(true);
+  const confirmLogout = () => {
     logout();
     navigate("/");
   };
@@ -441,6 +444,12 @@ export default function DocumentList() {
       <button className="fixed bottom-6 right-6 w-14 h-14 bg-[#1a2b4a] hover:bg-[#2952cc] text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50">
         <MessageSquare size={22} />
       </button>
+      {showLogout && (
+        <LogoutModal
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogout(false)}
+        />
+      )}
     </div>
   );
 }
