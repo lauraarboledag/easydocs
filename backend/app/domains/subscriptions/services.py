@@ -8,7 +8,7 @@ from app.domains.subscriptions.models import (
     Transaction,
     SubscriptionStatus,
     TransactionStatus,
-    BillingCycle
+    BillingCycle,
 )
 from app.domains.subscriptions.schemas import (
     PlanCreate,
@@ -70,7 +70,18 @@ def create_subscription(db: Session, data: SubscriptionCreate) -> Subscription:
     db.commit()
     db.refresh(transaction)
 
+    # Si es plan Free, activar automáticamente sin esperar confirmación
+    if plan.name == "free":
+        transaction.status = TransactionStatus.confirmed
+        transaction.notes = "Activación automática plan Free"
+        subscription.status = SubscriptionStatus.active
+        subscription.starts_at = datetime.utcnow()
+        subscription.expires_at = datetime.utcnow() + timedelta(days=30)
+        db.commit()
+        db.refresh(subscription)
+
     return subscription
+
 
 def confirm_transaction(
     db: Session, transaction_id: str, data: ConfirmTransaction, confirmed_by_id: str

@@ -13,6 +13,7 @@ import UserList from "./pages/UserList";
 import AdminInstitutions from "./pages/AdminInstitutions";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminTransactions from "./pages/AdminTransactions";
+import Subscription from "./pages/Subscription";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -92,6 +93,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <AdminTransactions />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/suscripcion"
+        element={
+          <PrivateRoute>
+            <Subscription />
           </PrivateRoute>
         }
       />
