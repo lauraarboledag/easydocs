@@ -110,18 +110,28 @@ export default function AdminTemplates() {
   };
 
   const handleSelect = (template) => {
-    setSelected(template);
-    setForm({
-      document_type: template.document_type,
-      name: template.name,
-      description: template.description || "",
-      template_html: template.template_html,
-      required_fields: template.required_fields,
-    });
-    setFieldsInput(template.required_fields.join(", "));
-    setMode("view");
-    setError("");
-    setShowSource(false);
+    try {
+      setSelected(template);
+      setForm({
+        document_type: template.document_type || "",
+        name: template.name || "",
+        description: template.description || "",
+        template_html: template.template_html || "",
+        required_fields: Array.isArray(template.required_fields)
+          ? template.required_fields
+          : [],
+      });
+      setFieldsInput(
+        Array.isArray(template.required_fields)
+          ? template.required_fields.join(", ")
+          : "",
+      );
+      setMode("view");
+      setError("");
+      setShowSource(false);
+    } catch (err) {
+      console.error("Error en handleSelect:", err);
+    }
   };
 
   const handleCreate = () => {
@@ -531,23 +541,19 @@ export default function AdminTemplates() {
                     </div>
 
                     {mode === "view" ? (
-                      <div className="border border-gray-200 rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center gap-2">
-                          <Eye size={12} className="text-gray-400" />
-                          <span className="text-xs text-gray-400">
-                            Vista previa del documento
-                          </span>
-                        </div>
-                        <div
-                          className="p-4 prose prose-sm max-w-none text-sm"
-                          dangerouslySetInnerHTML={{
-                            __html: form.template_html.replace(
-                              /\{\{[^}]+\}\}/g,
-                              (match) =>
-                                `<span class="inline-block bg-blue-100 text-blue-700 text-xs px-1 py-0.5 rounded font-mono">${match}</span>`,
-                            ),
-                          }}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                        <FileText
+                          size={32}
+                          className="text-gray-300 mx-auto mb-3"
                         />
+                        <p className="text-sm text-gray-500 font-medium">
+                          Vista previa no disponible
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Haz clic en <strong>Editar</strong> para ver y
+                          modificar el HTML. La vista previa en PDF estará
+                          disponible próximamente.
+                        </p>
                       </div>
                     ) : showSource ? (
                       <textarea

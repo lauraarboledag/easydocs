@@ -78,20 +78,36 @@ export default function Login() {
             </div>
             <span className="text-xl font-bold text-[#1a2b4a]">EasyDocs</span>
           </div>
-
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             Iniciar sesión
           </h2>
           <p className="text-gray-500 mb-8">
             Ingresa tus credenciales para acceder a tu institución.
           </p>
-
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mb-8 transition-colors"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16l-4-4m0 0l4-4m-4 4h18"
+              />
+            </svg>
+            Volver al inicio
+          </button>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
               {error}
             </div>
           )}
-
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -131,7 +147,6 @@ export default function Login() {
               {loading ? "Ingresando..." : "Ingresar"}
             </button>
           </form>
-
           <p className="text-center text-sm text-gray-500 mt-8">
             ¿No tienes cuenta?{" "}
             <Link
