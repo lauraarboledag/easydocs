@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.domains.users.router import router as users_router
 from app.domains.subscriptions.router import router as subscriptions_router
 from app.domains.documents.router import router as documents_router
+from app.domains.edubot.router import router as edubot_router
 
 security = HTTPBearer()
 
@@ -27,6 +28,7 @@ app.include_router(institutions_router)
 app.include_router(users_router)
 app.include_router(subscriptions_router)
 app.include_router(documents_router)
+app.include_router(edubot_router)
 
 @app.get("/")
 def root():

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
+import EduBot from "../components/EduBot";
 import {
   Users,
   Plus,
@@ -422,9 +423,7 @@ export default function UserList() {
       )}
 
       {/* EduBot flotante */}
-      <button className="fixed bottom-6 right-6 w-14 h-14 bg-[#1a2b4a] hover:bg-[#2952cc] text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50">
-        <MessageSquare size={22} />
-      </button>
+      <EduBot />
       {showLogout && (
         <LogoutModal
           onConfirm={confirmLogout}

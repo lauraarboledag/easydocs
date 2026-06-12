@@ -16,6 +16,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: always
+    env_file:
+      - backend/.env
     ports:
       - "8000:8000"
     volumes:
