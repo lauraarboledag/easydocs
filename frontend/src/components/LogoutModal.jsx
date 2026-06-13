@@ -1,6 +1,6 @@
-import { LogOut, X } from 'lucide-react'
+import { LogOut, X } from "lucide-react";
 
-export default function LogoutModal({ onConfirm, onCancel }) {
+export default function LogoutModal({ onConfirm, onCancel, message }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -15,9 +15,12 @@ export default function LogoutModal({ onConfirm, onCancel }) {
             <X size={16} />
           </button>
         </div>
-        <h3 className="text-lg font-bold text-gray-900 mb-1">¿Cerrar sesión?</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-1">
+          ¿Cerrar sesión?
+        </h3>
         <p className="text-sm text-gray-500 mb-6">
-          Tu sesión se cerrará y tendrás que volver a iniciar sesión para acceder a la plataforma.
+          {message ||
+            "Tu sesión se cerrará y tendrás que volver a iniciar sesión para acceder a la plataforma."}
         </p>
         <div className="flex gap-3">
           <button
@@ -35,5 +38,5 @@ export default function LogoutModal({ onConfirm, onCancel }) {
         </div>
       </div>
     </div>
-  )
+  );
 }

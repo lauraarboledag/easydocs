@@ -4,7 +4,10 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
-import EduBot from '../components/EduBot'
+import EduBot from "../components/EduBot";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
+
 import {
   FileText,
   Plus,
@@ -59,6 +62,7 @@ export default function DocumentList() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [downloading, setDownloading] = useState(null);
   const [showLogout, setShowLogout] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,6 +140,16 @@ export default function DocumentList() {
     logout();
     navigate("/");
   };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -391,6 +405,16 @@ export default function DocumentList() {
         <LogoutModal
           onConfirm={confirmLogout}
           onCancel={() => setShowLogout(false)}
+        />
+      )}
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
         />
       )}
     </div>

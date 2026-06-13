@@ -4,6 +4,8 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
 import {
   LayoutDashboard,
   Building2,
@@ -49,6 +51,7 @@ export default function AdminDashboard() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLogout, setShowLogout] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,6 +78,16 @@ export default function AdminDashboard() {
     logout();
     navigate("/");
   };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   const pendingTransactions = transactions.filter(
     (t) => t.status === "pending",
@@ -358,26 +371,20 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* EduBot flotante */}
-      <button className="fixed bottom-6 right-6 w-14 h-14 bg-[#1a2b4a] hover:bg-[#2952cc] text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50">
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-          />
-        </svg>
-      </button>
       {showLogout && (
         <LogoutModal
           onConfirm={confirmLogout}
           onCancel={() => setShowLogout(false)}
+        />
+      )}
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
         />
       )}
     </div>

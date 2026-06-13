@@ -4,7 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
-import EduBot from '../components/EduBot'
+import EduBot from "../components/EduBot";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
 
 import {
   FileText,
@@ -135,6 +137,7 @@ export default function DocumentNew() {
   const [createdDoc, setCreatedDoc] = useState(null);
   const [error, setError] = useState("");
   const [showLogout, setShowLogout] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
     api.get("/templates/").then((res) => setTemplates(res.data));
@@ -211,6 +214,16 @@ export default function DocumentNew() {
     logout();
     navigate("/");
   };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -493,6 +506,16 @@ export default function DocumentNew() {
         <LogoutModal
           onConfirm={confirmLogout}
           onCancel={() => setShowLogout(false)}
+        />
+      )}
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
         />
       )}
     </div>

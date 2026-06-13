@@ -5,6 +5,8 @@ import LogoutModal from "../components/LogoutModal";
 import api from "../services/api";
 import Sidebar from "../components/layout/Sidebar";
 import EduBot from "../components/EduBot";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
 import {
   LayoutDashboard,
   FileText,
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLogout, setShowLogout] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,6 +73,16 @@ export default function Dashboard() {
     logout();
     navigate("/");
   };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   const docsThisMonth = documents.filter((d) => {
     const date = new Date(d.created_at);
@@ -349,6 +362,16 @@ export default function Dashboard() {
         <LogoutModal
           onConfirm={confirmLogout}
           onCancel={() => setShowLogout(false)}
+        />
+      )}
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
         />
       )}
     </div>

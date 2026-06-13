@@ -4,6 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
+
 import {
   CreditCard,
   CheckCircle,
@@ -19,17 +22,58 @@ import {
 } from "lucide-react";
 
 const PLAN_META = {
-  free:         { label: "Free",         color: "text-gray-600",   bg: "bg-gray-100",   border: "border-gray-200",   highlight: false, icon: Shield    },
-  basic:        { label: "Básico",       color: "text-blue-600",   bg: "bg-blue-50",    border: "border-blue-200",   highlight: false, icon: Zap       },
-  professional: { label: "Profesional",  color: "text-purple-600", bg: "bg-purple-50",  border: "border-purple-200", highlight: true,  icon: Star      },
-  enterprise:   { label: "Empresarial",  color: "text-yellow-600", bg: "bg-yellow-50",  border: "border-yellow-200", highlight: false, icon: Building2 },
+  free: {
+    label: "Free",
+    color: "text-gray-600",
+    bg: "bg-gray-100",
+    border: "border-gray-200",
+    highlight: false,
+    icon: Shield,
+  },
+  basic: {
+    label: "Básico",
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    highlight: false,
+    icon: Zap,
+  },
+  professional: {
+    label: "Profesional",
+    color: "text-purple-600",
+    bg: "bg-purple-50",
+    border: "border-purple-200",
+    highlight: true,
+    icon: Star,
+  },
+  enterprise: {
+    label: "Empresarial",
+    color: "text-yellow-600",
+    bg: "bg-yellow-50",
+    border: "border-yellow-200",
+    highlight: false,
+    icon: Building2,
+  },
 };
 
 const PLAN_FEATURES = {
-  free:         ["LR001 – LR009", "1 usuario", "10 documentos / mes"],
-  basic:        ["LR001 – LR009", "3 usuarios", "50 documentos / mes"],
-  professional: ["LR001 – LR009", "Certificados Capítulo II", "10 usuarios", "200 documentos / mes", "EduBot IA"],
-  enterprise:   ["LR001 – LR009", "Certificados Capítulo II", "Usuarios ilimitados", "Documentos ilimitados", "EduBot IA", "Transcripción de audio IA"],
+  free: ["LR001 – LR009", "1 usuario", "10 documentos / mes"],
+  basic: ["LR001 – LR009", "3 usuarios", "50 documentos / mes"],
+  professional: [
+    "LR001 – LR009",
+    "Certificados Capítulo II",
+    "10 usuarios",
+    "200 documentos / mes",
+    "EduBot IA",
+  ],
+  enterprise: [
+    "LR001 – LR009",
+    "Certificados Capítulo II",
+    "Usuarios ilimitados",
+    "Documentos ilimitados",
+    "EduBot IA",
+    "Transcripción de audio IA",
+  ],
 };
 
 const PLAN_ORDER = ["free", "basic", "professional", "enterprise"];
@@ -41,7 +85,11 @@ function formatPrice(price) {
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
+  return new Date(dateStr).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function daysUntilExpiry(expiresAt) {
@@ -70,6 +118,7 @@ export default function Subscription() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [showLogout, setShowLogout] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,21 +139,38 @@ export default function Subscription() {
   }, []);
 
   const handleLogout = () => setShowLogout(true);
-  const confirmLogout = () => { logout(); navigate("/"); };
+  const confirmLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   const handleRequestUpgrade = async (plan) => {
     setRequesting(plan.id);
-    setSuccessMsg(""); setErrorMsg("");
+    setSuccessMsg("");
+    setErrorMsg("");
     try {
       await api.post("/subscriptions/", {
         plan_id: plan.id,
         billing_cycle: plan.billing_cycle,
       });
       setSuccessMsg(
-        `Solicitud enviada para el Plan ${PLAN_META[plan.name]?.label || plan.name} (${plan.billing_cycle === "monthly" ? "mensual" : "anual"}). Un administrador la confirmará pronto.`
+        `Solicitud enviada para el Plan ${PLAN_META[plan.name]?.label || plan.name} (${plan.billing_cycle === "monthly" ? "mensual" : "anual"}). Un administrador la confirmará pronto.`,
       );
     } catch (err) {
-      setErrorMsg(err.response?.data?.detail || "No se pudo enviar la solicitud. Intenta de nuevo.");
+      setErrorMsg(
+        err.response?.data?.detail ||
+          "No se pudo enviar la solicitud. Intenta de nuevo.",
+      );
     } finally {
       setRequesting(null);
     }
@@ -124,13 +190,19 @@ export default function Subscription() {
         <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
           <h1 className="text-lg font-semibold text-gray-800">Suscripción</h1>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600"><Bell size={20} /></button>
+            <button className="p-2 text-gray-400 hover:text-gray-600">
+              <Bell size={20} />
+            </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-[#2952cc] rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">{user?.full_name?.charAt(0).toUpperCase()}</span>
+                <span className="text-white text-xs font-bold">
+                  {user?.full_name?.charAt(0).toUpperCase()}
+                </span>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800">{user?.full_name}</p>
+                <p className="text-sm font-medium text-gray-800">
+                  {user?.full_name}
+                </p>
                 <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
               </div>
             </div>
@@ -138,25 +210,30 @@ export default function Subscription() {
         </header>
 
         <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
-
           {/* Feedback */}
           {successMsg && (
             <div className="mb-6 flex items-start gap-3 bg-green-50 border border-green-200 text-green-700 rounded-xl px-5 py-4 text-sm">
               <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
               <span className="flex-1">{successMsg}</span>
-              <button onClick={() => setSuccessMsg("")}><X size={16} /></button>
+              <button onClick={() => setSuccessMsg("")}>
+                <X size={16} />
+              </button>
             </div>
           )}
           {errorMsg && (
             <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 text-red-600 rounded-xl px-5 py-4 text-sm">
               <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
               <span className="flex-1">{errorMsg}</span>
-              <button onClick={() => setErrorMsg("")}><X size={16} /></button>
+              <button onClick={() => setErrorMsg("")}>
+                <X size={16} />
+              </button>
             </div>
           )}
 
           {loading ? (
-            <div className="text-center py-24 text-gray-400 text-sm">Cargando planes...</div>
+            <div className="text-center py-24 text-gray-400 text-sm">
+              Cargando planes...
+            </div>
           ) : (
             <>
               {/* Banner plan activo */}
@@ -167,9 +244,12 @@ export default function Subscription() {
                       <CreditCard size={22} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-blue-200 text-xs mb-0.5">Plan activo</p>
+                      <p className="text-blue-200 text-xs mb-0.5">
+                        Plan activo
+                      </p>
                       <p className="text-white font-bold text-lg">
-                        Plan {PLAN_META[currentPlanName]?.label || currentPlanName}
+                        Plan{" "}
+                        {PLAN_META[currentPlanName]?.label || currentPlanName}
                       </p>
                       <p className="text-blue-300 text-xs">
                         Vigente hasta {formatDate(subscription.expires_at)}
@@ -178,24 +258,41 @@ export default function Subscription() {
                   </div>
                   <div className="flex items-center gap-6">
                     {daysLeft !== null && (
-                      <div className={`text-center px-4 py-2 rounded-xl ${daysLeft <= 7 ? "bg-red-500/20" : "bg-white/10"}`}>
-                        <p className={`text-2xl font-bold ${daysLeft <= 7 ? "text-red-300" : "text-white"}`}>{daysLeft}</p>
+                      <div
+                        className={`text-center px-4 py-2 rounded-xl ${daysLeft <= 7 ? "bg-red-500/20" : "bg-white/10"}`}
+                      >
+                        <p
+                          className={`text-2xl font-bold ${daysLeft <= 7 ? "text-red-300" : "text-white"}`}
+                        >
+                          {daysLeft}
+                        </p>
                         <p className="text-xs text-blue-300">días restantes</p>
                       </div>
                     )}
                     <div className="text-center px-4 py-2 bg-white/10 rounded-xl">
-                      <p className="text-2xl font-bold text-white">{formatPrice(subscription.plan?.price)}</p>
+                      <p className="text-2xl font-bold text-white">
+                        {formatPrice(subscription.plan?.price)}
+                      </p>
                       <p className="text-xs text-blue-300">
-                        {subscription.plan?.billing_cycle === "monthly" ? "/ mes" : "/ año"}
+                        {subscription.plan?.billing_cycle === "monthly"
+                          ? "/ mes"
+                          : "/ año"}
                       </p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="mb-8 bg-white border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center">
-                  <CreditCard size={28} className="text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 font-medium">Sin suscripción activa</p>
-                  <p className="text-gray-400 text-sm mt-1">Selecciona un plan para comenzar</p>
+                  <CreditCard
+                    size={28}
+                    className="text-gray-300 mx-auto mb-2"
+                  />
+                  <p className="text-gray-500 font-medium">
+                    Sin suscripción activa
+                  </p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    Selecciona un plan para comenzar
+                  </p>
                 </div>
               )}
 
@@ -223,7 +320,9 @@ export default function Subscription() {
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${billingCycle === "annual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
                   >
                     Anual
-                    <span className="text-xs bg-green-100 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">−17%</span>
+                    <span className="text-xs bg-green-100 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">
+                      −17%
+                    </span>
                   </button>
                 </div>
               </div>
@@ -248,8 +347,8 @@ export default function Subscription() {
                         isCurrent
                           ? "border-[#2952cc] shadow-md"
                           : meta.highlight
-                          ? `${meta.border} shadow-sm`
-                          : "border-gray-200"
+                            ? `${meta.border} shadow-sm`
+                            : "border-gray-200"
                       }`}
                     >
                       {/* Badge */}
@@ -270,12 +369,18 @@ export default function Subscription() {
 
                       {/* Header del plan */}
                       <div className="flex items-center gap-3 mb-4 mt-2">
-                        <div className={`w-10 h-10 ${meta.bg} rounded-xl flex items-center justify-center`}>
+                        <div
+                          className={`w-10 h-10 ${meta.bg} rounded-xl flex items-center justify-center`}
+                        >
                           <PlanIcon size={20} className={meta.color} />
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900">Plan {meta.label}</p>
-                          <p className="text-xs text-gray-400">{plan?.description}</p>
+                          <p className="font-bold text-gray-900">
+                            Plan {meta.label}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {plan?.description}
+                          </p>
                         </div>
                       </div>
 
@@ -291,18 +396,27 @@ export default function Subscription() {
                             </span>
                           )}
                         </div>
-                        {billingCycle === "annual" && plan && plan.price > 0 && (
-                          <p className="text-xs text-green-600 font-medium mt-1">
-                            Equivale a {formatPrice(Math.round(plan.price / 12))} / mes
-                          </p>
-                        )}
+                        {billingCycle === "annual" &&
+                          plan &&
+                          plan.price > 0 && (
+                            <p className="text-xs text-green-600 font-medium mt-1">
+                              Equivale a{" "}
+                              {formatPrice(Math.round(plan.price / 12))} / mes
+                            </p>
+                          )}
                       </div>
 
                       {/* Features */}
                       <ul className="space-y-2.5 mb-6 flex-1">
                         {(PLAN_FEATURES[planName] || []).map((f) => (
-                          <li key={f} className="flex items-start gap-2 text-sm text-gray-600">
-                            <CheckCircle size={14} className="text-green-500 flex-shrink-0 mt-0.5" />
+                          <li
+                            key={f}
+                            className="flex items-start gap-2 text-sm text-gray-600"
+                          >
+                            <CheckCircle
+                              size={14}
+                              className="text-green-500 flex-shrink-0 mt-0.5"
+                            />
                             {f}
                           </li>
                         ))}
@@ -327,8 +441,16 @@ export default function Subscription() {
                               : `${meta.bg} ${meta.color} hover:opacity-80 border ${meta.border}`
                           }`}
                         >
-                          {isRequesting ? <Clock size={15} /> : <ArrowRight size={15} />}
-                          {isRequesting ? "Enviando..." : planName === "free" ? "Seleccionar" : "Solicitar upgrade"}
+                          {isRequesting ? (
+                            <Clock size={15} />
+                          ) : (
+                            <ArrowRight size={15} />
+                          )}
+                          {isRequesting
+                            ? "Enviando..."
+                            : planName === "free"
+                              ? "Seleccionar"
+                              : "Solicitar upgrade"}
                         </button>
                       )}
                     </div>
@@ -338,9 +460,15 @@ export default function Subscription() {
 
               {/* Nota informativa */}
               <div className="mt-8 bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 flex items-start gap-3">
-                <AlertCircle size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                <AlertCircle
+                  size={18}
+                  className="text-blue-400 flex-shrink-0 mt-0.5"
+                />
                 <div className="text-sm text-blue-700">
-                  <strong>¿Cómo funciona el proceso de upgrade?</strong> Al solicitar un plan, un administrador de EduDynamis verificará tu pago y activará el nuevo plan en menos de 24 horas. Próximamente integraremos pagos en línea con Wompi.
+                  <strong>¿Cómo funciona el proceso de upgrade?</strong> Al
+                  solicitar un plan, un administrador de EduDynamis verificará
+                  tu pago y activará el nuevo plan en menos de 24 horas.
+                  Próximamente integraremos pagos en línea con Wompi.
                 </div>
               </div>
             </>
@@ -349,7 +477,20 @@ export default function Subscription() {
       </main>
 
       {showLogout && (
-        <LogoutModal onConfirm={confirmLogout} onCancel={() => setShowLogout(false)} />
+        <LogoutModal
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogout(false)}
+        />
+      )}
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
+        />
       )}
     </div>
   );

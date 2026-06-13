@@ -4,6 +4,8 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
 import {
   Building2,
   LayoutDashboard,
@@ -33,6 +35,7 @@ export default function AdminInstitutions() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [showLogout, setShowLogout] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
     api.get("/institutions/").then((res) => {
@@ -53,6 +56,16 @@ export default function AdminInstitutions() {
     logout();
     navigate("/");
   };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -359,14 +372,21 @@ export default function AdminInstitutions() {
         </div>
       </main>
 
-      {/* EduBot */}
-      <button className="fixed bottom-6 right-6 w-14 h-14 bg-[#1a2b4a] hover:bg-[#2952cc] text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50">
-        <MessageSquare size={22} />
-      </button>
       {showLogout && (
         <LogoutModal
           onConfirm={confirmLogout}
           onCancel={() => setShowLogout(false)}
+        />
+      )}
+
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
         />
       )}
     </div>

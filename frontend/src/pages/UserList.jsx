@@ -5,6 +5,8 @@ import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
 import EduBot from "../components/EduBot";
+import useInactivity from "../hooks/useInactivity";
+import InactivityModal from "../components/InactivityModal";
 import {
   Users,
   Plus,
@@ -56,6 +58,7 @@ export default function UserList() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showInactivity, setShowInactivity] = useState(false);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -112,6 +115,16 @@ export default function UserList() {
     logout();
     navigate("/");
   };
+
+  useInactivity({
+    timeout: 30, // 30 minutos
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -428,6 +441,16 @@ export default function UserList() {
         <LogoutModal
           onConfirm={confirmLogout}
           onCancel={() => setShowLogout(false)}
+        />
+      )}
+      {showInactivity && (
+        <InactivityModal
+          onContinue={() => setShowInactivity(false)}
+          onLogout={() => {
+            setShowInactivity(false);
+            logout();
+            navigate("/");
+          }}
         />
       )}
     </div>
