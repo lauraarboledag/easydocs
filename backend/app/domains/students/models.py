@@ -18,7 +18,6 @@ class Program(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     institution = relationship("Institution", back_populates="programs")
-    students = relationship("Student", back_populates="program")
     enrollments = relationship("Enrollment", back_populates="program")
 
 

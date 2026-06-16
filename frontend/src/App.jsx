@@ -14,6 +14,9 @@ import AdminInstitutions from "./pages/AdminInstitutions";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminTransactions from "./pages/AdminTransactions";
 import Subscription from "./pages/Subscription";
+import Programs from "./pages/Programs";
+import Students from "./pages/Students";
+import Enrollments from "./pages/Enrollments";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -101,6 +104,30 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Subscription />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/programas"
+        element={
+          <PrivateRoute>
+            <Programs />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/estudiantes"
+        element={
+          <PrivateRoute>
+            <Students />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/matriculas"
+        element={
+          <PrivateRoute>
+            <Enrollments />
           </PrivateRoute>
         }
       />

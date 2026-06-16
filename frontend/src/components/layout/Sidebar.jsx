@@ -8,6 +8,7 @@ import {
   CreditCard,
   Settings,
   LogOut,
+  BookOpen
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { label: "Documentos", icon: FileText, path: "/documentos" },
   { label: "Usuarios", icon: Users, path: "/usuarios" },
   { label: "Estudiantes", icon: GraduationCap, path: "/estudiantes" },
+  { label: "Programas", icon: BookOpen, path: "/programas" },
   { label: "Matrículas", icon: ClipboardList, path: "/matriculas" },
   { label: "Suscripción", icon: CreditCard, path: "/suscripcion" },
 ];
