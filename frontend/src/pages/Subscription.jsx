@@ -119,6 +119,8 @@ export default function Subscription() {
   const [errorMsg, setErrorMsg] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,17 +161,26 @@ export default function Subscription() {
     setSuccessMsg("");
     setErrorMsg("");
     try {
-      await api.post("/subscriptions/", {
-        plan_id: plan.id,
-        billing_cycle: plan.billing_cycle,
-      });
-      setSuccessMsg(
-        `Solicitud enviada para el Plan ${PLAN_META[plan.name]?.label || plan.name} (${plan.billing_cycle === "monthly" ? "mensual" : "anual"}). Un administrador la confirmará pronto.`,
-      );
+      if (plan.name === "free") {
+        // Plan free — cambio directo
+        await api.post("/subscriptions/change-plan", {
+          plan_id: plan.id,
+          institution_id: user.institution_id,
+        });
+        setSuccessMsg("Plan Free activado exitosamente.");
+        // Recargar suscripción
+        const subRes = await api
+          .get("/subscriptions/my")
+          .catch(() => ({ data: null }));
+        setSubscription(subRes.data);
+      } else {
+        // Planes de pago — mostrar modal de checkout
+        setCheckoutPlan(plan);
+        setShowCheckout(true);
+      }
     } catch (err) {
       setErrorMsg(
-        err.response?.data?.detail ||
-          "No se pudo enviar la solicitud. Intenta de nuevo.",
+        err.response?.data?.detail || "No se pudo procesar la solicitud.",
       );
     } finally {
       setRequesting(null);
@@ -428,9 +439,21 @@ export default function Subscription() {
                           Plan actual ✓
                         </div>
                       ) : isDowngrade ? (
-                        <div className="w-full py-2.5 rounded-xl text-sm font-medium text-center bg-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed">
-                          Plan inferior
-                        </div>
+                        <button
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `¿Deseas cambiar al Plan ${meta.label}? Perderás las funcionalidades de tu plan actual.`,
+                              )
+                            ) {
+                              plan && handleRequestUpgrade(plan);
+                            }
+                          }}
+                          disabled={isRequesting || !plan}
+                          className="w-full py-2.5 rounded-xl text-sm font-medium text-center bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 transition-colors"
+                        >
+                          Cambiar a este plan
+                        </button>
                       ) : (
                         <button
                           onClick={() => plan && handleRequestUpgrade(plan)}
@@ -491,6 +514,140 @@ export default function Subscription() {
             navigate("/");
           }}
         />
+      )}
+      {showCheckout && checkoutPlan && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Solicitar Plan {PLAN_META[checkoutPlan.name]?.label}
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {checkoutPlan.billing_cycle === "monthly"
+                    ? "Facturación mensual"
+                    : "Facturación anual"}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCheckout(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Resumen del plan */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-gray-800">
+                    Plan {PLAN_META[checkoutPlan.name]?.label}
+                  </span>
+                  <span className="text-lg font-bold text-gray-900">
+                    {formatPrice(checkoutPlan.price)}
+                    <span className="text-xs text-gray-400 font-normal ml-1">
+                      {checkoutPlan.billing_cycle === "monthly"
+                        ? "/ mes"
+                        : "/ año"}
+                    </span>
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {(PLAN_FEATURES[checkoutPlan.name] || []).map((f) => (
+                    <li
+                      key={f}
+                      className="flex items-center gap-2 text-xs text-gray-600"
+                    >
+                      <CheckCircle
+                        size={12}
+                        className="text-green-500 flex-shrink-0"
+                      />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Instrucciones de pago */}
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <p className="text-xs font-semibold text-blue-700 mb-2">
+                  ¿Cómo realizar el pago?
+                </p>
+                <ol className="space-y-1.5 text-xs text-blue-600 list-decimal list-inside">
+                  <li>
+                    Realiza la transferencia por{" "}
+                    {formatPrice(checkoutPlan.price)} COP
+                  </li>
+                  <li>
+                    Envía el comprobante a <strong>pagos@edudynamis.com</strong>
+                  </li>
+                  <li>
+                    El equipo de EduDynamis activará tu plan en menos de 24
+                    horas
+                  </li>
+                </ol>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle
+                  size={14}
+                  className="text-yellow-500 flex-shrink-0 mt-0.5"
+                />
+                <p className="text-xs text-yellow-700">
+                  Próximamente integraremos pagos en línea con{" "}
+                  <strong>Wompi</strong> para una experiencia más ágil.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowCheckout(false)}
+                  className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    setRequesting(checkoutPlan.id);
+                    try {
+                      await api.post("/subscriptions/change-plan", {
+                        plan_id: checkoutPlan.id,
+                        institution_id: user.institution_id,
+                      });
+                      setShowCheckout(false);
+                      setSuccessMsg(
+                        `Solicitud enviada para Plan ${PLAN_META[checkoutPlan.name]?.label}. Un administrador la confirmará pronto.`,
+                      );
+                      const subRes = await api
+                        .get("/subscriptions/my")
+                        .catch(() => ({ data: null }));
+                      setSubscription(subRes.data);
+                    } catch (err) {
+                      setErrorMsg(
+                        err.response?.data?.detail ||
+                          "Error al enviar la solicitud.",
+                      );
+                    } finally {
+                      setRequesting(null);
+                    }
+                  }}
+                  disabled={requesting === checkoutPlan.id}
+                  className="flex-1 bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                  {requesting === checkoutPlan.id ? (
+                    <Clock size={15} />
+                  ) : (
+                    <ArrowRight size={15} />
+                  )}
+                  {requesting === checkoutPlan.id
+                    ? "Enviando..."
+                    : "Confirmar solicitud"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
