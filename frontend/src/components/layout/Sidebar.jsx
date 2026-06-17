@@ -8,7 +8,7 @@ import {
   CreditCard,
   Settings,
   LogOut,
-  BookOpen
+  BookOpen,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -62,7 +62,10 @@ export default function Sidebar({ onLogout }) {
       </nav>
 
       <div className="p-4 border-t border-blue-900 space-y-1">
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-blue-200 hover:bg-blue-800 hover:text-white transition-colors">
+        <button
+          onClick={() => navigate("/configuracion")}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-blue-200 hover:bg-blue-800 hover:text-white transition-colors"
+        >
           <Settings size={16} /> Configuración
         </button>
         <button

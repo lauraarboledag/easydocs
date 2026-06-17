@@ -4,6 +4,7 @@ from app.domains.institutions.models import Institution
 from app.domains.institutions.schemas import InstitutionCreate
 from fastapi import HTTPException
 
+
 def create_institution(db: Session, data: InstitutionCreate) -> Institution:
     existing = db.execute(
         select(Institution).where(Institution.dane_code == data.dane_code)
@@ -12,7 +13,7 @@ def create_institution(db: Session, data: InstitutionCreate) -> Institution:
     if existing:
         raise HTTPException(
             status_code=400,
-            detail="Ya existe una institución registrada con ese código DANE."
+            detail="Ya existe una institución registrada con ese código DANE.",
         )
 
     institution = Institution(**data.model_dump())
@@ -20,6 +21,7 @@ def create_institution(db: Session, data: InstitutionCreate) -> Institution:
     db.commit()
     db.refresh(institution)
     return institution
+
 
 def get_institution(db: Session, institution_id: str) -> Institution:
     institution = db.execute(
@@ -31,5 +33,19 @@ def get_institution(db: Session, institution_id: str) -> Institution:
 
     return institution
 
+
 def list_institutions(db: Session) -> list[Institution]:
     return db.execute(select(Institution)).scalars().all()
+
+
+def update_institution(
+    db: Session, institution_id: str, data: InstitutionCreate
+) -> Institution:
+    institution = get_institution(db, institution_id)
+    if not institution:
+        raise HTTPException(status_code=404, detail="Institución no encontrada.")
+    for key, value in data.model_dump().items():
+        setattr(institution, key, value)
+    db.commit()
+    db.refresh(institution)
+    return institution

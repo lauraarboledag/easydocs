@@ -6,8 +6,23 @@ export default function Landing() {
   return (
     <div className="min-h-screen flex">
       {/* Panel izquierdo — azul oscuro */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#1a2b4a] flex-col justify-between p-12 text-white">
-        <div>
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden">
+        {/* Video de fondo */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/Landing.mp4" type="video/mp4" />
+        </video>
+
+        {/* Capa azul semitransparente */}
+        <div className="absolute inset-0 bg-[#1a2b4a]/80" />
+
+        {/* Contenido — todo va con relative z-10 */}
+        <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
               <svg
@@ -31,7 +46,7 @@ export default function Landing() {
 
           <div className="space-y-8">
             <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-800 flex items-center justify-center flex-shrink-0 mt-1">
+              <div className="w-10 h-10 rounded-full bg-blue-800/60 flex items-center justify-center flex-shrink-0 mt-1">
                 <svg
                   className="w-5 h-5 text-blue-300"
                   fill="none"
@@ -64,7 +79,7 @@ export default function Landing() {
             </div>
 
             <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-800 flex items-center justify-center flex-shrink-0 mt-1">
+              <div className="w-10 h-10 rounded-full bg-blue-800/60 flex items-center justify-center flex-shrink-0 mt-1">
                 <svg
                   className="w-5 h-5 text-blue-300"
                   fill="none"
@@ -91,7 +106,7 @@ export default function Landing() {
             </div>
 
             <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-800 flex items-center justify-center flex-shrink-0 mt-1">
+              <div className="w-10 h-10 rounded-full bg-blue-800/60 flex items-center justify-center flex-shrink-0 mt-1">
                 <svg
                   className="w-5 h-5 text-blue-300"
                   fill="none"
@@ -119,15 +134,17 @@ export default function Landing() {
           </div>
         </div>
 
-        <div className="mt-12 rounded-xl overflow-hidden">
-          <img
-            src="https://images.unsplash.com/photo-1568992687947-868a62a9f521?w=600&q=80"
-            alt="Archivos institucionales"
-            className="w-full h-48 object-cover opacity-60"
-          />
+        {/* Footer del panel */}
+        <div className="relative z-10 mt-12 rounded-xl overflow-hidden">
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <p className="text-blue-200 text-xs text-center">
+              Alineado con el{" "}
+              <strong className="text-white">Decreto 1075 de 2015</strong> para
+              instituciones ETDH en Colombia
+            </p>
+          </div>
         </div>
       </div>
-
       {/* Panel derecho — blanco */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-16 py-12 bg-white animate-fade-in-up">
         <div className="max-w-md mx-auto w-full">

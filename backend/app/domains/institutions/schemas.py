@@ -26,6 +26,7 @@ class InstitutionResponse(BaseModel):
     license_number: Optional[str] = None
     is_verified: bool
     is_active: bool
+    logo_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

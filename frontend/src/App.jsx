@@ -17,6 +17,7 @@ import Subscription from "./pages/Subscription";
 import Programs from "./pages/Programs";
 import Students from "./pages/Students";
 import Enrollments from "./pages/Enrollments";
+import Settings from "./pages/Settings";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -128,6 +129,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Enrollments />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/configuracion"
+        element={
+          <PrivateRoute>
+            <Settings />
           </PrivateRoute>
         }
       />
