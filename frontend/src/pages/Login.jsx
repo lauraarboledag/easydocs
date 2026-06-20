@@ -40,22 +40,32 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Panel izquierdo */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#1a2b4a] flex-col justify-center p-12 text-white">
-        <div className="max-w-md">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-[#1a2b4a]"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-              </svg>
-            </div>
-            <span className="text-2xl font-bold">EasyDocs</span>
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-center p-12 text-white overflow-hidden">
+        {/* Video de fondo */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/Login.mp4" type="video/mp4" />
+        </video>
+
+        {/* Capa azul semitransparente */}
+        <div className="absolute inset-0 bg-[#1a2b4a]/80" />
+
+        {/* Contenido encima */}
+        <div className="relative z-10 max-w-md">
+          <div className="mb-12">
+            <img
+              src="/logo_easydocs_blanco.png"
+              alt="EasyDocs"
+              className="h-32 w-auto object-contain"
+            />
           </div>
           <h1 className="text-4xl font-bold leading-tight mb-6">
-            Bienvenido de nuevo
+            Bienvenido
           </h1>
           <p className="text-blue-200 text-lg">
             Accede a tu plataforma de gestión documental institucional.
@@ -66,17 +76,12 @@ export default function Login() {
       {/* Panel derecho */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-16 py-12 bg-white animate-fade-in-up">
         <div className="max-w-md mx-auto w-full">
-          <div className="flex items-center gap-2 mb-10 lg:hidden">
-            <div className="w-8 h-8 bg-[#1a2b4a] rounded-lg flex items-center justify-center">
-              <svg
-                className="w-5 h-5 text-white"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-[#1a2b4a]">EasyDocs</span>
+          <div className="mb-10 lg:hidden">
+            <img
+              src="/logo_easydocs_blanco.png"
+              alt="EasyDocs"
+              className="h-20 w-auto object-contain"
+            />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             Iniciar sesión

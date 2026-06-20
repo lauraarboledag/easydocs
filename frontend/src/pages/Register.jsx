@@ -299,17 +299,12 @@ export default function Register() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#1a2b4a] rounded-lg flex items-center justify-center">
-            <svg
-              className="w-5 h-5 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-            </svg>
-          </div>
-          <span className="text-xl font-bold text-[#1a2b4a]">EasyDocs</span>
+        <Link to="/">
+          <img
+            src="/logo_easydocs_azul.png"
+            alt="EasyDocs"
+            className="h-20 w-auto object-contain"
+          />
         </Link>
         {step < 5 && (
           <span className="text-sm text-gray-500">Paso {step} de 4</span>

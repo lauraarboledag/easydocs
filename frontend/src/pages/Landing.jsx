@@ -23,17 +23,12 @@ export default function Landing() {
 
         {/* Contenido — todo va con relative z-10 */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-[#1a2b4a]"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-              </svg>
-            </div>
-            <span className="text-2xl font-bold">EasyDocs</span>
+          <div className="mb-12">
+            <img
+              src="/logo_easydocs_blanco.png"
+              alt="EasyDocs"
+              className="h-32 w-auto object-contain"
+            />
           </div>
 
           <h1 className="text-4xl font-bold leading-tight mb-6">

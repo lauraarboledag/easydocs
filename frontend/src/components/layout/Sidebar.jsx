@@ -28,22 +28,16 @@ export default function Sidebar({ onLogout }) {
     <aside className="w-56 bg-[#1a2b4a] flex flex-col fixed h-full">
       <div className="p-6 border-b border-blue-900">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <svg
-              className="w-5 h-5 text-[#1a2b4a]"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-            </svg>
-          </div>
+          <img
+            src="/logo_easydocs_blanco.png"
+            alt="EasyDocs"
+            className="h-16 w-auto object-contain"
+          />
           <div>
-            <p className="text-white font-bold text-sm">EasyDocs</p>
             <p className="text-blue-300 text-xs">Gestión Institucional</p>
           </div>
         </div>
       </div>
-
       <nav className="flex-1 p-4 space-y-1">
         {NAV_ITEMS.map(({ label, icon: Icon, path }) => (
           <button
