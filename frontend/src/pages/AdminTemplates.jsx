@@ -112,21 +112,25 @@ export default function AdminTemplates() {
     }
   };
 
-  const handleSelect = (template) => {
+  const handleSelect = async (template) => {
     try {
-      setSelected(template);
+      // Pedir el detalle completo con el HTML
+      const res = await api.get(`/templates/${template.id}`);
+      const fullTemplate = res.data;
+
+      setSelected(fullTemplate);
       setForm({
-        document_type: template.document_type || "",
-        name: template.name || "",
-        description: template.description || "",
-        template_html: template.template_html || "",
-        required_fields: Array.isArray(template.required_fields)
-          ? template.required_fields
+        document_type: fullTemplate.document_type || "",
+        name: fullTemplate.name || "",
+        description: fullTemplate.description || "",
+        template_html: fullTemplate.template_html || "",
+        required_fields: Array.isArray(fullTemplate.required_fields)
+          ? fullTemplate.required_fields
           : [],
       });
       setFieldsInput(
-        Array.isArray(template.required_fields)
-          ? template.required_fields.join(", ")
+        Array.isArray(fullTemplate.required_fields)
+          ? fullTemplate.required_fields.join(", ")
           : "",
       );
       setMode("view");
@@ -134,6 +138,7 @@ export default function AdminTemplates() {
       setShowSource(false);
     } catch (err) {
       console.error("Error en handleSelect:", err);
+      setError("Error al cargar la plantilla.");
     }
   };
 

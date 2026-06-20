@@ -15,6 +15,7 @@ class DocumentTemplateResponse(BaseModel):
     document_type: DocumentType
     name: str
     description: Optional[str]
+    template_html: str
     required_fields: list[str]
     is_active: bool
     created_at: datetime
