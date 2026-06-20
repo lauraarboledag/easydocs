@@ -18,6 +18,7 @@ import Programs from "./pages/Programs";
 import Students from "./pages/Students";
 import Enrollments from "./pages/Enrollments";
 import Settings from "./pages/Settings";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -146,10 +147,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

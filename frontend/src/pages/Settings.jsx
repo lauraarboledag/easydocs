@@ -6,6 +6,7 @@ import Sidebar from "../components/layout/Sidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
+import { useTheme } from "../context/ThemeContext";
 import {
   Settings as SettingsIcon,
   Bell,
@@ -42,6 +43,7 @@ export default function Settings() {
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme, themes } = useTheme();
 
   // Datos institución
   const [institution, setInstitution] = useState(null);
@@ -561,46 +563,50 @@ export default function Settings() {
             <div className="bg-white rounded-xl border border-gray-100 p-6">
               <h2 className="font-bold text-gray-900 mb-1">Apariencia</h2>
               <p className="text-xs text-gray-400 mb-6">
-                Personaliza cómo se ve EasyDocs para ti.
+                Elige el tema visual que más te guste para EasyDocs.
               </p>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    {darkMode ? (
-                      <Moon size={20} className="text-[#2952cc]" />
-                    ) : (
-                      <Sun size={20} className="text-yellow-500" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">
-                        Modo oscuro
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Cambia el tema de la interfaz
-                      </p>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {themes.map((t) => (
                   <button
-                    onClick={toggleDarkMode}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${darkMode ? "bg-[#2952cc]" : "bg-gray-300"}`}
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
+                      theme === t.id
+                        ? "border-[#2952cc] bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${darkMode ? "translate-x-7" : "translate-x-1"}`}
+                      className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner"
+                      style={{ backgroundColor: t.color }}
                     />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {t.label}
+                      </p>
+                      <p className="text-xs text-gray-400">{t.description}</p>
+                    </div>
+                    {theme === t.id && (
+                      <CheckCircle
+                        size={18}
+                        className="text-[#2952cc] flex-shrink-0"
+                      />
+                    )}
                   </button>
-                </div>
+                ))}
+              </div>
 
-                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
-                  <AlertCircle
-                    size={16}
-                    className="text-amber-500 flex-shrink-0 mt-0.5"
-                  />
-                  <p className="text-xs text-amber-700">
-                    El modo oscuro completo estará disponible próximamente. Por
-                    ahora es una vista previa de la funcionalidad.
-                  </p>
-                </div>
+              <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle
+                  size={16}
+                  className="text-[#2952cc] flex-shrink-0 mt-0.5"
+                />
+                <p className="text-xs text-blue-700">
+                  El tema se aplica instantáneamente y se guarda para tus
+                  próximas visitas. Cada usuario de tu institución puede elegir
+                  su propio tema.
+                </p>
               </div>
             </div>
           )}
