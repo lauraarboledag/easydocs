@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "./AuthContext";
 
 const ThemeContext = createContext(null);
 
@@ -36,21 +37,33 @@ export const THEMES = [
 ];
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    return localStorage.getItem("easydocs-theme") || "ocean";
-  });
+  const { user } = useAuth();
+  const [theme, setThemeState] = useState("ocean");
 
+  // Cargar el tema correspondiente al usuario actual
+  useEffect(() => {
+    const storageKey = user?.id
+      ? `easydocs-theme-${user.id}`
+      : "easydocs-theme-guest";
+    const savedTheme = localStorage.getItem(storageKey) || "ocean";
+    setThemeState(savedTheme);
+  }, [user?.id]);
+
+  // Aplicar el tema al DOM cuando cambia
   useEffect(() => {
     if (theme === "ocean") {
       document.documentElement.removeAttribute("data-theme");
     } else {
       document.documentElement.setAttribute("data-theme", theme);
     }
-    localStorage.setItem("easydocs-theme", theme);
   }, [theme]);
 
   const setTheme = (newTheme) => {
     setThemeState(newTheme);
+    const storageKey = user?.id
+      ? `easydocs-theme-${user.id}`
+      : "easydocs-theme-guest";
+    localStorage.setItem(storageKey, newTheme);
   };
 
   return (

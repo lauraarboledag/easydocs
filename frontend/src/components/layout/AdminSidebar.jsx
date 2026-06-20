@@ -30,7 +30,10 @@ export default function AdminSidebar({ onLogout }) {
       className="w-56 flex flex-col fixed h-full"
       style={{ backgroundColor: "var(--color-sidebar)" }}
     >
-      <div className="p-6 border-b border-blue-900">
+      <div
+        className="p-4 border-t space-y-1"
+        style={{ borderColor: "var(--color-sidebar-hover)" }}
+      >
         <div className="flex items-center gap-2">
           <img
             src="/logo_easydocs_blanco.png"
@@ -71,8 +74,14 @@ export default function AdminSidebar({ onLogout }) {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-blue-900 space-y-1">
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-blue-200 hover:text-white hover:bg-white/10 transition-colors">
+      <div
+        className="p-4 border-t space-y-1"
+        style={{ borderColor: "var(--color-sidebar-hover)" }}
+      >
+        <button
+          onClick={() => navigate("/admin/configuracion")}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-blue-200 hover:text-white hover:bg-white/10 transition-colors"
+        >
           <Settings size={16} /> Configuración
         </button>
         <button
