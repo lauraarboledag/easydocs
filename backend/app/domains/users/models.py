@@ -1,17 +1,19 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum
+import secrets
+from datetime import datetime, timedelta
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
-from app.domains.institutions.schemas import InstitutionCreate
 import enum
+
 
 class UserRole(str, enum.Enum):
     superadmin = "superadmin"
     representative = "representative"
     teacher = "teacher"
     secretary = "secretary"
-    
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -26,12 +28,40 @@ class User(Base):
         String, ForeignKey("institutions.id"), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
 
     institution = relationship("Institution", back_populates="users")
-    documents = relationship("Document", back_populates="creator", foreign_keys="Document.created_by")
+    documents = relationship(
+        "Document", back_populates="creator", foreign_keys="Document.created_by"
+    )
+    reset_tokens = relationship("PasswordResetToken", back_populates="user")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    token = Column(
+        String, unique=True, nullable=False, default=lambda: secrets.token_urlsafe(32)
+    )
+    expires_at = Column(
+        DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(hours=1)
+    )
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="reset_tokens")
+
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String, nullable=False)
+    ip_address = Column(String, nullable=True)
+    success = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
