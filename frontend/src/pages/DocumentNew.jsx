@@ -7,23 +7,16 @@ import Sidebar from "../components/layout/Sidebar";
 import EduBot from "../components/EduBot";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
-
 import {
   FileText,
   ChevronLeft,
   Download,
   CheckCircle,
   AlertCircle,
-  LayoutDashboard,
-  Users,
-  GraduationCap,
-  ClipboardList,
-  CreditCard,
-  Settings,
-  LogOut,
-  Bell,
-  MessageSquare,
   ChevronRight,
+  Bell,
+  BookOpen,
+  Award,
 } from "lucide-react";
 
 const FIELD_LABELS = {
@@ -125,6 +118,50 @@ const MULTILINE_FIELDS = [
   "punto_5",
 ];
 
+const CHAPTER_GROUPS = {
+  "Capítulo I — Libros Reglamentarios (LR001–LR009)": [
+    "LR001",
+    "LR002",
+    "LR003",
+    "LR004",
+    "LR005",
+    "LR006",
+    "LR007",
+    "LR008",
+    "LR009",
+  ],
+  "Capítulo II — Certificados y Constancias": [
+    "certificado_aptitud_laboral",
+    "certificado_aptitud_salud",
+    "certificado_conocimientos",
+    "constancia_asistencia",
+    "constancia_estudio",
+  ],
+};
+
+function RocketAnimation() {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="text-center">
+        <div className="text-8xl mb-4 animate-bounce">🚀</div>
+        <p className="text-white text-xl font-bold mb-2">
+          Generando tu documento...
+        </p>
+        <p className="text-white/70 text-sm">Esto tomará solo un momento</p>
+        <div className="flex items-center justify-center gap-1.5 mt-4">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-2 h-2 bg-white rounded-full animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentNew() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -138,10 +175,23 @@ export default function DocumentNew() {
   const [error, setError] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [activeChapter, setActiveChapter] = useState(
+    Object.keys(CHAPTER_GROUPS)[0],
+  );
 
   useEffect(() => {
     api.get("/templates/").then((res) => setTemplates(res.data));
   }, []);
+
+  useInactivity({
+    timeout: 30,
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   const handleSelectTemplate = (template) => {
     setSelectedTemplate(template);
@@ -209,44 +259,47 @@ export default function DocumentNew() {
     }
   };
 
-  const handleLogout = () => setShowLogout(true);
-  const confirmLogout = () => {
-    logout();
-    navigate("/");
+  const getTemplatesByChapter = (chapterTypes) => {
+    return templates.filter((t) => chapterTypes.includes(t.document_type));
   };
 
-  useInactivity({
-    timeout: 30, // 30 minutos
-    onWarning: () => setShowInactivity(true),
-    onLogout: () => {
-      setShowInactivity(false);
-      logout();
-      navigate("/");
-    },
-  });
+  const STEPS = ["Tipo de documento", "Datos del documento", "Descargar PDF"];
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar onLogout={handleLogout} />
-      {/* Contenido */}
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      {loading && <RocketAnimation />}
+
+      <Sidebar onLogout={() => setShowLogout(true)} />
+
       <main className="ml-56 flex-1 flex flex-col">
-        {/* Topbar */}
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() =>
                 step === 1 ? navigate("/documentos") : setStep(step - 1)
               }
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-gray-800">
+              <h1
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Nuevo documento
               </h1>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {step === 1 && "Selecciona el tipo de documento"}
                 {step === 2 && selectedTemplate?.name}
                 {step === 3 && "Documento generado"}
@@ -254,16 +307,22 @@ export default function DocumentNew() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600">
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2952cc] rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
                 <span className="text-white text-xs font-bold">
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <p className="text-sm font-medium text-gray-800">
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {user?.full_name}
               </p>
             </div>
@@ -271,35 +330,51 @@ export default function DocumentNew() {
         </header>
 
         <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
-          {/* Stepper */}
-          <div className="flex items-center gap-2 mb-8">
-            {["Tipo de documento", "Datos del documento", "Descargar PDF"].map(
-              (label, i) => (
-                <div key={i} className="flex items-center gap-2">
+          {/* Stepper centrado */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            {STEPS.map((label, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <div
-                    className={`flex items-center gap-2 ${i + 1 <= step ? "text-[#2952cc]" : "text-gray-400"}`}
-                  >
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                    style={{
+                      backgroundColor:
                         step > i + 1
-                          ? "bg-green-500 text-white"
+                          ? "#22c55e"
                           : step === i + 1
-                            ? "bg-[#2952cc] text-white"
-                            : "bg-gray-200 text-gray-500"
-                      }`}
-                    >
-                      {step > i + 1 ? <CheckCircle size={14} /> : i + 1}
-                    </div>
-                    <span className="text-sm font-medium hidden sm:block">
-                      {label}
-                    </span>
+                            ? "var(--color-primary)"
+                            : "var(--bg-primary)",
+                      color:
+                        step >= i + 1 ? "#ffffff" : "var(--text-secondary)",
+                      border:
+                        step <= i + 1
+                          ? "2px solid var(--border-color)"
+                          : "none",
+                    }}
+                  >
+                    {step > i + 1 ? <CheckCircle size={14} /> : i + 1}
                   </div>
-                  {i < 2 && (
-                    <ChevronRight size={14} className="text-gray-300 mx-1" />
-                  )}
+                  <span
+                    className="text-sm font-medium hidden sm:block"
+                    style={{
+                      color:
+                        step >= i + 1
+                          ? "var(--color-primary)"
+                          : "var(--text-secondary)",
+                    }}
+                  >
+                    {label}
+                  </span>
                 </div>
-              ),
-            )}
+                {i < 2 && (
+                  <ChevronRight
+                    size={14}
+                    className="mx-1"
+                    style={{ color: "var(--border-color)" }}
+                  />
+                )}
+              </div>
+            ))}
           </div>
 
           {error && (
@@ -309,47 +384,130 @@ export default function DocumentNew() {
             </div>
           )}
 
-          {/* Paso 1 — Selección de plantilla */}
+          {/* Paso 1 — Selección agrupada por capítulo */}
           {step === 1 && (
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
+              <h2
+                className="text-xl font-bold mb-2"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Selecciona el tipo de documento
               </h2>
-              <p className="text-gray-500 text-sm mb-6">
+              <p
+                className="text-sm mb-6"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Elige la plantilla reglamentaria que necesitas generar.
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {templates.map((template) => (
+              {/* Tabs de capítulo */}
+              <div
+                className="flex gap-1 p-1 rounded-xl mb-6 border"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                {Object.keys(CHAPTER_GROUPS).map((chapter) => (
                   <button
-                    key={template.id}
-                    onClick={() => handleSelectTemplate(template)}
-                    className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-xl hover:border-[#2952cc] hover:bg-blue-50 transition-colors text-left group"
+                    key={chapter}
+                    onClick={() => setActiveChapter(chapter)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor:
+                        activeChapter === chapter
+                          ? "var(--color-primary)"
+                          : "transparent",
+                      color:
+                        activeChapter === chapter
+                          ? "#ffffff"
+                          : "var(--text-secondary)",
+                    }}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-blue-50 group-hover:bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                        <FileText size={18} className="text-[#2952cc]" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800">
-                          {template.name}
-                        </p>
-                        {template.description && (
-                          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
-                            {template.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-blue-500 mt-1">
-                          {template.required_fields.length} campos requeridos
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight
-                      size={16}
-                      className="text-gray-300 group-hover:text-[#2952cc] flex-shrink-0 transition-colors"
-                    />
+                    {chapter.includes("LR") ? (
+                      <BookOpen size={14} />
+                    ) : (
+                      <Award size={14} />
+                    )}
+                    <span className="hidden sm:block">
+                      {chapter.includes("LR")
+                        ? "Libros Reglamentarios"
+                        : "Certificados y Constancias"}
+                    </span>
+                    <span className="sm:hidden">
+                      {chapter.includes("LR") ? "Capítulo I" : "Capítulo II"}
+                    </span>
                   </button>
                 ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {getTemplatesByChapter(CHAPTER_GROUPS[activeChapter]).map(
+                  (template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => handleSelectTemplate(template)}
+                      className="flex items-center justify-between p-5 border rounded-xl transition-all text-left group hover:shadow-sm"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        borderColor: "var(--border-color)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor =
+                          "var(--color-primary)";
+                        e.currentTarget.style.backgroundColor =
+                          "var(--color-primary-light)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor =
+                          "var(--border-color)";
+                        e.currentTarget.style.backgroundColor =
+                          "var(--bg-secondary)";
+                      }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--color-primary-light)",
+                          }}
+                        >
+                          <FileText
+                            size={18}
+                            style={{ color: "var(--color-icon)" }}
+                          />
+                        </div>
+                        <div>
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {template.name}
+                          </p>
+                          {template.description && (
+                            <p
+                              className="text-xs mt-0.5 line-clamp-1"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {template.description}
+                            </p>
+                          )}
+                          <p
+                            className="text-xs mt-1"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            {template.required_fields.length} campos requeridos
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        style={{ color: "var(--text-secondary)" }}
+                        className="flex-shrink-0"
+                      />
+                    </button>
+                  ),
+                )}
               </div>
             </div>
           )}
@@ -357,28 +515,53 @@ export default function DocumentNew() {
           {/* Paso 2 — Formulario */}
           {step === 2 && selectedTemplate && (
             <div>
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-start gap-3">
+              <div
+                className="border rounded-xl p-4 mb-6 flex items-start gap-3"
+                style={{
+                  backgroundColor: "var(--color-primary-light)",
+                  borderColor: "var(--color-primary)",
+                }}
+              >
                 <FileText
                   size={18}
-                  className="text-[#2952cc] flex-shrink-0 mt-0.5"
+                  className="flex-shrink-0 mt-0.5"
+                  style={{ color: "var(--color-primary)" }}
                 />
                 <div>
-                  <p className="text-sm font-semibold text-[#1a2b4a]">
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {selectedTemplate.name}
                   </p>
-                  <p className="text-xs text-blue-600 mt-0.5">
+                  <p
+                    className="text-xs mt-0.5"
+                    style={{ color: "var(--color-primary)" }}
+                  >
                     {selectedTemplate.description}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">
+              <div
+                className="rounded-xl border p-6"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                <h2
+                  className="text-lg font-bold mb-1"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   Datos del documento
                 </h2>
-                <p className="text-sm text-gray-500 mb-6">
+                <p
+                  className="text-sm mb-6"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Los datos de tu institución se incluirán automáticamente.
-                  Completa los campos específicos del documento.
+                  Completa los campos específicos.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -390,7 +573,10 @@ export default function DocumentNew() {
                         key={field}
                         className={isMultiline ? "md:col-span-2" : ""}
                       >
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                        <label
+                          className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
                           {label} *
                         </label>
                         {isMultiline ? (
@@ -401,7 +587,12 @@ export default function DocumentNew() {
                             }
                             rows={3}
                             placeholder={`Ingresa ${label.toLowerCase()}...`}
-                            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] resize-none"
+                            className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 resize-none"
+                            style={{
+                              borderColor: "var(--border-color)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
                           />
                         ) : (
                           <input
@@ -411,7 +602,12 @@ export default function DocumentNew() {
                               handleChange(field, e.target.value)
                             }
                             placeholder={`Ingresa ${label.toLowerCase()}...`}
-                            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                            className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                            style={{
+                              borderColor: "var(--border-color)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
                           />
                         )}
                       </div>
@@ -419,10 +615,14 @@ export default function DocumentNew() {
                   })}
                 </div>
 
-                <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
+                <div
+                  className="flex justify-between mt-8 pt-6 border-t"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
                   <button
                     onClick={() => setStep(1)}
-                    className="text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 transition-colors"
+                    className="font-medium flex items-center gap-2 transition-colors"
+                    style={{ color: "var(--text-secondary)" }}
                   >
                     <ChevronLeft size={16} />
                     Cambiar plantilla
@@ -430,14 +630,14 @@ export default function DocumentNew() {
                   <button
                     onClick={handleCreate}
                     disabled={loading}
-                    className="bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-3 px-8 rounded-lg flex items-center gap-2 transition-colors"
+                    className="text-white font-semibold py-3 px-8 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-40"
+                    style={{ backgroundColor: "var(--color-primary)" }}
                   >
                     {loading ? (
                       "Creando..."
                     ) : (
                       <>
-                        Crear documento
-                        <ChevronRight size={16} />
+                        Crear documento <ChevronRight size={16} />
                       </>
                     )}
                   </button>
@@ -448,16 +648,27 @@ export default function DocumentNew() {
 
           {/* Paso 3 — Descarga */}
           {step === 3 && createdDoc && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-              <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <CheckCircle size={40} className="text-green-500" />
-              </div>
-
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <div
+              className="rounded-2xl border p-12 text-center"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
+              <div className="text-6xl mb-4">🎉</div>
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: "var(--text-primary)" }}
+              >
                 ¡Documento creado!
               </h2>
-              <p className="text-gray-500 mb-2">{selectedTemplate?.name}</p>
-              <p className="text-xs text-gray-400 font-mono mb-8">
+              <p className="mb-2" style={{ color: "var(--text-secondary)" }}>
+                {selectedTemplate?.name}
+              </p>
+              <p
+                className="text-xs font-mono mb-8"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 ID: {createdDoc.id}
               </p>
 
@@ -465,20 +676,24 @@ export default function DocumentNew() {
                 <button
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-3 px-8 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  className="text-white font-semibold py-3 px-8 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-40"
+                  style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   {downloading ? (
                     "Generando PDF..."
                   ) : (
                     <>
-                      <Download size={18} />
-                      Descargar PDF
+                      <Download size={18} /> Descargar PDF
                     </>
                   )}
                 </button>
                 <button
                   onClick={() => navigate("/documentos")}
-                  className="border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold py-3 px-8 rounded-lg transition-colors"
+                  className="border font-semibold py-3 px-8 rounded-lg transition-colors"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   Ver historial
                 </button>
@@ -490,7 +705,8 @@ export default function DocumentNew() {
                     setCreatedDoc(null);
                     setError("");
                   }}
-                  className="text-[#2952cc] font-medium hover:underline py-3 px-4"
+                  className="font-medium hover:underline py-3 px-4"
+                  style={{ color: "var(--color-primary)" }}
                 >
                   Generar otro
                 </button>
@@ -500,11 +716,13 @@ export default function DocumentNew() {
         </div>
       </main>
 
-      {/* EduBot flotante */}
       <EduBot />
       {showLogout && (
         <LogoutModal
-          onConfirm={confirmLogout}
+          onConfirm={() => {
+            logout();
+            navigate("/");
+          }}
           onCancel={() => setShowLogout(false)}
         />
       )}

@@ -10,16 +10,8 @@ import InactivityModal from "../components/InactivityModal";
 import {
   Users,
   Plus,
-  FileText,
-  LayoutDashboard,
-  GraduationCap,
-  ClipboardList,
-  CreditCard,
-  Settings,
-  LogOut,
   Bell,
   ChevronLeft,
-  MessageSquare,
   UserCheck,
   Shield,
   BookOpen,
@@ -27,29 +19,32 @@ import {
   X,
   Eye,
   EyeOff,
+  UserCircle,
 } from "lucide-react";
 
 const ROLE_CONFIG = {
   representative: {
     label: "Representante",
     icon: Shield,
-    style: "bg-blue-100 text-blue-700",
+    bg: "var(--color-primary-light)",
+    color: "var(--color-primary)",
   },
   teacher: {
     label: "Docente",
     icon: BookOpen,
-    style: "bg-green-100 text-green-700",
+    bg: "#f0fdf4",
+    color: "#16a34a",
   },
   secretary: {
     label: "Secretaría",
     icon: ClipboardCheck,
-    style: "bg-purple-100 text-purple-700",
+    bg: "#faf5ff",
+    color: "#9333ea",
   },
 };
 
 export default function UserList() {
   const { user, logout } = useAuth();
-  const [showLogout, setShowLogout] = useState(false);
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +53,7 @@ export default function UserList() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
   const [form, setForm] = useState({
     full_name: "",
@@ -70,10 +66,24 @@ export default function UserList() {
     fetchUsers();
   }, []);
 
+  useInactivity({
+    timeout: 30,
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
+
   const fetchUsers = async () => {
     try {
       const res = await api.get("/users/");
-      setUsers(res.data);
+      // Ordenar alfabéticamente por nombre
+      const sorted = [...res.data].sort((a, b) =>
+        a.full_name.localeCompare(b.full_name, "es"),
+      );
+      setUsers(sorted);
     } catch (err) {
       console.error(err);
     } finally {
@@ -110,50 +120,58 @@ export default function UserList() {
     }
   };
 
-  const handleLogout = () => setShowLogout(true);
-  const confirmLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  useInactivity({
-    timeout: 30, // 30 minutos
-    onWarning: () => setShowInactivity(true),
-    onLogout: () => {
-      setShowInactivity(false);
-      logout();
-      navigate("/");
-    },
-  });
-
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar onLogout={handleLogout} />
-      {/* Contenido */}
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <Sidebar onLogout={() => setShowLogout(true)} />
+
       <main className="ml-56 flex-1 flex flex-col">
-        {/* Topbar */}
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
-            <h1 className="text-lg font-semibold text-gray-800">Usuarios</h1>
+            <div>
+              <h1
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Usuarios
+              </h1>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Equipo institucional
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600">
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2952cc] rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
                 <span className="text-white text-xs font-bold">
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <p className="text-sm font-medium text-gray-800">
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {user?.full_name}
               </p>
             </div>
@@ -163,28 +181,33 @@ export default function UserList() {
         <div className="flex-1 p-8">
           {success && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
-              <UserCheck size={16} />
-              {success}
+              <UserCheck size={16} /> {success}
             </div>
           )}
 
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2
+                className="text-xl font-bold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Equipo institucional
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {users.length} usuario{users.length !== 1 ? "s" : ""} registrado
-                {users.length !== 1 ? "s" : ""}
+              <p
+                className="text-sm mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {users.length} usuario{users.length !== 1 ? "s" : ""} —
+                ordenados alfabéticamente
               </p>
             </div>
             {user?.role === "representative" && (
               <button
                 onClick={() => setShowModal(true)}
-                className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 transition-colors"
+                className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 transition-colors"
+                style={{ backgroundColor: "var(--color-primary)" }}
               >
-                <Plus size={18} />
-                Nuevo usuario
+                <Plus size={18} /> Nuevo usuario
               </button>
             )}
           </div>
@@ -197,16 +220,29 @@ export default function UserList() {
               return (
                 <div
                   key={role}
-                  className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4"
+                  className="rounded-xl border p-4 flex items-center gap-4"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-color)",
+                  }}
                 >
                   <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.style}`}
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: config.bg }}
                   >
-                    <Icon size={18} />
+                    <Icon size={18} style={{ color: config.color }} />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{count}</p>
-                    <p className="text-xs text-gray-400">
+                    <p
+                      className="text-2xl font-bold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {count}
+                    </p>
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       {config.label}
                       {count !== 1 ? "s" : ""}
                     </p>
@@ -216,26 +252,50 @@ export default function UserList() {
             })}
           </div>
 
-          {/* Lista de usuarios */}
-          <div className="bg-white rounded-xl border border-gray-100">
+          {/* Lista */}
+          <div
+            className="rounded-xl border"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
             {loading ? (
-              <div className="text-center py-16 text-gray-400">
+              <div
+                className="text-center py-16"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 <Users size={32} className="mx-auto mb-3 opacity-30" />
                 <p className="text-sm">Cargando usuarios...</p>
               </div>
             ) : users.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Users size={32} className="text-gray-300" />
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{ backgroundColor: "var(--bg-primary)" }}
+                >
+                  <Users
+                    size={32}
+                    style={{ color: "var(--text-secondary)", opacity: 0.4 }}
+                  />
                 </div>
-                <p className="text-gray-500 font-medium">Sin usuarios aún</p>
-                <p className="text-gray-400 text-sm mt-1">
+                <p
+                  className="font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Sin usuarios aún
+                </p>
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Agrega docentes y secretaría a tu institución
                 </p>
                 {user?.role === "representative" && (
                   <button
                     onClick={() => setShowModal(true)}
-                    className="mt-4 text-sm text-[#2952cc] font-medium hover:underline"
+                    className="mt-4 text-sm font-medium hover:underline"
+                    style={{ color: "var(--color-primary)" }}
                   >
                     Agregar usuario →
                   </button>
@@ -243,7 +303,13 @@ export default function UserList() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-12 text-xs text-gray-400 uppercase tracking-wide px-6 py-3 border-b border-gray-50">
+                <div
+                  className="grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
+                  style={{
+                    color: "var(--text-secondary)",
+                    borderColor: "var(--border-color)",
+                  }}
+                >
                   <span className="col-span-5">Usuario</span>
                   <span className="col-span-3">Rol</span>
                   <span className="col-span-2">Estado</span>
@@ -255,24 +321,50 @@ export default function UserList() {
                   return (
                     <div
                       key={u.id}
-                      className="grid grid-cols-12 items-center px-6 py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
+                      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
+                      style={{ borderColor: "var(--border-color)" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor =
+                          "var(--bg-primary)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor = "transparent")
+                      }
                     >
                       <div className="col-span-5 flex items-center gap-3">
-                        <div className="w-9 h-9 bg-[#2952cc] rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-sm font-bold">
-                            {u.full_name?.charAt(0).toUpperCase()}
-                          </span>
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--color-primary-light)",
+                          }}
+                        >
+                          <UserCircle
+                            size={22}
+                            style={{ color: "var(--color-icon)" }}
+                          />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-800">
+                          <p
+                            className="text-sm font-medium"
+                            style={{ color: "var(--text-primary)" }}
+                          >
                             {u.full_name}
                           </p>
-                          <p className="text-xs text-gray-400">{u.email}</p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {u.email}
+                          </p>
                         </div>
                       </div>
                       <div className="col-span-3">
                         <span
-                          className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${roleConfig.style}`}
+                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                          style={{
+                            backgroundColor: roleConfig.bg,
+                            color: roleConfig.color,
+                          }}
                         >
                           <RoleIcon size={11} />
                           {roleConfig.label}
@@ -280,17 +372,24 @@ export default function UserList() {
                       </div>
                       <div className="col-span-2">
                         <span
-                          className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${
-                            u.is_active
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
+                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                          style={{
+                            backgroundColor: u.is_active
+                              ? "#f0fdf4"
+                              : "var(--bg-primary)",
+                            color: u.is_active
+                              ? "#16a34a"
+                              : "var(--text-secondary)",
+                          }}
                         >
                           {u.is_active ? "Activo" : "Inactivo"}
                         </span>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-xs text-gray-400">
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
                           {new Date(u.created_at).toLocaleDateString("es-CO", {
                             day: "2-digit",
                             month: "short",
@@ -307,32 +406,44 @@ export default function UserList() {
         </div>
       </main>
 
-      {/* Modal crear usuario */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">Nuevo usuario</h3>
+          <div
+            className="rounded-2xl shadow-xl w-full max-w-md"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div
+              className="flex items-center justify-between p-6 border-b"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <h3
+                className="text-lg font-bold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Nuevo usuario
+              </h3>
               <button
                 onClick={() => {
                   setShowModal(false);
                   setError("");
                 }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: "var(--text-secondary)" }}
               >
                 <X size={18} />
               </button>
             </div>
-
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
                 </div>
               )}
-
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Nombre completo *
                 </label>
                 <input
@@ -340,12 +451,19 @@ export default function UserList() {
                   value={form.full_name}
                   onChange={handleChange}
                   placeholder="Ej: María García López"
-                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                  className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Correo electrónico *
                 </label>
                 <input
@@ -354,12 +472,19 @@ export default function UserList() {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="correo@institucion.edu.co"
-                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                  className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Contraseña *
                 </label>
                 <div className="relative">
@@ -369,20 +494,28 @@ export default function UserList() {
                     value={form.password}
                     onChange={handleChange}
                     placeholder="Mínimo 8 caracteres"
-                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] pr-10"
+                    className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--text-secondary)" }}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Rol *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -398,19 +531,27 @@ export default function UserList() {
                       key={value}
                       type="button"
                       onClick={() => setForm({ ...form, role: value })}
-                      className={`flex items-center gap-2 p-3 rounded-lg border text-sm font-medium transition-colors ${
-                        form.role === value
-                          ? "bg-[#2952cc] text-white border-[#2952cc]"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                      }`}
+                      className="flex items-center gap-2 p-3 rounded-lg border text-sm font-medium transition-colors"
+                      style={{
+                        backgroundColor:
+                          form.role === value
+                            ? "var(--color-primary)"
+                            : "var(--bg-secondary)",
+                        color:
+                          form.role === value
+                            ? "#ffffff"
+                            : "var(--text-secondary)",
+                        borderColor:
+                          form.role === value
+                            ? "var(--color-primary)"
+                            : "var(--border-color)",
+                      }}
                     >
-                      <Icon size={16} />
-                      {label}
+                      <Icon size={16} /> {label}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -418,14 +559,19 @@ export default function UserList() {
                     setShowModal(false);
                     setError("");
                   }}
-                  className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 border font-medium py-3 rounded-lg transition-colors"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition-colors"
+                  className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-40"
+                  style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   {creating ? "Creando..." : "Crear usuario"}
                 </button>
@@ -435,11 +581,13 @@ export default function UserList() {
         </div>
       )}
 
-      {/* EduBot flotante */}
       <EduBot />
       {showLogout && (
         <LogoutModal
-          onConfirm={confirmLogout}
+          onConfirm={() => {
+            logout();
+            navigate("/");
+          }}
           onCancel={() => setShowLogout(false)}
         />
       )}
