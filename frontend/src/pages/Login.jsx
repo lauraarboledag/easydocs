@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api from '../services/api';
+import api from "../services/api";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -53,6 +53,8 @@ export default function Login() {
       login(access_token, userData);
       navigate(userData?.role === "superadmin" ? "/admin" : "/dashboard");
     } catch (err) {
+      console.log("Status:", err.response?.status);
+      console.log("Detail:", err.response?.data?.detail);
       const detail = err.response?.data?.detail;
       if (typeof detail === "object" && detail !== null) {
         if (detail.blocked) {

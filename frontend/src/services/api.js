@@ -17,10 +17,12 @@ api.interceptors.request.use((config) => {
 })
 
 // Interceptor — maneja errores 401 globalmente
+// EXCEPTO en rutas de autenticación donde el 401 es esperado
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRoute = error.config?.url?.includes('/auth/')
+    if (error.response?.status === 401 && !isAuthRoute) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/'

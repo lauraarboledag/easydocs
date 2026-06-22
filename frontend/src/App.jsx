@@ -20,6 +20,8 @@ import Enrollments from "./pages/Enrollments";
 import Settings from "./pages/Settings";
 import { ThemeProvider } from "./context/ThemeContext";
 import AdminSettings from "./pages/AdminSettings";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -150,6 +152,8 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
   );
 }

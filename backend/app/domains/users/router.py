@@ -64,16 +64,6 @@ def register_institution_and_representative(
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
-
-limiter = Limiter(key_func=get_remote_address)
-
-
-@router.post("/auth/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
-def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
-    return login(db, data.email, data.password)
-
-
 @router.post("/users/", response_model=UserResponse, status_code=201)
 def register_user(
     data: UserCreate,
@@ -173,8 +163,10 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
 MAX_ATTEMPTS = 3
 BLOCK_MINUTES = 20
 
+limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/auth/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     ip = request.client.host
 
