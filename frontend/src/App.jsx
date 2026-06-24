@@ -23,6 +23,7 @@ import AdminSettings from "./pages/AdminSettings";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import Checkout from "./pages/Checkout";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -156,6 +157,14 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/terminos" element={<TermsAndConditions />} />
+      <Route
+        path="/checkout"
+        element={
+          <PrivateRoute>
+            <Checkout />
+          </PrivateRoute>
+        }
+      />
     </Routes>
   );
 }

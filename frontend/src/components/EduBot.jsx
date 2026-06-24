@@ -773,7 +773,7 @@ export default function EduBot() {
                 </p>
 
                 <a
-                  href="https://wa.me/573000000000"
+                  href="https://wa.me/573223424648"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-4 rounded-xl mb-3 transition-colors hover:opacity-90"
@@ -815,7 +815,7 @@ export default function EduBot() {
                       className="text-sm font-semibold"
                       style={{ color: "var(--text-primary)" }}
                     >
-                      soporte@edudynamis.com
+                      edudynamis1@gmail.com
                     </p>
                     <p
                       className="text-xs"

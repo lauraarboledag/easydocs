@@ -132,31 +132,31 @@ export default function Subscription() {
     },
   });
 
-  const handleRequestUpgrade = async (plan) => {
-    setRequesting(plan.id);
-    setSuccessMsg("");
-    setErrorMsg("");
-    try {
-      if (plan.name === "free") {
-        await api.post("/subscriptions/change-plan", {
+  const handleRequestUpgrade = (plan) => {
+    if (plan.name === "free") {
+      // Plan free — cambio directo sin checkout
+      api
+        .post("/subscriptions/change-plan", {
           plan_id: plan.id,
           institution_id: user.institution_id,
+        })
+        .then(async () => {
+          setSuccessMsg("Plan Free activado exitosamente.");
+          const subRes = await api
+            .get("/subscriptions/my")
+            .catch(() => ({ data: null }));
+          setSubscription(subRes.data);
+        })
+        .catch((err) => {
+          setErrorMsg(
+            err.response?.data?.detail || "No se pudo procesar la solicitud.",
+          );
         });
-        setSuccessMsg("Plan Free activado exitosamente.");
-        const subRes = await api
-          .get("/subscriptions/my")
-          .catch(() => ({ data: null }));
-        setSubscription(subRes.data);
-      } else {
-        setCheckoutPlan(plan);
-        setShowCheckout(true);
-      }
-    } catch (err) {
-      setErrorMsg(
-        err.response?.data?.detail || "No se pudo procesar la solicitud.",
-      );
-    } finally {
-      setRequesting(null);
+    } else {
+      // Planes de pago — ir a checkout con el plan y suscripción actual
+      navigate("/checkout", {
+        state: { plan, currentSubscription: subscription },
+      });
     }
   };
 
