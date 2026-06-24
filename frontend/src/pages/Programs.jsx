@@ -12,7 +12,6 @@ import {
   Edit2,
   Trash2,
   Bell,
-  Shield,
   ChevronLeft,
   X,
   Save,
@@ -20,6 +19,9 @@ import {
   CheckCircle,
   Download,
   Upload,
+  Clock,
+  FileText,
+  GraduationCap,
 } from "lucide-react";
 
 const CERTIFICATE_TYPES = [
@@ -34,6 +36,16 @@ const EMPTY_FORM = {
   resolution: "",
   total_hours: "",
   certificate_type: "",
+};
+
+const CERT_COLORS = {
+  "Técnico Laboral por Competencias": {
+    bg: "var(--color-primary-light)",
+    color: "var(--color-primary)",
+  },
+  "Técnico Laboral en Salud": { bg: "#fef3c7", color: "#b45309" },
+  "Conocimientos Académicos": { bg: "#f0fdf4", color: "#16a34a" },
+  "Educación Informal": { bg: "#faf5ff", color: "#9333ea" },
 };
 
 export default function Programs() {
@@ -180,82 +192,138 @@ export default function Programs() {
     e.target.value = "";
   };
 
+  const certStyle = (type) =>
+    CERT_COLORS[type] || {
+      bg: "var(--color-primary-light)",
+      color: "var(--color-primary)",
+    };
+
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
       <main className="ml-56 flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        {/* Topbar */}
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-gray-800">Programas</h1>
-              <p className="text-xs text-gray-400">
+              <h1
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Programas
+              </h1>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 Programas académicos de tu institución
               </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600">
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2952cc] rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
                 <span className="text-white text-xs font-bold">
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <p className="text-sm font-medium text-gray-800">
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {user?.full_name}
               </p>
             </div>
           </div>
         </header>
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <svg
-            className="w-5 h-5 text-[#2952cc] flex-shrink-0 mt-0.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <div>
-            <p className="text-xs font-semibold text-blue-700 mb-1">
-              Paso 1 de 3 — Programas
-            </p>
-            <p className="text-xs text-blue-600">
-              Los programas son el punto de partida. Regístralos primero con su
-              resolución, horas y tipo de certificado. Luego podrás vincular
-              estudiantes y generar matrículas. Para importar masivamente
-              descarga la <strong>Plantilla xlsx</strong> de EasyDocs.
-            </p>
-          </div>
-        </div>
 
         <div className="flex-1 p-8">
+          {/* Banner paso 1 */}
+          <div
+            className="rounded-2xl p-6 mb-6 flex items-center gap-6"
+            style={{
+              background:
+                "linear-gradient(to right, var(--color-banner-from), var(--color-banner-to))",
+            }}
+          >
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <BookOpen size={24} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-white/70 text-xs font-medium mb-0.5">
+                Paso 1 de 3 — Programas
+              </p>
+              <p className="text-white font-bold text-sm">
+                Registra primero los programas académicos
+              </p>
+              <p className="text-white/70 text-xs mt-1">
+                Añade resolución, horas y tipo de certificado. Luego vincula
+                estudiantes y genera matrículas.
+              </p>
+            </div>
+            <div className="hidden lg:flex items-center gap-4 text-white/60 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold">
+                  1
+                </div>
+                <span className="text-white font-medium">Programas</span>
+              </div>
+              <div className="w-8 h-px bg-white/30" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">
+                  2
+                </div>
+                Estudiantes
+              </div>
+              <div className="w-8 h-px bg-white/30" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">
+                  3
+                </div>
+                Matrículas
+              </div>
+            </div>
+          </div>
+
           {success && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
               <CheckCircle size={16} /> {success}
             </div>
           )}
 
+          {/* Header acciones */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2
+                className="text-xl font-bold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Programas registrados
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p
+                className="text-sm mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {programs.length} programa{programs.length !== 1 ? "s" : ""}{" "}
                 activo{programs.length !== 1 ? "s" : ""}
               </p>
@@ -263,11 +331,23 @@ export default function Programs() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleDownloadTemplate}
-                className="border border-gray-200 hover:border-gray-300 text-gray-600 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm"
+                className="border font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-secondary)",
+                  backgroundColor: "var(--bg-secondary)",
+                }}
               >
                 <Download size={16} /> Plantilla xlsx
               </button>
-              <label className="border border-gray-200 hover:border-gray-300 text-gray-600 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm cursor-pointer">
+              <label
+                className="border font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm cursor-pointer"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-secondary)",
+                  backgroundColor: "var(--bg-secondary)",
+                }}
+              >
                 <Upload size={16} /> Importar xlsx
                 <input
                   type="file"
@@ -278,127 +358,253 @@ export default function Programs() {
               </label>
               <button
                 onClick={handleExport}
-                className="border border-gray-200 hover:border-gray-300 text-gray-600 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm"
+                className="border font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-secondary)",
+                  backgroundColor: "var(--bg-secondary)",
+                }}
               >
                 <Download size={16} /> Exportar
               </button>
               <button
                 onClick={() => handleOpen()}
-                className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 transition-colors"
+                className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 transition-colors"
+                style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <Plus size={18} /> Nuevo programa
               </button>
             </div>
           </div>
 
+          {/* Contenido */}
           {loading ? (
-            <div className="text-center py-16 text-gray-400 text-sm">
+            <div
+              className="text-center py-16 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Cargando...
             </div>
           ) : programs.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-100 text-center py-16">
-              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <BookOpen size={32} className="text-gray-300" />
+            <div
+              className="rounded-xl border text-center py-16"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ backgroundColor: "var(--bg-primary)" }}
+              >
+                <BookOpen
+                  size={32}
+                  style={{ color: "var(--text-secondary)", opacity: 0.4 }}
+                />
               </div>
-              <p className="text-gray-500 font-medium">Sin programas aún</p>
-              <p className="text-gray-400 text-sm mt-1">
+              <p
+                className="font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Sin programas aún
+              </p>
+              <p
+                className="text-sm mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Crea el primer programa académico de tu institución
               </p>
               <button
                 onClick={() => handleOpen()}
-                className="mt-4 text-sm text-[#2952cc] font-medium hover:underline"
+                className="mt-4 text-sm font-medium hover:underline"
+                style={{ color: "var(--color-primary)" }}
               >
                 Crear programa →
               </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {programs.map((program) => (
-                <div
-                  key={program.id}
-                  className="bg-white rounded-xl border border-gray-100 p-5 hover:border-gray-200 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <BookOpen size={18} className="text-[#2952cc]" />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpen(program)}
-                        className="p-1.5 text-gray-400 hover:text-[#2952cc] hover:bg-blue-50 rounded-lg transition-colors"
+              {programs.map((program) => {
+                const style = certStyle(program.certificate_type);
+                return (
+                  <div
+                    key={program.id}
+                    className="rounded-xl border p-5 transition-all hover:shadow-sm"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      borderColor: "var(--border-color)",
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: style.bg }}
                       >
-                        <Edit2 size={14} />
+                        <BookOpen size={18} style={{ color: style.color }} />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpen(program)}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: "var(--text-secondary)" }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color =
+                              "var(--color-primary)";
+                            e.currentTarget.style.backgroundColor =
+                              "var(--color-primary-light)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color =
+                              "var(--text-secondary)";
+                            e.currentTarget.style.backgroundColor =
+                              "transparent";
+                          }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(program.id)}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: "var(--text-secondary)" }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = "#dc2626";
+                            e.currentTarget.style.backgroundColor = "#fee2e2";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color =
+                              "var(--text-secondary)";
+                            e.currentTarget.style.backgroundColor =
+                              "transparent";
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3
+                      className="font-semibold text-sm mb-2"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {program.name}
+                    </h3>
+
+                    {program.certificate_type && (
+                      <span
+                        className="inline-block text-xs px-2.5 py-1 rounded-full font-medium mb-3"
+                        style={{
+                          backgroundColor: style.bg,
+                          color: style.color,
+                        }}
+                      >
+                        {program.certificate_type}
+                      </span>
+                    )}
+
+                    <div
+                      className="space-y-1.5 pt-3 border-t"
+                      style={{ borderColor: "var(--border-color)" }}
+                    >
+                      {program.total_hours && (
+                        <div className="flex items-center gap-2">
+                          <Clock
+                            size={12}
+                            style={{ color: "var(--text-secondary)" }}
+                          />
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            <span
+                              className="font-medium"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              Horas:
+                            </span>{" "}
+                            {program.total_hours}
+                          </p>
+                        </div>
+                      )}
+                      {program.resolution && (
+                        <div className="flex items-center gap-2">
+                          <FileText
+                            size={12}
+                            style={{ color: "var(--text-secondary)" }}
+                          />
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            <span
+                              className="font-medium"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              Resolución:
+                            </span>{" "}
+                            {program.resolution}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      className="mt-3 pt-3 border-t flex gap-2"
+                      style={{ borderColor: "var(--border-color)" }}
+                    >
+                      <button
+                        onClick={() =>
+                          navigate(`/estudiantes?program_id=${program.id}`)
+                        }
+                        className="flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg transition-colors font-medium"
+                        style={{
+                          color: "var(--color-primary)",
+                          backgroundColor: "var(--color-primary-light)",
+                        }}
+                      >
+                        <GraduationCap size={12} /> Estudiantes
                       </button>
                       <button
-                        onClick={() => handleDelete(program.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() =>
+                          navigate(`/matriculas?program_id=${program.id}`)
+                        }
+                        className="flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg transition-colors font-medium"
+                        style={{
+                          color: "var(--text-secondary)",
+                          backgroundColor: "var(--bg-primary)",
+                        }}
                       >
-                        <Trash2 size={14} />
+                        <FileText size={12} /> Matrículas
                       </button>
                     </div>
                   </div>
-                  <h3 className="font-semibold text-gray-900 text-sm mb-1">
-                    {program.name}
-                  </h3>
-                  {program.certificate_type && (
-                    <p className="text-xs text-blue-600 mb-2">
-                      {program.certificate_type}
-                    </p>
-                  )}
-                  <div className="space-y-1 mt-3 pt-3 border-t border-gray-50">
-                    {program.total_hours && (
-                      <p className="text-xs text-gray-400">
-                        <span className="font-medium text-gray-600">
-                          Horas:
-                        </span>{" "}
-                        {program.total_hours}
-                      </p>
-                    )}
-                    {program.resolution && (
-                      <p className="text-xs text-gray-400">
-                        <span className="font-medium text-gray-600">
-                          Resolución:
-                        </span>{" "}
-                        {program.resolution}
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-gray-50 flex gap-2">
-                    <button
-                      onClick={() =>
-                        navigate(`/estudiantes?program_id=${program.id}`)
-                      }
-                      className="flex-1 text-xs text-center text-[#2952cc] hover:bg-blue-50 py-1.5 rounded-lg transition-colors font-medium"
-                    >
-                      Ver estudiantes
-                    </button>
-                    <button
-                      onClick={() =>
-                        navigate(`/matriculas?program_id=${program.id}`)
-                      }
-                      className="flex-1 text-xs text-center text-gray-600 hover:bg-gray-50 py-1.5 rounded-lg transition-colors font-medium"
-                    >
-                      Matrículas
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </main>
 
-      {/* Modal crear/editar programa */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">
+          <div
+            className="rounded-2xl shadow-xl w-full max-w-md"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div
+              className="flex items-center justify-between p-6 border-b"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <h3
+                className="text-lg font-bold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {editing ? "Editar programa" : "Nuevo programa"}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: "var(--text-secondary)" }}
               >
                 <X size={18} />
               </button>
@@ -412,7 +618,10 @@ export default function Programs() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Nombre del programa *
                 </label>
                 <input
@@ -423,12 +632,20 @@ export default function Programs() {
                     setError("");
                   }}
                   placeholder="Ej: Auxiliar de Enfermería"
-                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                  className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Tipo de certificado
                 </label>
                 <select
@@ -436,7 +653,12 @@ export default function Programs() {
                   onChange={(e) =>
                     setForm((p) => ({ ...p, certificate_type: e.target.value }))
                   }
-                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] bg-white"
+                  className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    backgroundColor: "var(--bg-secondary)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   <option value="">Selecciona...</option>
                   {CERTIFICATE_TYPES.map((t) => (
@@ -449,7 +671,10 @@ export default function Programs() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  <label
+                    className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Total horas
                   </label>
                   <input
@@ -459,11 +684,19 @@ export default function Programs() {
                       setForm((p) => ({ ...p, total_hours: e.target.value }))
                     }
                     placeholder="Ej: 1440"
-                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                    className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  <label
+                    className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     N° Resolución
                   </label>
                   <input
@@ -473,7 +706,12 @@ export default function Programs() {
                       setForm((p) => ({ ...p, resolution: e.target.value }))
                     }
                     placeholder="Ej: 001 de 2024"
-                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                    className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
               </div>
@@ -482,14 +720,19 @@ export default function Programs() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 border font-medium py-3 rounded-lg transition-colors"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   <Save size={16} />
                   {saving

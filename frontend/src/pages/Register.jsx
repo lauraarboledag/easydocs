@@ -114,6 +114,7 @@ export default function Register() {
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [selectedPlanName, setSelectedPlanName] = useState(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [institution, setInstitution] = useState({
     name: "",
@@ -141,7 +142,6 @@ export default function Register() {
     special: false,
   });
 
-  // Cargar planes al montar
   useEffect(() => {
     api
       .get("/plans/")
@@ -218,6 +218,10 @@ export default function Register() {
       setError("Selecciona un plan para continuar.");
       return false;
     }
+    if (!acceptedTerms) {
+      setError("Debes aceptar los Términos y Condiciones para continuar.");
+      return false;
+    }
     return true;
   };
 
@@ -260,10 +264,7 @@ export default function Register() {
 
       await api.post(
         "/subscriptions/",
-        {
-          plan_id: selectedPlanId,
-          institution_id: institutionId,
-        },
+        { plan_id: selectedPlanId, institution_id: institutionId },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
@@ -277,7 +278,6 @@ export default function Register() {
     }
   };
 
-  // Agrupa planes por nombre
   const grouped = {};
   for (const plan of plans) {
     if (!grouped[plan.name]) grouped[plan.name] = {};
@@ -292,7 +292,6 @@ export default function Register() {
     "bg-green-500",
   ];
   const strengthLabels = ["Muy débil", "Débil", "Regular", "Fuerte"];
-
   const STEP_LABELS = ["Institución", "Representante", "Seguridad", "Plan"];
 
   return (
@@ -319,13 +318,7 @@ export default function Register() {
               <div key={i} className="flex items-center">
                 <div className="flex flex-col items-center">
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                      step > i + 1
-                        ? "bg-green-500 text-white"
-                        : step === i + 1
-                          ? "bg-[#2952cc] text-white"
-                          : "bg-gray-200 text-gray-500"
-                    }`}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${step > i + 1 ? "bg-green-500 text-white" : step === i + 1 ? "bg-[#2952cc] text-white" : "bg-gray-200 text-gray-500"}`}
                   >
                     {step > i + 1 ? (
                       <svg
@@ -368,7 +361,7 @@ export default function Register() {
           </div>
         )}
 
-        {/* ── Paso 1 — Datos institucionales ── */}
+        {/* Paso 1 — Datos institucionales */}
         {step === 1 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">
@@ -418,11 +411,7 @@ export default function Register() {
                           institution_type: tipo,
                         })
                       }
-                      className={`flex-1 py-3 rounded-lg text-sm font-medium border transition-colors ${
-                        institution.institution_type === tipo
-                          ? "bg-[#2952cc] text-white border-[#2952cc]"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                      }`}
+                      className={`flex-1 py-3 rounded-lg text-sm font-medium border transition-colors ${institution.institution_type === tipo ? "bg-[#2952cc] text-white border-[#2952cc]" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
                     >
                       {tipo}
                     </button>
@@ -560,7 +549,7 @@ export default function Register() {
           </div>
         )}
 
-        {/* ── Paso 2 — Representante ── */}
+        {/* Paso 2 — Representante */}
         {step === 2 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">
@@ -655,7 +644,7 @@ export default function Register() {
           </div>
         )}
 
-        {/* ── Paso 3 — Contraseña ── */}
+        {/* Paso 3 — Contraseña */}
         {step === 3 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">
@@ -796,7 +785,7 @@ export default function Register() {
           </div>
         )}
 
-        {/* ── Paso 4 — Elegir plan ── */}
+        {/* Paso 4 — Elegir plan */}
         {step === 4 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">
@@ -807,7 +796,6 @@ export default function Register() {
               cuenta.
             </p>
 
-            {/* Toggle ciclo */}
             <div className="flex justify-center mb-8">
               <div className="flex items-center bg-gray-100 rounded-xl p-1">
                 <button
@@ -834,7 +822,6 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Grid de planes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
               {PLAN_ORDER.map((planName) => {
                 const planGroup = grouped[planName];
@@ -849,15 +836,8 @@ export default function Register() {
                   <button
                     key={planName}
                     onClick={() => handleSelectPlan(plan)}
-                    className={`relative text-left rounded-2xl border-2 p-5 flex flex-col transition-all hover:shadow-md ${
-                      isSelected
-                        ? "border-[#2952cc] shadow-md bg-blue-50/30"
-                        : meta.highlight
-                          ? `${meta.border} shadow-sm bg-white`
-                          : "border-gray-200 bg-white"
-                    }`}
+                    className={`relative text-left rounded-2xl border-2 p-5 flex flex-col transition-all hover:shadow-md ${isSelected ? "border-[#2952cc] shadow-md bg-blue-50/30" : meta.highlight ? `${meta.border} shadow-sm bg-white` : "border-gray-200 bg-white"}`}
                   >
-                    {/* Badges */}
                     {meta.highlight && !isSelected && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                         <span className="bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
@@ -872,7 +852,6 @@ export default function Register() {
                         </span>
                       </div>
                     )}
-
                     <div className="flex items-center gap-2 mb-3 mt-2">
                       <div
                         className={`w-9 h-9 ${meta.bg} rounded-xl flex items-center justify-center`}
@@ -883,7 +862,6 @@ export default function Register() {
                         Plan {meta.label}
                       </span>
                     </div>
-
                     <div className="mb-3">
                       <span className="text-2xl font-bold text-gray-900">
                         {plan ? formatPrice(plan.price) : "—"}
@@ -894,7 +872,6 @@ export default function Register() {
                         </span>
                       )}
                     </div>
-
                     <ul className="space-y-1.5 flex-1">
                       {(PLAN_FEATURES[planName] || []).map((f) => (
                         <li
@@ -909,14 +886,8 @@ export default function Register() {
                         </li>
                       ))}
                     </ul>
-
-                    {/* Indicador de selección */}
                     <div
-                      className={`mt-4 w-full py-2 rounded-xl text-xs font-semibold text-center transition-colors ${
-                        isSelected
-                          ? "bg-[#2952cc] text-white"
-                          : `${meta.bg} ${meta.color}`
-                      }`}
+                      className={`mt-4 w-full py-2 rounded-xl text-xs font-semibold text-center transition-colors ${isSelected ? "bg-[#2952cc] text-white" : `${meta.bg} ${meta.color}`}`}
                     >
                       {isSelected ? "✓ Plan elegido" : "Seleccionar"}
                     </div>
@@ -925,11 +896,37 @@ export default function Register() {
               })}
             </div>
 
-            {/* Nota */}
             <p className="text-xs text-gray-400 text-center mb-6">
               Los planes de pago se activan tras confirmación manual por el
               equipo de EduDynamis. El plan Free se activa automáticamente.
             </p>
+
+            {/* Términos y condiciones */}
+            <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 mb-6">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 accent-[#2952cc]"
+              />
+              <label
+                htmlFor="terms"
+                className="text-sm text-gray-600 leading-relaxed"
+              >
+                He leído y acepto los{" "}
+                <a
+                  href="/terminos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#2952cc] font-medium hover:underline"
+                >
+                  Términos y Condiciones
+                </a>{" "}
+                de EasyDocs y la política de tratamiento de datos personales de
+                EduDynamis: Asesores Educativos.
+              </label>
+            </div>
 
             <div className="flex justify-between">
               <button
@@ -953,7 +950,7 @@ export default function Register() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={loading || !selectedPlanId}
+                disabled={loading || !selectedPlanId || !acceptedTerms}
                 className="bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg flex items-center gap-2 transition-colors"
               >
                 {loading ? (
@@ -968,7 +965,7 @@ export default function Register() {
           </div>
         )}
 
-        {/* ── Paso 5 — Confirmación ── */}
+        {/* Paso 5 — Confirmación */}
         {step === 5 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
             <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -986,7 +983,6 @@ export default function Register() {
                 />
               </svg>
             </div>
-
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               ¡Bienvenido a bordo!
             </h2>
@@ -1001,7 +997,6 @@ export default function Register() {
                 activado
               </div>
             )}
-
             <div className="grid grid-cols-3 gap-4 mb-10 text-left">
               {[
                 {
@@ -1029,7 +1024,6 @@ export default function Register() {
                 </div>
               ))}
             </div>
-
             <button
               onClick={() => navigate("/login")}
               className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-10 rounded-lg flex items-center gap-2 mx-auto transition-colors"

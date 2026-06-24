@@ -22,6 +22,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import AdminSettings from "./pages/AdminSettings";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import TermsAndConditions from "./pages/TermsAndConditions";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -154,6 +155,7 @@ function AppRoutes() {
       />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/terminos" element={<TermsAndConditions />} />
     </Routes>
   );
 }

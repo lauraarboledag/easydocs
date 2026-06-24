@@ -6,7 +6,6 @@ import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
-
 import {
   CreditCard,
   CheckCircle,
@@ -19,41 +18,25 @@ import {
   Bell,
   AlertCircle,
   X,
+  TrendingUp,
 } from "lucide-react";
 
 const PLAN_META = {
-  free: {
-    label: "Free",
-    color: "text-gray-600",
-    bg: "bg-gray-100",
-    border: "border-gray-200",
-    highlight: false,
-    icon: Shield,
-  },
+  free: { label: "Free", icon: Shield, highlight: false },
+  basic: { label: "Básico", icon: Zap, highlight: false },
+  professional: { label: "Profesional", icon: Star, highlight: true },
+  enterprise: { label: "Empresarial", icon: Building2, highlight: false },
+};
+
+const PLAN_COLORS = {
+  free: { bg: "#f3f4f6", color: "#6b7280", border: "#e5e7eb" },
   basic: {
-    label: "Básico",
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    highlight: false,
-    icon: Zap,
+    bg: "var(--color-primary-light)",
+    color: "var(--color-primary)",
+    border: "var(--color-primary)",
   },
-  professional: {
-    label: "Profesional",
-    color: "text-purple-600",
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    highlight: true,
-    icon: Star,
-  },
-  enterprise: {
-    label: "Empresarial",
-    color: "text-yellow-600",
-    bg: "bg-yellow-50",
-    border: "border-yellow-200",
-    highlight: false,
-    icon: Building2,
-  },
+  professional: { bg: "#faf5ff", color: "#9333ea", border: "#9333ea" },
+  enterprise: { bg: "#fefce8", color: "#ca8a04", border: "#ca8a04" },
 };
 
 const PLAN_FEATURES = {
@@ -97,7 +80,6 @@ function daysUntilExpiry(expiresAt) {
   return Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
 }
 
-// Agrupa planes por nombre, juntando mensual y anual
 function groupPlans(plans) {
   const grouped = {};
   for (const plan of plans) {
@@ -140,14 +122,8 @@ export default function Subscription() {
     fetchData();
   }, []);
 
-  const handleLogout = () => setShowLogout(true);
-  const confirmLogout = () => {
-    logout();
-    navigate("/");
-  };
-
   useInactivity({
-    timeout: 30, // 30 minutos
+    timeout: 30,
     onWarning: () => setShowInactivity(true),
     onLogout: () => {
       setShowInactivity(false);
@@ -162,19 +138,16 @@ export default function Subscription() {
     setErrorMsg("");
     try {
       if (plan.name === "free") {
-        // Plan free — cambio directo
         await api.post("/subscriptions/change-plan", {
           plan_id: plan.id,
           institution_id: user.institution_id,
         });
         setSuccessMsg("Plan Free activado exitosamente.");
-        // Recargar suscripción
         const subRes = await api
           .get("/subscriptions/my")
           .catch(() => ({ data: null }));
         setSubscription(subRes.data);
       } else {
-        // Planes de pago — mostrar modal de checkout
         setCheckoutPlan(plan);
         setShowCheckout(true);
       }
@@ -193,35 +166,58 @@ export default function Subscription() {
   const grouped = groupPlans(plans);
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      <Sidebar onLogout={handleLogout} />
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <Sidebar onLogout={() => setShowLogout(true)} />
 
       <main className="ml-56 flex-1 flex flex-col">
-        {/* Topbar */}
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-          <h1 className="text-lg font-semibold text-gray-800">Suscripción</h1>
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
+          <h1
+            className="text-lg font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Suscripción
+          </h1>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600">
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2952cc] rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
                 <span className="text-white text-xs font-bold">
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {user?.full_name}
                 </p>
-                <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
+                <p
+                  className="text-xs capitalize"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {user?.role}
+                </p>
               </div>
             </div>
           </div>
         </header>
 
         <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
-          {/* Feedback */}
           {successMsg && (
             <div className="mb-6 flex items-start gap-3 bg-green-50 border border-green-200 text-green-700 rounded-xl px-5 py-4 text-sm">
               <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
@@ -242,32 +238,40 @@ export default function Subscription() {
           )}
 
           {loading ? (
-            <div className="text-center py-24 text-gray-400 text-sm">
+            <div
+              className="text-center py-24 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Cargando planes...
             </div>
           ) : (
             <>
               {/* Banner plan activo */}
               {subscription && currentPlanName ? (
-                <div className="mb-8 bg-[#1a2b4a] rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4">
+                <div
+                  className="mb-8 rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4"
+                  style={{
+                    background: `linear-gradient(to right, var(--color-banner-from), var(--color-banner-to))`,
+                  }}
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
                       <CreditCard size={22} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-blue-200 text-xs mb-0.5">
+                      <p className="text-white/70 text-xs mb-0.5">
                         Plan activo
                       </p>
                       <p className="text-white font-bold text-lg">
                         Plan{" "}
                         {PLAN_META[currentPlanName]?.label || currentPlanName}
                       </p>
-                      <p className="text-blue-300 text-xs">
+                      <p className="text-white/60 text-xs">
                         Vigente hasta {formatDate(subscription.expires_at)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4">
                     {daysLeft !== null && (
                       <div
                         className={`text-center px-4 py-2 rounded-xl ${daysLeft <= 7 ? "bg-red-500/20" : "bg-white/10"}`}
@@ -277,64 +281,112 @@ export default function Subscription() {
                         >
                           {daysLeft}
                         </p>
-                        <p className="text-xs text-blue-300">días restantes</p>
+                        <p className="text-xs text-white/60">días restantes</p>
                       </div>
                     )}
                     <div className="text-center px-4 py-2 bg-white/10 rounded-xl">
                       <p className="text-2xl font-bold text-white">
                         {formatPrice(subscription.plan?.price)}
                       </p>
-                      <p className="text-xs text-blue-300">
+                      <p className="text-xs text-white/60">
                         {subscription.plan?.billing_cycle === "monthly"
                           ? "/ mes"
                           : "/ año"}
                       </p>
                     </div>
+                    <div className="text-center px-4 py-2 bg-white/10 rounded-xl">
+                      <TrendingUp
+                        size={20}
+                        className="text-white mx-auto mb-1"
+                      />
+                      <p className="text-xs text-white/60">
+                        Plan {PLAN_META[currentPlanName]?.label}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="mb-8 bg-white border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center">
+                <div
+                  className="mb-8 border-2 border-dashed rounded-2xl p-6 text-center"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-color)",
+                  }}
+                >
                   <CreditCard
                     size={28}
-                    className="text-gray-300 mx-auto mb-2"
+                    className="mx-auto mb-2"
+                    style={{ color: "var(--text-secondary)" }}
                   />
-                  <p className="text-gray-500 font-medium">
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     Sin suscripción activa
                   </p>
-                  <p className="text-gray-400 text-sm mt-1">
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Selecciona un plan para comenzar
                   </p>
                 </div>
               )}
 
-              {/* Toggle mensual / anual */}
+              {/* Toggle */}
               <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2
+                    className="text-xl font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {currentPlanName ? "Planes disponibles" : "Elige tu plan"}
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {currentPlanName
                       ? "Mejora tu plan para desbloquear más funcionalidades"
                       : "Empieza gratis o elige el plan que mejor se adapte a tu institución"}
                   </p>
                 </div>
-                <div className="flex items-center bg-gray-100 rounded-xl p-1">
-                  <button
-                    onClick={() => setBillingCycle("monthly")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${billingCycle === "monthly" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
-                  >
-                    Mensual
-                  </button>
-                  <button
-                    onClick={() => setBillingCycle("annual")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${billingCycle === "annual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
-                  >
-                    Anual
-                    <span className="text-xs bg-green-100 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">
-                      −17%
-                    </span>
-                  </button>
+                <div
+                  className="flex items-center rounded-xl p-1"
+                  style={{ backgroundColor: "var(--bg-primary)" }}
+                >
+                  {["monthly", "annual"].map((cycle) => (
+                    <button
+                      key={cycle}
+                      onClick={() => setBillingCycle(cycle)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                      style={{
+                        backgroundColor:
+                          billingCycle === cycle
+                            ? "var(--bg-secondary)"
+                            : "transparent",
+                        color:
+                          billingCycle === cycle
+                            ? "var(--text-primary)"
+                            : "var(--text-secondary)",
+                        boxShadow:
+                          billingCycle === cycle
+                            ? "0 1px 3px rgba(0,0,0,0.1)"
+                            : "none",
+                      }}
+                    >
+                      {cycle === "monthly" ? (
+                        "Mensual"
+                      ) : (
+                        <>
+                          Anual{" "}
+                          <span className="text-xs bg-green-100 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">
+                            −17%
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -345,6 +397,7 @@ export default function Subscription() {
                   if (!planGroup) return null;
                   const plan = planGroup[billingCycle] || planGroup["monthly"];
                   const meta = PLAN_META[planName];
+                  const colors = PLAN_COLORS[planName];
                   const PlanIcon = meta.icon;
                   const isCurrent = planName === currentPlanName;
                   const planIndex = PLAN_ORDER.indexOf(planName);
@@ -354,18 +407,25 @@ export default function Subscription() {
                   return (
                     <div
                       key={planName}
-                      className={`relative bg-white rounded-2xl border-2 p-6 flex flex-col transition-shadow hover:shadow-md ${
-                        isCurrent
-                          ? "border-[#2952cc] shadow-md"
+                      className="relative rounded-2xl border-2 p-6 flex flex-col transition-all hover:shadow-md"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        borderColor: isCurrent
+                          ? "var(--color-primary)"
                           : meta.highlight
-                            ? `${meta.border} shadow-sm`
-                            : "border-gray-200"
-                      }`}
+                            ? colors.border
+                            : "var(--border-color)",
+                        boxShadow: isCurrent
+                          ? "0 4px 12px rgba(0,0,0,0.1)"
+                          : "",
+                      }}
                     >
-                      {/* Badge */}
                       {isCurrent && (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <span className="bg-[#2952cc] text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                          <span
+                            className="text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap"
+                            style={{ backgroundColor: "var(--color-primary)" }}
+                          >
                             Tu plan actual
                           </span>
                         </div>
@@ -378,35 +438,36 @@ export default function Subscription() {
                         </div>
                       )}
 
-                      {/* Header del plan */}
                       <div className="flex items-center gap-3 mb-4 mt-2">
                         <div
-                          className={`w-10 h-10 ${meta.bg} rounded-xl flex items-center justify-center`}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center"
+                          style={{ backgroundColor: colors.bg }}
                         >
-                          <PlanIcon size={20} className={meta.color} />
+                          <PlanIcon size={20} style={{ color: colors.color }} />
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900">
-                            Plan {meta.label}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {plan?.description}
-                          </p>
-                        </div>
+                        <p
+                          className="font-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          Plan {meta.label}
+                        </p>
                       </div>
 
-                      {/* Precio */}
                       <div className="mb-5">
-                        <div className="flex items-end gap-1">
-                          <span className="text-3xl font-bold text-gray-900">
-                            {plan ? formatPrice(plan.price) : "—"}
+                        <span
+                          className="text-3xl font-bold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {plan ? formatPrice(plan.price) : "—"}
+                        </span>
+                        {plan && plan.price > 0 && (
+                          <span
+                            className="text-sm ml-1"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {billingCycle === "monthly" ? "/ mes" : "/ año"}
                           </span>
-                          {plan && plan.price > 0 && (
-                            <span className="text-sm text-gray-400 mb-1">
-                              {billingCycle === "monthly" ? "/ mes" : "/ año"}
-                            </span>
-                          )}
-                        </div>
+                        )}
                         {billingCycle === "annual" &&
                           plan &&
                           plan.price > 0 && (
@@ -417,12 +478,12 @@ export default function Subscription() {
                           )}
                       </div>
 
-                      {/* Features */}
                       <ul className="space-y-2.5 mb-6 flex-1">
                         {(PLAN_FEATURES[planName] || []).map((f) => (
                           <li
                             key={f}
-                            className="flex items-start gap-2 text-sm text-gray-600"
+                            className="flex items-start gap-2 text-sm"
+                            style={{ color: "var(--text-secondary)" }}
                           >
                             <CheckCircle
                               size={14}
@@ -433,9 +494,15 @@ export default function Subscription() {
                         ))}
                       </ul>
 
-                      {/* Botón */}
                       {isCurrent ? (
-                        <div className="w-full py-2.5 rounded-xl text-sm font-semibold text-center bg-blue-50 text-[#2952cc] border border-blue-100">
+                        <div
+                          className="w-full py-2.5 rounded-xl text-sm font-semibold text-center border"
+                          style={{
+                            backgroundColor: "var(--color-primary-light)",
+                            color: "var(--color-primary)",
+                            borderColor: "var(--color-primary)",
+                          }}
+                        >
                           Plan actual ✓
                         </div>
                       ) : isDowngrade ? (
@@ -450,7 +517,12 @@ export default function Subscription() {
                             }
                           }}
                           disabled={isRequesting || !plan}
-                          className="w-full py-2.5 rounded-xl text-sm font-medium text-center bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 transition-colors"
+                          className="w-full py-2.5 rounded-xl text-sm font-medium text-center border transition-colors"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            color: "var(--text-secondary)",
+                            backgroundColor: "var(--bg-primary)",
+                          }}
                         >
                           Cambiar a este plan
                         </button>
@@ -458,11 +530,13 @@ export default function Subscription() {
                         <button
                           onClick={() => plan && handleRequestUpgrade(plan)}
                           disabled={isRequesting || !plan}
-                          className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
-                            meta.highlight
-                              ? "bg-purple-500 hover:bg-purple-600 text-white"
-                              : `${meta.bg} ${meta.color} hover:opacity-80 border ${meta.border}`
-                          }`}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                          style={{
+                            backgroundColor: meta.highlight
+                              ? "#9333ea"
+                              : colors.bg,
+                            color: meta.highlight ? "#ffffff" : colors.color,
+                          }}
                         >
                           {isRequesting ? (
                             <Clock size={15} />
@@ -481,13 +555,23 @@ export default function Subscription() {
                 })}
               </div>
 
-              {/* Nota informativa */}
-              <div className="mt-8 bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 flex items-start gap-3">
+              {/* Nota */}
+              <div
+                className="mt-8 rounded-xl px-5 py-4 flex items-start gap-3 border"
+                style={{
+                  backgroundColor: "var(--color-primary-light)",
+                  borderColor: "var(--color-primary)",
+                }}
+              >
                 <AlertCircle
                   size={18}
-                  className="text-blue-400 flex-shrink-0 mt-0.5"
+                  className="flex-shrink-0 mt-0.5"
+                  style={{ color: "var(--color-primary)" }}
                 />
-                <div className="text-sm text-blue-700">
+                <div
+                  className="text-sm"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   <strong>¿Cómo funciona el proceso de upgrade?</strong> Al
                   solicitar un plan, un administrador de EduDynamis verificará
                   tu pago y activará el nuevo plan en menos de 24 horas.
@@ -501,7 +585,10 @@ export default function Subscription() {
 
       {showLogout && (
         <LogoutModal
-          onConfirm={confirmLogout}
+          onConfirm={() => {
+            logout();
+            navigate("/");
+          }}
           onCancel={() => setShowLogout(false)}
         />
       )}
@@ -515,15 +602,28 @@ export default function Subscription() {
           }}
         />
       )}
+
       {showCheckout && checkoutPlan && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div
+            className="rounded-2xl shadow-xl w-full max-w-md"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div
+              className="flex items-center justify-between p-6 border-b"
+              style={{ borderColor: "var(--border-color)" }}
+            >
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
+                <h3
+                  className="text-lg font-bold"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   Solicitar Plan {PLAN_META[checkoutPlan.name]?.label}
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   {checkoutPlan.billing_cycle === "monthly"
                     ? "Facturación mensual"
                     : "Facturación anual"}
@@ -531,22 +631,33 @@ export default function Subscription() {
               </div>
               <button
                 onClick={() => setShowCheckout(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: "var(--text-secondary)" }}
               >
                 <X size={18} />
               </button>
             </div>
-
             <div className="p-6 space-y-4">
-              {/* Resumen del plan */}
-              <div className="bg-gray-50 rounded-xl p-4">
+              <div
+                className="rounded-xl p-4"
+                style={{ backgroundColor: "var(--bg-primary)" }}
+              >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-gray-800">
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     Plan {PLAN_META[checkoutPlan.name]?.label}
                   </span>
-                  <span className="text-lg font-bold text-gray-900">
+                  <span
+                    className="text-lg font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {formatPrice(checkoutPlan.price)}
-                    <span className="text-xs text-gray-400 font-normal ml-1">
+                    <span
+                      className="text-xs font-normal ml-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       {checkoutPlan.billing_cycle === "monthly"
                         ? "/ mes"
                         : "/ año"}
@@ -557,7 +668,8 @@ export default function Subscription() {
                   {(PLAN_FEATURES[checkoutPlan.name] || []).map((f) => (
                     <li
                       key={f}
-                      className="flex items-center gap-2 text-xs text-gray-600"
+                      className="flex items-center gap-2 text-xs"
+                      style={{ color: "var(--text-secondary)" }}
                     >
                       <CheckCircle
                         size={12}
@@ -569,18 +681,30 @@ export default function Subscription() {
                 </ul>
               </div>
 
-              {/* Instrucciones de pago */}
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <p className="text-xs font-semibold text-blue-700 mb-2">
+              <div
+                className="rounded-xl p-4"
+                style={{
+                  backgroundColor: "var(--color-primary-light)",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold mb-2"
+                  style={{ color: "var(--color-primary)" }}
+                >
                   ¿Cómo realizar el pago?
                 </p>
-                <ol className="space-y-1.5 text-xs text-blue-600 list-decimal list-inside">
+                <ol
+                  className="space-y-1.5 text-xs list-decimal list-inside"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   <li>
                     Realiza la transferencia por{" "}
                     {formatPrice(checkoutPlan.price)} COP
                   </li>
                   <li>
-                    Envía el comprobante a <strong>pagos@edudynamis.com</strong>
+                    Envía el comprobante a{" "}
+                    <strong>edudynamis1@gmail.com</strong>
                   </li>
                   <li>
                     El equipo de EduDynamis activará tu plan en menos de 24
@@ -603,7 +727,11 @@ export default function Subscription() {
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setShowCheckout(false)}
-                  className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  className="flex-1 border font-medium py-3 rounded-lg transition-colors text-sm"
+                  style={{
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   Cancelar
                 </button>
@@ -633,7 +761,8 @@ export default function Subscription() {
                     }
                   }}
                   disabled={requesting === checkoutPlan.id}
-                  className="flex-1 bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                  className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   {requesting === checkoutPlan.id ? (
                     <Clock size={15} />

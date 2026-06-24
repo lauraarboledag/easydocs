@@ -8,7 +8,6 @@ import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
 import { useTheme } from "../context/ThemeContext";
 import {
-  Settings as SettingsIcon,
   Bell,
   ChevronLeft,
   Save,
@@ -19,7 +18,6 @@ import {
   AlertCircle,
   Building2,
   User,
-  Moon,
   Sun,
   Image,
 } from "lucide-react";
@@ -30,10 +28,17 @@ const TABS = [
   { id: "appearance", label: "Apariencia", icon: Sun },
 ];
 
+const inputStyle = {
+  borderColor: "var(--border-color)",
+  backgroundColor: "var(--bg-primary)",
+  color: "var(--text-primary)",
+};
+
 export default function Settings() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const { theme, setTheme, themes } = useTheme();
 
   const [activeTab, setActiveTab] = useState("institution");
   const [loading, setLoading] = useState(true);
@@ -42,11 +47,7 @@ export default function Settings() {
   const [error, setError] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const { theme, setTheme, themes } = useTheme();
 
-  // Datos institución
-  const [institution, setInstitution] = useState(null);
   const [instForm, setInstForm] = useState({
     name: "",
     dane_code: "",
@@ -61,7 +62,6 @@ export default function Settings() {
   const [logoPreview, setLogoPreview] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
-  // Datos cuenta
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -96,7 +96,6 @@ export default function Settings() {
   const fetchInstitution = async () => {
     try {
       const res = await api.get(`/institutions/${user.institution_id}`);
-      setInstitution(res.data);
       setInstForm({
         name: res.data.name || "",
         dane_code: res.data.dane_code || "",
@@ -194,45 +193,58 @@ export default function Settings() {
     }
   };
 
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle("dark");
-    localStorage.setItem("darkMode", !darkMode);
-  };
-
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
       <main className="ml-56 flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-gray-800">
+              <h1
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Configuración
               </h1>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 Personaliza tu cuenta e institución
               </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600">
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2952cc] rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
                 <span className="text-white text-xs font-bold">
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <p className="text-sm font-medium text-gray-800">
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {user?.full_name}
               </p>
             </div>
@@ -252,7 +264,13 @@ export default function Settings() {
           )}
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-white border border-gray-100 rounded-xl p-1 mb-6">
+          <div
+            className="flex gap-1 border rounded-xl p-1 mb-6"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -261,11 +279,12 @@ export default function Settings() {
                   setError("");
                   setSuccess("");
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === id
-                    ? "bg-[#2952cc] text-white"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor:
+                    activeTab === id ? "var(--color-primary)" : "transparent",
+                  color: activeTab === id ? "#ffffff" : "var(--text-secondary)",
+                }}
               >
                 <Icon size={16} />
                 {label}
@@ -277,16 +296,33 @@ export default function Settings() {
           {activeTab === "institution" && (
             <div className="space-y-6">
               {/* Logo */}
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h2 className="font-bold text-gray-900 mb-1">
+              <div
+                className="rounded-xl border p-6"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                <h2
+                  className="font-bold mb-1"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   Logo institucional
                 </h2>
-                <p className="text-xs text-gray-400 mb-5">
+                <p
+                  className="text-xs mb-5"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Aparecerá en los documentos PDF generados. Máximo 2MB.
                 </p>
-
                 <div className="flex items-center gap-6">
-                  <div className="w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div
+                    className="w-24 h-24 border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
+                    style={{
+                      backgroundColor: "var(--bg-primary)",
+                      borderColor: "var(--border-color)",
+                    }}
+                  >
                     {logoPreview ? (
                       <img
                         src={logoPreview}
@@ -294,19 +330,26 @@ export default function Settings() {
                         className="w-full h-full object-contain p-2"
                       />
                     ) : (
-                      <Image size={32} className="text-gray-300" />
+                      <Image
+                        size={32}
+                        style={{ color: "var(--text-secondary)", opacity: 0.4 }}
+                      />
                     )}
                   </div>
                   <div>
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingLogo}
-                      className="flex items-center gap-2 bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors"
+                      className="flex items-center gap-2 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-40"
+                      style={{ backgroundColor: "var(--color-primary)" }}
                     >
                       <Upload size={16} />
                       {uploadingLogo ? "Subiendo..." : "Subir logo"}
                     </button>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p
+                      className="text-xs mt-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       PNG, JPG o SVG. Fondo transparente recomendado.
                     </p>
                     <input
@@ -321,19 +364,33 @@ export default function Settings() {
               </div>
 
               {/* Datos institucionales */}
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h2 className="font-bold text-gray-900 mb-1">
+              <div
+                className="rounded-xl border p-6"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                <h2
+                  className="font-bold mb-1"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   Datos institucionales
                 </h2>
-                <p className="text-xs text-gray-400 mb-5">
+                <p
+                  className="text-xs mb-5"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Esta información aparece en los documentos oficiales
                   generados.
                 </p>
-
                 <form onSubmit={handleSaveInstitution} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Nombre de la institución
                       </label>
                       <input
@@ -342,11 +399,15 @@ export default function Settings() {
                         onChange={(e) =>
                           setInstForm((p) => ({ ...p, name: e.target.value }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Código DANE
                       </label>
                       <input
@@ -358,11 +419,15 @@ export default function Settings() {
                             dane_code: e.target.value,
                           }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Resolución de funcionamiento
                       </label>
                       <input
@@ -374,11 +439,15 @@ export default function Settings() {
                             license_number: e.target.value,
                           }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Departamento
                       </label>
                       <input
@@ -390,11 +459,15 @@ export default function Settings() {
                             department: e.target.value,
                           }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Municipio
                       </label>
                       <input
@@ -406,11 +479,15 @@ export default function Settings() {
                             municipality: e.target.value,
                           }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Dirección
                       </label>
                       <input
@@ -422,11 +499,15 @@ export default function Settings() {
                             address: e.target.value,
                           }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Teléfono
                       </label>
                       <input
@@ -435,11 +516,15 @@ export default function Settings() {
                         onChange={(e) =>
                           setInstForm((p) => ({ ...p, phone: e.target.value }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Correo institucional
                       </label>
                       <input
@@ -448,16 +533,17 @@ export default function Settings() {
                         onChange={(e) =>
                           setInstForm((p) => ({ ...p, email: e.target.value }))
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+                        style={inputStyle}
                       />
                     </div>
                   </div>
-
                   <div className="flex justify-end pt-2">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm"
+                      className="text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-40"
+                      style={{ backgroundColor: "var(--color-primary)" }}
                     >
                       <Save size={16} />
                       {saving ? "Guardando..." : "Guardar cambios"}
@@ -470,11 +556,61 @@ export default function Settings() {
 
           {/* Tab Mi cuenta */}
           {activeTab === "account" && (
-            <div className="bg-white rounded-xl border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-900 mb-1">
+            <div
+              className="rounded-xl border p-6"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
+              {/* Info usuario */}
+              <div
+                className="flex items-center gap-4 p-4 rounded-xl mb-6"
+                style={{ backgroundColor: "var(--bg-primary)" }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                >
+                  <span className="text-white font-bold text-lg">
+                    {user?.full_name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <p
+                    className="font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {user?.full_name}
+                  </p>
+                  <p
+                    className="text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {user?.email}
+                  </p>
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium capitalize mt-1 inline-block"
+                    style={{
+                      backgroundColor: "var(--color-primary-light)",
+                      color: "var(--color-primary)",
+                    }}
+                  >
+                    {user?.role}
+                  </span>
+                </div>
+              </div>
+
+              <h2
+                className="font-bold mb-1"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Cambiar contraseña
               </h2>
-              <p className="text-xs text-gray-400 mb-5">
+              <p
+                className="text-xs mb-5"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Usa una contraseña segura que no uses en otros sitios.
               </p>
 
@@ -482,35 +618,37 @@ export default function Settings() {
                 onSubmit={handleSavePassword}
                 className="space-y-4 max-w-md"
               >
-                {["current", "new", "confirm"].map((field) => (
-                  <div key={field}>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                      {field === "current"
-                        ? "Contraseña actual"
-                        : field === "new"
-                          ? "Nueva contraseña"
-                          : "Confirmar contraseña"}
+                {[
+                  { key: "current", label: "Contraseña actual" },
+                  { key: "new", label: "Nueva contraseña" },
+                  { key: "confirm", label: "Confirmar contraseña" },
+                ].map(({ key, label }) => (
+                  <div key={key}>
+                    <label
+                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {label}
                     </label>
                     <div className="relative">
                       <input
-                        type={showPasswords[field] ? "text" : "password"}
-                        value={passwords[field]}
+                        type={showPasswords[key] ? "text" : "password"}
+                        value={passwords[key]}
                         onChange={(e) =>
-                          handlePasswordChange(field, e.target.value)
+                          handlePasswordChange(key, e.target.value)
                         }
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] pr-10"
+                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10"
+                        style={inputStyle}
                       />
                       <button
                         type="button"
                         onClick={() =>
-                          setShowPasswords((p) => ({
-                            ...p,
-                            [field]: !p[field],
-                          }))
+                          setShowPasswords((p) => ({ ...p, [key]: !p[key] }))
                         }
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                        style={{ color: "var(--text-secondary)" }}
                       >
-                        {showPasswords[field] ? (
+                        {showPasswords[key] ? (
                           <EyeOff size={16} />
                         ) : (
                           <Eye size={16} />
@@ -521,7 +659,10 @@ export default function Settings() {
                 ))}
 
                 {passwords.new && (
-                  <div className="space-y-2">
+                  <div
+                    className="space-y-2 p-3 rounded-lg"
+                    style={{ backgroundColor: "var(--bg-primary)" }}
+                  >
                     {[
                       { key: "length", label: "Mínimo 8 caracteres" },
                       { key: "uppercase", label: "Al menos una mayúscula" },
@@ -537,7 +678,12 @@ export default function Settings() {
                           )}
                         </div>
                         <span
-                          className={`text-xs ${passwordStrength[key] ? "text-green-600" : "text-gray-400"}`}
+                          className={`text-xs ${passwordStrength[key] ? "text-green-600" : ""}`}
+                          style={
+                            passwordStrength[key]
+                              ? {}
+                              : { color: "var(--text-secondary)" }
+                          }
                         >
                           {label}
                         </span>
@@ -549,7 +695,8 @@ export default function Settings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm"
+                  className="text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-40"
+                  style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   <Save size={16} />
                   {saving ? "Guardando..." : "Cambiar contraseña"}
@@ -560,10 +707,24 @@ export default function Settings() {
 
           {/* Tab Apariencia */}
           {activeTab === "appearance" && (
-            <div className="bg-white rounded-xl border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-900 mb-1">Apariencia</h2>
-              <p className="text-xs text-gray-400 mb-6">
-                Elige el tema visual que más te guste para EasyDocs.
+            <div
+              className="rounded-xl border p-6"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
+              <h2
+                className="font-bold mb-1"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Apariencia
+              </h2>
+              <p
+                className="text-xs mb-6"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Elige el tema visual que más te guste. Se guarda por usuario.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -571,38 +732,60 @@ export default function Settings() {
                   <button
                     key={t.id}
                     onClick={() => setTheme(t.id)}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
-                      theme === t.id
-                        ? "border-[#2952cc] bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                    className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+                    style={{
+                      borderColor:
+                        theme === t.id
+                          ? "var(--color-primary)"
+                          : "var(--border-color)",
+                      backgroundColor:
+                        theme === t.id
+                          ? "var(--color-primary-light)"
+                          : "var(--bg-primary)",
+                    }}
                   >
                     <div
                       className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner"
                       style={{ backgroundColor: t.color }}
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-800">
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         {t.label}
                       </p>
-                      <p className="text-xs text-gray-400">{t.description}</p>
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {t.description}
+                      </p>
                     </div>
                     {theme === t.id && (
                       <CheckCircle
                         size={18}
-                        className="text-[#2952cc] flex-shrink-0"
+                        style={{ color: "var(--color-primary)" }}
+                        className="flex-shrink-0"
                       />
                     )}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+              <div
+                className="mt-6 rounded-xl p-4 flex items-start gap-3 border"
+                style={{
+                  backgroundColor: "var(--color-primary-light)",
+                  borderColor: "var(--color-primary)",
+                }}
+              >
                 <AlertCircle
                   size={16}
-                  className="text-[#2952cc] flex-shrink-0 mt-0.5"
+                  className="flex-shrink-0 mt-0.5"
+                  style={{ color: "var(--color-primary)" }}
                 />
-                <p className="text-xs text-blue-700">
+                <p className="text-xs" style={{ color: "var(--text-primary)" }}>
                   El tema se aplica instantáneamente y se guarda para tus
                   próximas visitas. Cada usuario de tu institución puede elegir
                   su propio tema.
