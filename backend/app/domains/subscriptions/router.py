@@ -6,6 +6,8 @@ from app.core.auth import get_current_user
 from app.core.features import get_active_subscription, require_feature
 from app.domains.users.models import User
 from app.domains.subscriptions.models import Subscription
+from pydantic import BaseModel
+from typing import Optional
 from app.domains.subscriptions.schemas import (
     PlanCreate,
     PlanResponse,
@@ -13,7 +15,7 @@ from app.domains.subscriptions.schemas import (
     SubscriptionResponse,
     TransactionResponse,
     ConfirmTransaction,
-    SubscriptionStatus
+    SubscriptionStatus,
 )
 from app.domains.subscriptions.services import (
     create_plan,
@@ -102,3 +104,31 @@ def change_plan(
             plan_id=data.plan_id, institution_id=current_user.institution_id
         ),
     )
+
+
+class PlanUpdate(BaseModel):
+    price: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+@router.put("/plans/{plan_id}", response_model=PlanResponse)
+def update_plan(
+    plan_id: str,
+    data: PlanUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.domains.subscriptions.models import Plan
+
+    plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
+    if not plan:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Plan no encontrado.")
+    if data.price is not None:
+        plan.price = data.price
+    if data.is_active is not None:
+        plan.is_active = data.is_active
+    db.commit()
+    db.refresh(plan)
+    return plan

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
@@ -8,18 +8,11 @@ import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
 import {
   FileText,
-  LayoutDashboard,
-  Building2,
-  CreditCard,
-  ArrowLeftRight,
-  Settings,
-  LogOut,
   Bell,
   ChevronLeft,
   Plus,
   Edit2,
   Shield,
-  MessageSquare,
   CheckCircle,
   X,
   AlertCircle,
@@ -80,22 +73,63 @@ const EMPTY_FORM = {
   required_fields: [],
 };
 
+// Reemplaza variables Jinja2 con valores de ejemplo para la vista previa
+function renderPreview(html) {
+  return html
+    .replace(/\{\{\s*institucion\.nombre\s*\}\}/g, "Instituto Técnico Ejemplo")
+    .replace(/\{\{\s*institucion\.municipio\s*\}\}/g, "Medellín")
+    .replace(/\{\{\s*institucion\.departamento\s*\}\}/g, "Antioquia")
+    .replace(/\{\{\s*institucion\.licencia\s*\}\}/g, "Resolución 001 de 2024")
+    .replace(/\{\{\s*institucion\.email\s*\}\}/g, "contacto@instituto.edu.co")
+    .replace(/\{\{\s*institucion\.telefono\s*\}\}/g, "+57 300 000 0000")
+    .replace(/\{\{\s*nombre_estudiante\s*\}\}/g, "María García López")
+    .replace(/\{\{\s*documento_estudiante\s*\}\}/g, "1234567890")
+    .replace(/\{\{\s*tipo_documento\s*\}\}/g, "CC")
+    .replace(/\{\{\s*lugar_expedicion\s*\}\}/g, "Medellín")
+    .replace(/\{\{\s*nombre_programa\s*\}\}/g, "Auxiliar de Enfermería")
+    .replace(/\{\{\s*total_horas\s*\}\}/g, "1440")
+    .replace(/\{\{\s*resolucion_programa\s*\}\}/g, "Resolución 002 de 2024")
+    .replace(/\{\{\s*numero_matricula\s*\}\}/g, "001")
+    .replace(/\{\{\s*folio\s*\}\}/g, "01")
+    .replace(/\{\{\s*numero_acta\s*\}\}/g, "005")
+    .replace(/\{\{\s*nombre_director\s*\}\}/g, "Juan Pérez Rodríguez")
+    .replace(/\{\{\s*dia\s*\}\}/g, "15")
+    .replace(/\{\{\s*mes\s*\}\}/g, "junio")
+    .replace(/\{\{\s*anio\s*\}\}/g, "2026")
+    .replace(
+      /\{\{[^}]+\}\}/g,
+      '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 4px;border-radius:3px;font-size:11px">[campo]</span>',
+    )
+    .replace(/\{%[^%]+%\}/g, "");
+}
+
 export default function AdminTemplates() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const textareaRef = useRef(null);
+
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [mode, setMode] = useState(null);
+  const [mode, setMode] = useState(null); // 'view' | 'edit' | 'create'
+  const [viewTab, setViewTab] = useState("preview"); // 'preview' | 'html'
   const [form, setForm] = useState(EMPTY_FORM);
   const [fieldsInput, setFieldsInput] = useState("");
-  const [showSource, setShowSource] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [textareaRef, setTextareaRef] = useState(null);
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+
+  useInactivity({
+    timeout: 30,
+    onWarning: () => setShowInactivity(true),
+    onLogout: () => {
+      setShowInactivity(false);
+      logout();
+      navigate("/");
+    },
+  });
 
   useEffect(() => {
     fetchTemplates();
@@ -114,30 +148,27 @@ export default function AdminTemplates() {
 
   const handleSelect = async (template) => {
     try {
-      // Pedir el detalle completo con el HTML
       const res = await api.get(`/templates/${template.id}`);
-      const fullTemplate = res.data;
-
-      setSelected(fullTemplate);
+      const full = res.data;
+      setSelected(full);
       setForm({
-        document_type: fullTemplate.document_type || "",
-        name: fullTemplate.name || "",
-        description: fullTemplate.description || "",
-        template_html: fullTemplate.template_html || "",
-        required_fields: Array.isArray(fullTemplate.required_fields)
-          ? fullTemplate.required_fields
+        document_type: full.document_type || "",
+        name: full.name || "",
+        description: full.description || "",
+        template_html: full.template_html || "",
+        required_fields: Array.isArray(full.required_fields)
+          ? full.required_fields
           : [],
       });
       setFieldsInput(
-        Array.isArray(fullTemplate.required_fields)
-          ? fullTemplate.required_fields.join(", ")
+        Array.isArray(full.required_fields)
+          ? full.required_fields.join(", ")
           : "",
       );
       setMode("view");
+      setViewTab("preview");
       setError("");
-      setShowSource(false);
     } catch (err) {
-      console.error("Error en handleSelect:", err);
       setError("Error al cargar la plantilla.");
     }
   };
@@ -148,32 +179,32 @@ export default function AdminTemplates() {
     setFieldsInput("");
     setMode("create");
     setError("");
-    setShowSource(false);
   };
 
   const handleFieldsChange = (val) => {
     setFieldsInput(val);
-    const fields = val
-      .split(",")
-      .map((f) => f.trim())
-      .filter(Boolean);
-    setForm((prev) => ({ ...prev, required_fields: fields }));
+    setForm((p) => ({
+      ...p,
+      required_fields: val
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean),
+    }));
   };
 
   const insertVariable = (variable) => {
-    if (!textareaRef) return;
-    const start = textareaRef.selectionStart;
-    const end = textareaRef.selectionEnd;
-    const current = form.template_html;
+    if (!textareaRef.current) return;
+    const el = textareaRef.current;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
     const newVal =
-      current.substring(0, start) + variable + current.substring(end);
-    setForm((prev) => ({ ...prev, template_html: newVal }));
+      form.template_html.substring(0, start) +
+      variable +
+      form.template_html.substring(end);
+    setForm((p) => ({ ...p, template_html: newVal }));
     setTimeout(() => {
-      textareaRef.focus();
-      textareaRef.setSelectionRange(
-        start + variable.length,
-        start + variable.length,
-      );
+      el.focus();
+      el.setSelectionRange(start + variable.length, start + variable.length);
     }, 0);
   };
 
@@ -203,64 +234,60 @@ export default function AdminTemplates() {
   };
 
   const handleCancel = () => {
-    if (selected) {
-      handleSelect(selected);
-    } else {
-      setMode(null);
-    }
+    if (selected) handleSelect(selected);
+    else setMode(null);
     setError("");
   };
-
-  const handleLogout = () => setShowLogout(true);
-  const confirmLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  useInactivity({
-    timeout: 30, // 30 minutos
-    onWarning: () => setShowInactivity(true),
-    onLogout: () => {
-      setShowInactivity(false);
-      logout();
-      navigate("/");
-    },
-  });
 
   const isEditing = mode === "edit" || mode === "create";
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <AdminSidebar onLogout={handleLogout} />
-      {/* Contenido */}
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <AdminSidebar onLogout={() => setShowLogout(true)} />
+
       <main className="ml-56 flex-1 flex flex-col">
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/admin")}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
             <div>
-              <h1 className="text-lg font-semibold text-gray-800">
+              <h1
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Plantillas
               </h1>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 Editor de plantillas reglamentarias
               </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600">
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
                 <Shield size={14} className="text-white" />
               </div>
-              <p className="text-sm font-medium text-gray-800">
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {user?.full_name}
               </p>
             </div>
@@ -268,15 +295,19 @@ export default function AdminTemplates() {
         </header>
 
         <div className="flex-1 p-8 flex gap-6">
-          {/* Lista */}
+          {/* Lista plantillas */}
           <div className="w-72 flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-800">
+              <h2
+                className="font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {templates.length} plantillas
               </h2>
               <button
                 onClick={handleCreate}
-                className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+                style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <Plus size={14} /> Nueva
               </button>
@@ -290,7 +321,10 @@ export default function AdminTemplates() {
 
             <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-220px)]">
               {loading ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
+                <div
+                  className="text-center py-8 text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Cargando...
                 </div>
               ) : (
@@ -298,20 +332,38 @@ export default function AdminTemplates() {
                   <button
                     key={template.id}
                     onClick={() => handleSelect(template)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${
-                      selected?.id === template.id
-                        ? "bg-blue-50 border-[#2952cc]"
-                        : "bg-white border-gray-100 hover:border-gray-200"
-                    }`}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all"
+                    style={{
+                      backgroundColor:
+                        selected?.id === template.id
+                          ? "var(--color-primary-light)"
+                          : "var(--bg-secondary)",
+                      borderColor:
+                        selected?.id === template.id
+                          ? "var(--color-primary)"
+                          : "var(--border-color)",
+                    }}
                   >
-                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FileText size={14} className="text-[#2952cc]" />
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: "var(--color-primary-light)" }}
+                    >
+                      <FileText
+                        size={14}
+                        style={{ color: "var(--color-icon)" }}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">
+                      <p
+                        className="text-xs font-semibold truncate"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         {template.name}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         {template.required_fields.length} campos
                       </p>
                     </div>
@@ -327,28 +379,61 @@ export default function AdminTemplates() {
           {/* Panel editor */}
           <div className="flex-1 min-w-0">
             {!mode && !selected ? (
-              <div className="bg-white rounded-xl border border-gray-100 h-full flex items-center justify-center">
+              <div
+                className="rounded-xl border h-full flex items-center justify-center"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileText size={32} className="text-gray-300" />
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                    style={{ backgroundColor: "var(--bg-primary)" }}
+                  >
+                    <FileText
+                      size={32}
+                      style={{ color: "var(--text-secondary)", opacity: 0.4 }}
+                    />
                   </div>
-                  <p className="text-gray-500 font-medium">
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     Selecciona una plantilla
                   </p>
-                  <p className="text-gray-400 text-sm mt-1">o crea una nueva</p>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    o crea una nueva
+                  </p>
                   <button
                     onClick={handleCreate}
-                    className="mt-4 text-sm text-[#2952cc] font-medium hover:underline"
+                    className="mt-4 text-sm font-medium hover:underline"
+                    style={{ color: "var(--color-primary)" }}
                   >
                     Crear plantilla →
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-100 flex flex-col">
+              <div
+                className="rounded-xl border flex flex-col"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                  <h3 className="font-bold text-gray-900 text-sm">
+                <div
+                  className="flex items-center justify-between p-4 border-b"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
+                  <h3
+                    className="font-bold text-sm"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {mode === "create"
                       ? "Nueva plantilla"
                       : mode === "edit"
@@ -359,7 +444,11 @@ export default function AdminTemplates() {
                     {mode === "view" && (
                       <button
                         onClick={() => setMode("edit")}
-                        className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                        style={{
+                          backgroundColor: "var(--bg-primary)",
+                          color: "var(--text-secondary)",
+                        }}
                       >
                         <Edit2 size={13} /> Editar
                       </button>
@@ -368,14 +457,19 @@ export default function AdminTemplates() {
                       <>
                         <button
                           onClick={handleCancel}
-                          className="flex items-center gap-1.5 text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                          className="flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg font-medium transition-colors"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            color: "var(--text-secondary)",
+                          }}
                         >
                           <X size={13} /> Cancelar
                         </button>
                         <button
                           onClick={handleSave}
                           disabled={saving}
-                          className="flex items-center gap-1.5 text-xs bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white px-4 py-1.5 rounded-lg font-medium transition-colors"
+                          className="flex items-center gap-1.5 text-xs text-white px-4 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
+                          style={{ backgroundColor: "var(--color-primary)" }}
                         >
                           <Save size={13} />{" "}
                           {saving ? "Guardando..." : "Guardar"}
@@ -395,11 +489,20 @@ export default function AdminTemplates() {
                   {/* Metadatos */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Tipo *
                       </label>
                       {mode === "view" ? (
-                        <p className="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
+                        <p
+                          className="text-sm px-3 py-2 rounded-lg"
+                          style={{
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
+                        >
                           {form.document_type}
                         </p>
                       ) : (
@@ -412,7 +515,12 @@ export default function AdminTemplates() {
                             }))
                           }
                           disabled={mode === "edit"}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] bg-white disabled:bg-gray-50 disabled:text-gray-400"
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            backgroundColor: "var(--bg-secondary)",
+                            color: "var(--text-primary)",
+                          }}
                         >
                           <option value="">Selecciona...</option>
                           {DOCUMENT_TYPES.map((t) => (
@@ -424,11 +532,20 @@ export default function AdminTemplates() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Nombre *
                       </label>
                       {mode === "view" ? (
-                        <p className="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
+                        <p
+                          className="text-sm px-3 py-2 rounded-lg"
+                          style={{
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
+                        >
                           {form.name}
                         </p>
                       ) : (
@@ -439,18 +556,32 @@ export default function AdminTemplates() {
                             setForm((p) => ({ ...p, name: e.target.value }))
                           }
                           placeholder="Nombre de la plantilla"
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
                         />
                       )}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    <label
+                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       Descripción
                     </label>
                     {mode === "view" ? (
-                      <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                      <p
+                        className="text-sm px-3 py-2 rounded-lg"
+                        style={{
+                          backgroundColor: "var(--bg-primary)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
                         {form.description || "—"}
                       </p>
                     ) : (
@@ -464,14 +595,22 @@ export default function AdminTemplates() {
                           }))
                         }
                         placeholder="Descripción normativa..."
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                        style={{
+                          borderColor: "var(--border-color)",
+                          backgroundColor: "var(--bg-primary)",
+                          color: "var(--text-primary)",
+                        }}
                       />
                     )}
                   </div>
 
                   {/* Campos requeridos */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    <label
+                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
                       Campos requeridos
                     </label>
                     {mode === "view" ? (
@@ -479,7 +618,11 @@ export default function AdminTemplates() {
                         {form.required_fields.map((f) => (
                           <span
                             key={f}
-                            className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-mono"
+                            className="text-xs px-2 py-1 rounded font-mono"
+                            style={{
+                              backgroundColor: "var(--color-primary-light)",
+                              color: "var(--color-primary)",
+                            }}
                           >
                             {f}
                           </span>
@@ -492,9 +635,17 @@ export default function AdminTemplates() {
                           value={fieldsInput}
                           onChange={(e) => handleFieldsChange(e.target.value)}
                           placeholder="nombre_estudiante, documento_estudiante, fecha..."
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                          className="w-full border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
                         />
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
                           Separados por coma. Deben coincidir exactamente con
                           las variables usadas en el HTML.
                         </p>
@@ -503,7 +654,11 @@ export default function AdminTemplates() {
                             {form.required_fields.map((f) => (
                               <span
                                 key={f}
-                                className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-mono"
+                                className="text-xs px-2 py-1 rounded font-mono"
+                                style={{
+                                  backgroundColor: "var(--color-primary-light)",
+                                  color: "var(--color-primary)",
+                                }}
                               >
                                 {f}
                               </span>
@@ -514,121 +669,239 @@ export default function AdminTemplates() {
                     )}
                   </div>
 
-                  {/* Editor HTML */}
+                  {/* Contenido HTML / Vista previa */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        Contenido HTML *
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {isEditing ? "Contenido HTML *" : "Vista previa"}
                       </label>
-                      {isEditing && (
-                        <div className="flex items-center gap-2">
-                          {/* Insertar variable */}
-                          <select
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                insertVariable(e.target.value);
-                                e.target.value = "";
-                              }
-                            }}
-                            className="text-xs border border-blue-200 rounded px-2 py-1 bg-blue-50 text-blue-700 font-medium"
-                            defaultValue=""
-                          >
-                            <option value="" disabled>
-                              + Insertar variable
-                            </option>
-                            {VARIABLES.map((v) => (
-                              <option key={v.value} value={v.value}>
-                                {v.label}
-                              </option>
-                            ))}
-                          </select>
 
+                      {/* Tabs vista previa / HTML en modo view */}
+                      {mode === "view" && form.template_html && (
+                        <div
+                          className="flex gap-1 p-0.5 rounded-lg"
+                          style={{ backgroundColor: "var(--bg-primary)" }}
+                        >
                           <button
-                            onClick={() => setShowSource(!showSource)}
-                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
-                              showSource
-                                ? "bg-gray-700 text-white"
-                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                            }`}
+                            onClick={() => setViewTab("preview")}
+                            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                            style={{
+                              backgroundColor:
+                                viewTab === "preview"
+                                  ? "var(--bg-secondary)"
+                                  : "transparent",
+                              color:
+                                viewTab === "preview"
+                                  ? "var(--text-primary)"
+                                  : "var(--text-secondary)",
+                            }}
                           >
-                            <Code size={12} />
-                            {showSource ? "Vista previa" : "HTML"}
+                            <Eye size={12} /> Vista previa
+                          </button>
+                          <button
+                            onClick={() => setViewTab("html")}
+                            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                            style={{
+                              backgroundColor:
+                                viewTab === "html"
+                                  ? "var(--bg-secondary)"
+                                  : "transparent",
+                              color:
+                                viewTab === "html"
+                                  ? "var(--text-primary)"
+                                  : "var(--text-secondary)",
+                            }}
+                          >
+                            <Code size={12} /> HTML
                           </button>
                         </div>
                       )}
+
+                      {/* Controles en modo edición */}
+                      {isEditing && (
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              insertVariable(e.target.value);
+                              e.target.value = "";
+                            }
+                          }}
+                          className="text-xs border px-2 py-1 rounded font-medium"
+                          style={{
+                            borderColor: "var(--color-primary)",
+                            backgroundColor: "var(--color-primary-light)",
+                            color: "var(--color-primary)",
+                          }}
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            + Insertar variable
+                          </option>
+                          {VARIABLES.map((v) => (
+                            <option key={v.value} value={v.value}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
 
-                    {mode === "view" ? (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                        <FileText
-                          size={32}
-                          className="text-gray-300 mx-auto mb-3"
-                        />
-                        <p className="text-sm text-gray-500 font-medium">
-                          Vista previa no disponible
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Haz clic en <strong>Editar</strong> para ver y
-                          modificar el HTML. La vista previa en PDF estará
-                          disponible próximamente.
-                        </p>
-                      </div>
-                    ) : showSource ? (
-                      <textarea
-                        ref={(el) => setTextareaRef(el)}
-                        value={form.template_html}
-                        onChange={(e) =>
-                          setForm((p) => ({
-                            ...p,
-                            template_html: e.target.value,
-                          }))
-                        }
-                        rows={16}
-                        placeholder="<!DOCTYPE html><html>..."
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2952cc] resize-none bg-gray-50"
-                      />
-                    ) : (
-                      <div className="border border-gray-200 rounded-lg overflow-hidden">
-                        <div className="bg-blue-50 px-3 py-2 border-b border-blue-100 flex items-center justify-between">
-                          <span className="text-xs text-blue-600 font-medium">
-                            Editor visual — las variables se resaltan en azul
+                    {/* Vista previa renderizada */}
+                    {mode === "view" && viewTab === "preview" && (
+                      <div
+                        className="border rounded-xl overflow-hidden"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <div
+                          className="px-3 py-2 border-b flex items-center justify-between"
+                          style={{
+                            backgroundColor: "var(--color-primary-light)",
+                            borderColor: "var(--border-color)",
+                          }}
+                        >
+                          <span
+                            className="text-xs font-medium"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            Vista previa con datos de ejemplo
                           </span>
-                          <span className="text-xs text-blue-400">
-                            {form.template_html.length} caracteres
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            Las variables reales se completan al generar el
+                            documento
                           </span>
                         </div>
-                        <textarea
-                          ref={(el) => setTextareaRef(el)}
-                          value={form.template_html}
-                          onChange={(e) =>
-                            setForm((p) => ({
-                              ...p,
-                              template_html: e.target.value,
-                            }))
-                          }
-                          rows={16}
-                          placeholder="Escribe o pega el HTML aquí. Usa el menú 'Insertar variable' para agregar variables Jinja2..."
-                          className="w-full px-4 py-3 text-sm focus:outline-none resize-none"
+                        <iframe
+                          srcDoc={renderPreview(form.template_html)}
+                          className="w-full bg-white"
+                          style={{ height: "500px", border: "none" }}
+                          title="Vista previa plantilla"
+                          sandbox="allow-same-origin"
                         />
                       </div>
                     )}
 
+                    {/* HTML fuente en modo view */}
+                    {mode === "view" && viewTab === "html" && (
+                      <textarea
+                        readOnly
+                        value={form.template_html}
+                        rows={16}
+                        className="w-full border rounded-lg px-4 py-3 text-xs font-mono resize-none"
+                        style={{
+                          borderColor: "var(--border-color)",
+                          backgroundColor: "var(--bg-primary)",
+                          color: "var(--text-primary)",
+                        }}
+                      />
+                    )}
+
+                    {/* Editor en modo edición */}
                     {isEditing && (
-                      <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        <p className="text-xs text-blue-700 font-medium mb-1">
-                          Variables institucionales disponibles automáticamente:
-                        </p>
-                        <p className="text-xs font-mono text-blue-600 leading-5">
-                          {"{{ institucion.nombre }}"} ·{" "}
-                          {"{{ institucion.municipio }}"} ·{" "}
-                          {"{{ institucion.departamento }}"} ·{" "}
-                          {"{{ institucion.licencia }}"}
-                        </p>
-                        <p className="text-xs text-blue-400 mt-1">
-                          Próximamente: {"{{ institucion.logo_url }}"} ·{" "}
-                          {"{{ institucion.firma_url }}"}
-                        </p>
-                      </div>
+                      <>
+                        <div
+                          className="border rounded-xl overflow-hidden"
+                          style={{ borderColor: "var(--border-color)" }}
+                        >
+                          <div
+                            className="px-3 py-2 border-b flex items-center justify-between"
+                            style={{
+                              backgroundColor: "var(--bg-primary)",
+                              borderColor: "var(--border-color)",
+                            }}
+                          >
+                            <span
+                              className="text-xs font-medium"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              Editor HTML
+                            </span>
+                            <span
+                              className="text-xs"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {form.template_html.length} caracteres
+                            </span>
+                          </div>
+                          <textarea
+                            ref={textareaRef}
+                            value={form.template_html}
+                            onChange={(e) =>
+                              setForm((p) => ({
+                                ...p,
+                                template_html: e.target.value,
+                              }))
+                            }
+                            rows={16}
+                            placeholder="<!DOCTYPE html><html>..."
+                            className="w-full px-4 py-3 text-xs font-mono focus:outline-none resize-none"
+                            style={{
+                              backgroundColor: "var(--bg-secondary)",
+                              color: "var(--text-primary)",
+                            }}
+                          />
+                        </div>
+
+                        {/* Vista previa en tiempo real durante edición */}
+                        {form.template_html && (
+                          <div
+                            className="mt-4 border rounded-xl overflow-hidden"
+                            style={{ borderColor: "var(--border-color)" }}
+                          >
+                            <div
+                              className="px-3 py-2 border-b"
+                              style={{
+                                backgroundColor: "var(--color-primary-light)",
+                                borderColor: "var(--border-color)",
+                              }}
+                            >
+                              <span
+                                className="text-xs font-medium"
+                                style={{ color: "var(--color-primary)" }}
+                              >
+                                Vista previa en tiempo real
+                              </span>
+                            </div>
+                            <iframe
+                              srcDoc={renderPreview(form.template_html)}
+                              className="w-full bg-white"
+                              style={{ height: "300px", border: "none" }}
+                              title="Vista previa"
+                              sandbox="allow-same-origin"
+                            />
+                          </div>
+                        )}
+
+                        <div
+                          className="mt-2 rounded-xl p-3 border"
+                          style={{
+                            backgroundColor: "var(--color-primary-light)",
+                            borderColor: "var(--color-primary)",
+                          }}
+                        >
+                          <p
+                            className="text-xs font-medium mb-1"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            Variables institucionales disponibles
+                            automáticamente:
+                          </p>
+                          <p
+                            className="text-xs font-mono leading-5"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            {"{{ institucion.nombre }}"} ·{" "}
+                            {"{{ institucion.municipio }}"} ·{" "}
+                            {"{{ institucion.departamento }}"} ·{" "}
+                            {"{{ institucion.licencia }}"}
+                          </p>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -640,11 +913,13 @@ export default function AdminTemplates() {
 
       {showLogout && (
         <LogoutModal
-          onConfirm={confirmLogout}
+          onConfirm={() => {
+            logout();
+            navigate("/");
+          }}
           onCancel={() => setShowLogout(false)}
         />
       )}
-
       {showInactivity && (
         <InactivityModal
           onContinue={() => setShowInactivity(false)}

@@ -7,38 +7,31 @@ import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
 import {
-  LayoutDashboard,
   Building2,
-  FileText,
   CreditCard,
-  ArrowLeftRight,
-  Settings,
-  LogOut,
   Bell,
   TrendingUp,
-  Users,
   CheckCircle,
   Clock,
   XCircle,
   ChevronRight,
   Shield,
   AlertCircle,
+  ArrowRight,
 } from "lucide-react";
 
 const TRANSACTION_STATUS = {
-  pending: {
-    label: "Pendiente",
-    style: "bg-yellow-100 text-yellow-700",
-    icon: Clock,
-  },
+  pending: { label: "Pendiente", bg: "#fef3c7", color: "#b45309", icon: Clock },
   confirmed: {
     label: "Confirmado",
-    style: "bg-green-100 text-green-700",
+    bg: "#f0fdf4",
+    color: "#16a34a",
     icon: CheckCircle,
   },
   rejected: {
     label: "Rechazado",
-    style: "bg-red-100 text-red-600",
+    bg: "#fee2e2",
+    color: "#dc2626",
     icon: XCircle,
   },
 };
@@ -73,14 +66,8 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  const handleLogout = () => setShowLogout(true);
-  const confirmLogout = () => {
-    logout();
-    navigate("/");
-  };
-
   useInactivity({
-    timeout: 30, // 30 minutos
+    timeout: 30,
     onWarning: () => setShowInactivity(true),
     onLogout: () => {
       setShowInactivity(false);
@@ -109,23 +96,37 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
-      <AdminSidebar onLogout={handleLogout} />
-      {/* Contenido principal */}
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <AdminSidebar onLogout={() => setShowLogout(true)} />
+
       <main className="ml-56 flex-1 flex flex-col">
         {/* Topbar */}
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <header
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+          }}
+        >
           <div>
-            <h1 className="text-lg font-semibold text-gray-800">
+            <h1
+              className="text-lg font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
               Panel de Administración
             </h1>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
               EduDynamis — Vista global de la plataforma
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-gray-400 hover:text-gray-600">
+            <button
+              className="relative p-2 transition-colors"
+              style={{ color: "var(--text-secondary)" }}
+            >
               <Bell size={20} />
               {pendingTransactions.length > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
@@ -136,10 +137,13 @@ export default function AdminDashboard() {
                 <Shield size={14} className="text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {user?.full_name}
                 </p>
-                <p className="text-xs text-yellow-600 font-medium">
+                <p className="text-xs font-medium text-yellow-600">
                   Superadmin
                 </p>
               </div>
@@ -152,25 +156,30 @@ export default function AdminDashboard() {
           <div
             className="rounded-2xl p-8 mb-8 flex items-center justify-between"
             style={{
-              background: "linear-gradient(to right, #1a2b4a, #2952cc)",
+              background:
+                "linear-gradient(to right, var(--color-banner-from), var(--color-banner-to))",
             }}
           >
             <div>
               <h2 className="text-2xl font-bold text-white mb-2">
                 Bienvenido, {user?.full_name?.split(" ")[0]}
               </h2>
-              <p className="text-blue-200">
+              <p className="text-white/80">
                 Tienes{" "}
                 <strong className="text-white">
                   {pendingTransactions.length}
                 </strong>{" "}
-                transacciones pendientes de confirmación.
+                {pendingTransactions.length === 1
+                  ? "transacción pendiente"
+                  : "transacciones pendientes"}{" "}
+                de confirmación.
               </p>
             </div>
             {pendingTransactions.length > 0 && (
               <button
                 onClick={() => navigate("/admin/transacciones")}
-                className="bg-white text-[#1a2b4a] font-semibold px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                className="bg-white font-semibold px-6 py-3 rounded-lg flex items-center gap-2 hover:opacity-90 transition-colors"
+                style={{ color: "var(--color-primary)" }}
               >
                 <AlertCircle size={18} />
                 Revisar ahora
@@ -180,80 +189,103 @@ export default function AdminDashboard() {
 
           {/* Métricas */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-xl p-5 border border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-400 uppercase tracking-wide">
-                  Instituciones
-                </span>
-                <Building2 size={14} className="text-blue-500" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {institutions.length}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Registradas</p>
-            </div>
-
-            <div className="bg-white rounded-xl p-5 border border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-400 uppercase tracking-wide">
-                  Planes
-                </span>
-                <CreditCard size={14} className="text-blue-500" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{plans.length}</p>
-              <p className="text-xs text-gray-400 mt-1">Disponibles</p>
-            </div>
-
-            <div
-              className={`bg-white rounded-xl p-5 border ${pendingTransactions.length > 0 ? "border-yellow-200" : "border-gray-100"}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-400 uppercase tracking-wide">
-                  Transacciones
-                </span>
-                {pendingTransactions.length > 0 && (
-                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
-                    Alerta
+            {[
+              {
+                label: "Instituciones",
+                value: institutions.length,
+                sub: "Registradas",
+                icon: Building2,
+                iconColor: "var(--color-primary)",
+              },
+              {
+                label: "Planes",
+                value: plans.length,
+                sub: "Disponibles",
+                icon: CreditCard,
+                iconColor: "var(--color-primary)",
+              },
+              {
+                label: "Pendientes",
+                value: pendingTransactions.length,
+                sub: "Sin confirmar",
+                icon: Clock,
+                iconColor:
+                  pendingTransactions.length > 0
+                    ? "#f59e0b"
+                    : "var(--color-icon)",
+                alert: pendingTransactions.length > 0,
+              },
+              {
+                label: "Confirmadas",
+                value: confirmedTransactions.length,
+                sub: "Este período",
+                icon: TrendingUp,
+                iconColor: "#16a34a",
+              },
+            ].map(({ label, value, sub, icon: Icon, iconColor, alert }) => (
+              <div
+                key={label}
+                className="rounded-xl p-5 border"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: alert ? "#fbbf24" : "var(--border-color)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span
+                    className="text-xs uppercase tracking-wide"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {label}
                   </span>
-                )}
+                  <Icon size={14} style={{ color: iconColor }} />
+                </div>
+                <p
+                  className="text-3xl font-bold"
+                  style={{ color: alert ? "#f59e0b" : "var(--text-primary)" }}
+                >
+                  {value}
+                </p>
+                <p
+                  className="text-xs mt-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {sub}
+                </p>
               </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {pendingTransactions.length}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Pendientes</p>
-            </div>
-
-            <div className="bg-white rounded-xl p-5 border border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-400 uppercase tracking-wide">
-                  Confirmadas
-                </span>
-                <TrendingUp size={14} className="text-green-500" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {confirmedTransactions.length}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Este período</p>
-            </div>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Transacciones pendientes */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-6">
+            <div
+              className="lg:col-span-2 rounded-xl border p-6"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-gray-800">
-                  Transacciones Pendientes
+                <h3
+                  className="font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Transacciones pendientes
                 </h3>
                 <button
                   onClick={() => navigate("/admin/transacciones")}
-                  className="text-sm text-[#2952cc] hover:underline"
+                  className="text-sm flex items-center gap-1 hover:underline"
+                  style={{ color: "var(--color-primary)" }}
                 >
-                  Ver todas
+                  Ver todas <ArrowRight size={14} />
                 </button>
               </div>
 
               {loading ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
+                <div
+                  className="text-center py-8 text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Cargando...
                 </div>
               ) : pendingTransactions.length === 0 ? (
@@ -261,8 +293,16 @@ export default function AdminDashboard() {
                   <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <CheckCircle size={32} className="text-green-400" />
                   </div>
-                  <p className="text-gray-500 font-medium">Todo al día</p>
-                  <p className="text-gray-400 text-sm mt-1">
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Todo al día
+                  </p>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     No hay transacciones pendientes
                   </p>
                 </div>
@@ -271,27 +311,47 @@ export default function AdminDashboard() {
                   {pendingTransactions.slice(0, 5).map((transaction) => (
                     <div
                       key={transaction.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
+                      className="flex items-center justify-between p-4 rounded-xl"
+                      style={{ backgroundColor: "var(--bg-primary)" }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: "#fef3c7" }}
+                        >
                           <Clock size={16} className="text-yellow-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-800">
+                          <p
+                            className="text-sm font-medium"
+                            style={{ color: "var(--text-primary)" }}
+                          >
                             $
                             {(transaction.amount / 100).toLocaleString("es-CO")}{" "}
                             COP
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
                             {new Date(
                               transaction.created_at,
-                            ).toLocaleDateString("es-CO")}
+                            ).toLocaleDateString("es-CO", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">
+                        <span
+                          className="text-xs px-2 py-1 rounded-full font-medium"
+                          style={{
+                            backgroundColor: "#fef3c7",
+                            color: "#b45309",
+                          }}
+                        >
                           Pendiente
                         </span>
                         <button
@@ -300,8 +360,7 @@ export default function AdminDashboard() {
                           }
                           className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
                         >
-                          <CheckCircle size={12} />
-                          Confirmar
+                          <CheckCircle size={12} /> Confirmar
                         </button>
                       </div>
                     </div>
@@ -311,42 +370,81 @@ export default function AdminDashboard() {
             </div>
 
             {/* Instituciones recientes */}
-            <div className="bg-white rounded-xl border border-gray-100 p-6">
+            <div
+              className="rounded-xl border p-6"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+              }}
+            >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-gray-800">Instituciones</h3>
+                <h3
+                  className="font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Instituciones
+                </h3>
                 <button
                   onClick={() => navigate("/admin/instituciones")}
-                  className="text-sm text-[#2952cc] hover:underline"
+                  className="text-sm hover:underline"
+                  style={{ color: "var(--color-primary)" }}
                 >
                   Ver todas
                 </button>
               </div>
 
               {loading ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
+                <div
+                  className="text-center py-8 text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Cargando...
                 </div>
               ) : institutions.length === 0 ? (
                 <div className="text-center py-8">
-                  <Building2 size={32} className="text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-400 text-sm">Sin instituciones aún</p>
+                  <Building2
+                    size={32}
+                    className="mx-auto mb-3"
+                    style={{ color: "var(--text-secondary)", opacity: 0.4 }}
+                  />
+                  <p
+                    className="text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Sin instituciones aún
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {institutions.slice(0, 5).map((inst) => (
                     <div
                       key={inst.id}
-                      className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
+                      className="flex items-center justify-between py-2.5 border-b last:border-0"
+                      style={{ borderColor: "var(--border-color)" }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Building2 size={14} className="text-[#2952cc]" />
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--color-primary-light)",
+                          }}
+                        >
+                          <Building2
+                            size={14}
+                            style={{ color: "var(--color-icon)" }}
+                          />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-800 truncate max-w-32">
+                          <p
+                            className="text-sm font-medium truncate max-w-32"
+                            style={{ color: "var(--text-primary)" }}
+                          >
                             {inst.name}
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
                             {inst.municipality}
                           </p>
                         </div>
@@ -361,7 +459,17 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => navigate("/admin/instituciones")}
-                className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm transition-colors border"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-secondary)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "var(--bg-primary)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
               >
                 Ver todas las instituciones
                 <ChevronRight size={14} />
@@ -373,7 +481,10 @@ export default function AdminDashboard() {
 
       {showLogout && (
         <LogoutModal
-          onConfirm={confirmLogout}
+          onConfirm={() => {
+            logout();
+            navigate("/");
+          }}
           onCancel={() => setShowLogout(false)}
         />
       )}

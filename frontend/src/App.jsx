@@ -24,6 +24,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import Checkout from "./pages/Checkout";
+import AdminPlans from "./pages/AdminPlans";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -162,6 +163,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Checkout />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/planes"
+        element={
+          <PrivateRoute>
+            <AdminPlans />
           </PrivateRoute>
         }
       />
