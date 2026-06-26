@@ -25,9 +25,10 @@ from app.domains.institutions.services import create_institution
 from pydantic import BaseModel, EmailStr
 from app.domains.users.models import User
 from app.domains.users.models import PasswordResetToken
-from app.core.email import send_password_reset_email
 from datetime import datetime, timedelta
 from app.domains.users.models import LoginAttempt
+from app.core.email import send_password_reset_email, send_welcome_email
+from app.config import settings
 
 router = APIRouter(tags=["Usuarios"])
 
@@ -60,9 +61,20 @@ def register_institution_and_representative(
     )
     user = create_user(db, user_data)
 
+    # Email de bienvenida (LAU-22) — en background para no bloquear el registro
+    try:
+        send_welcome_email(
+            to_email="nightshadelust1876@gmail.com",  # Temporal, arreglar cuando se consiga dominio
+            full_name=user.full_name,
+            institution_name=institution.name,
+        )
+    except Exception as e:
+        print(f"[LAU-22] Error enviando email de bienvenida: {e}")
+
     # Generar token directamente sin pasar por login
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
+
 
 @router.post("/users/", response_model=UserResponse, status_code=201)
 def register_user(
@@ -124,7 +136,7 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     db.refresh(reset_token)
 
     # Enviar email
-    reset_url = f"http://localhost:5173/reset-password?token={reset_token.token}"
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
     send_password_reset_email(user.email, reset_url, user.full_name)
 
     return {"message": "Si el correo existe, recibirás un enlace de recuperación."}
@@ -164,6 +176,7 @@ MAX_ATTEMPTS = 3
 BLOCK_MINUTES = 20
 
 limiter = Limiter(key_func=get_remote_address)
+
 
 @router.post("/auth/login", response_model=TokenResponse)
 @limiter.limit("5/minute")

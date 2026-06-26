@@ -17,6 +17,8 @@ import {
   Bell,
   BookOpen,
   Award,
+  TrendingUp,
+  Crown,
 } from "lucide-react";
 
 const FIELD_LABELS = {
@@ -175,6 +177,7 @@ export default function DocumentNew() {
   const [error, setError] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [limitModal, setLimitModal] = useState(null);
   const [activeChapter, setActiveChapter] = useState(
     Object.keys(CHAPTER_GROUPS)[0],
   );
@@ -226,7 +229,12 @@ export default function DocumentNew() {
       setCreatedDoc(res.data);
       setStep(3);
     } catch (err) {
-      setError(err.response?.data?.detail || "Error al crear el documento.");
+      const detail = err.response?.data?.detail;
+      if (err.response?.status === 403 && detail?.limit_reached) {
+        setLimitModal({ limit: detail.limit, used: detail.used });
+      } else {
+        setError(detail?.message || detail || "Error al crear el documento.");
+      }
     } finally {
       setLoading(false);
     }
@@ -735,6 +743,86 @@ export default function DocumentNew() {
             navigate("/");
           }}
         />
+      )}
+      {limitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div
+            className="rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            {/* Ícono */}
+            <div className="flex justify-center mb-4">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary-light)" }}
+              >
+                <TrendingUp
+                  size={26}
+                  style={{ color: "var(--color-primary)" }}
+                />
+              </div>
+            </div>
+
+            {/* Título */}
+            <h3
+              className="text-lg font-bold text-center mb-1"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Límite del plan alcanzado
+            </h3>
+            <p
+              className="text-sm text-center mb-5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Has usado{" "}
+              <span
+                className="font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {limitModal.used} de {limitModal.limit} documentos
+              </span>{" "}
+              permitidos este mes.
+            </p>
+
+            {/* Barra de progreso */}
+            <div
+              className="w-full rounded-full h-2 mb-5"
+              style={{ backgroundColor: "var(--bg-primary)" }}
+            >
+              <div
+                className="h-2 rounded-full transition-all"
+                style={{
+                  width: "100%",
+                  backgroundColor: "#dc2626",
+                }}
+              />
+            </div>
+
+            {/* Botones */}
+            <button
+              onClick={() => {
+                setLimitModal(null);
+                navigate("/suscripcion");
+              }}
+              className="w-full py-2.5 text-sm font-semibold text-white rounded-lg mb-2 flex items-center justify-center gap-2"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            >
+              <Crown size={15} />
+              Mejorar mi plan
+            </button>
+            <button
+              onClick={() => setLimitModal(null)}
+              className="w-full py-2.5 text-sm font-medium rounded-lg border"
+              style={{
+                borderColor: "var(--border-color)",
+                color: "var(--text-secondary)",
+                backgroundColor: "var(--bg-primary)",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

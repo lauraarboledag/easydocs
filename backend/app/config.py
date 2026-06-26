@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
+    FRONTEND_URL: str = "http://localhost:5173"
+    
 
     class Config:
         env_file = ".env"

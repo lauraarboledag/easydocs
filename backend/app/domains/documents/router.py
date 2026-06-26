@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database import get_db
 from app.core.auth import get_current_user
 from app.core.features import require_superadmin
 from app.domains.users.models import User
-from app.domains.documents.models import DocumentTemplate
+from app.domains.subscriptions.models import Subscription, Plan
+from app.domains.documents.models import DocumentTemplate, Document
+from datetime import datetime
 from app.domains.documents.schemas import (
     DocumentTemplateCreate,
     DocumentTemplateResponse,
@@ -72,6 +74,46 @@ def new_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Obtener suscripción activa y su plan
+    subscription = db.execute(
+        select(Subscription).where(
+            Subscription.institution_id == current_user.institution_id,
+            Subscription.is_active == True,
+        )
+    ).scalar_one_or_none()
+
+    if subscription:
+        plan = db.execute(
+            select(Plan).where(Plan.id == subscription.plan_id)
+        ).scalar_one_or_none()
+
+        if plan:
+            limite = plan.features.get("documentos_por_mes")
+
+            # None = ilimitado (enterprise)
+            if limite is not None:
+                # Contar documentos del mes actual
+                inicio_mes = datetime.utcnow().replace(
+                    day=1, hour=0, minute=0, second=0, microsecond=0
+                )
+                total_mes = db.execute(
+                    select(func.count()).where(
+                        Document.institution_id == current_user.institution_id,
+                        Document.created_at >= inicio_mes,
+                    )
+                ).scalar()
+
+                if total_mes >= limite:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "message": f"Alcanzaste el límite de {limite} documentos por mes de tu plan.",
+                            "limit_reached": True,
+                            "limit": limite,
+                            "used": total_mes,
+                        },
+                    )
+
     return create_document(db, data, current_user.institution_id, current_user.id)
 
 
@@ -105,3 +147,23 @@ def cancel(
     current_user: User = Depends(get_current_user),
 ):
     return cancel_document(db, document_id, current_user.institution_id)
+
+
+@router.delete("/documents/{document_id}", status_code=204)
+def delete_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.domains.documents.models import Document
+
+    doc = db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.institution_id == current_user.institution_id,
+        )
+    ).scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+    db.delete(doc)
+    db.commit()

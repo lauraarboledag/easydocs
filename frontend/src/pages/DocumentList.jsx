@@ -19,6 +19,7 @@ import {
   Clock,
   FilePen,
   Bell,
+  Trash2,
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -57,6 +58,8 @@ export default function DocumentList() {
   const [downloading, setDownloading] = useState(null);
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -117,6 +120,20 @@ export default function DocumentList() {
       );
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/documents/${deleteTarget.id}`);
+      setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -499,6 +516,29 @@ export default function DocumentList() {
                             <XCircle size={16} />
                           </button>
                         )}
+                        <button
+                          onClick={() =>
+                            setDeleteTarget({
+                              id: doc.id,
+                              name: getTemplateName(doc.template_id),
+                            })
+                          }
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: "var(--text-secondary)" }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = "#dc2626";
+                            e.currentTarget.style.backgroundColor = "#fee2e2";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color =
+                              "var(--text-secondary)";
+                            e.currentTarget.style.backgroundColor =
+                              "transparent";
+                          }}
+                          title="Eliminar documento"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   );
@@ -528,6 +568,72 @@ export default function DocumentList() {
             navigate("/");
           }}
         />
+      )}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div
+            className="rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "#fee2e2" }}
+              >
+                <Trash2 size={18} style={{ color: "#dc2626" }} />
+              </div>
+              <div>
+                <p
+                  className="font-semibold text-sm"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Eliminar documento
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Esta acción no se puede deshacer
+                </p>
+              </div>
+            </div>
+            <p
+              className="text-sm mb-5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              ¿Deseas eliminar permanentemente{" "}
+              <span
+                className="font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {deleteTarget.name}
+              </span>
+              ?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-primary)",
+                  backgroundColor: "var(--bg-primary)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-50"
+                style={{ backgroundColor: "#dc2626" }}
+              >
+                {deleting ? "Eliminando..." : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

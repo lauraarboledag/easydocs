@@ -84,7 +84,7 @@ export default function ResetPassword() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <img
-            src="/logo.png"
+            src="/logo_easydocs_azul.png"
             alt="EasyDocs"
             className="h-16 w-auto object-contain mx-auto mb-6"
           />
