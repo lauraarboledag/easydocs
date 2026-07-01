@@ -46,6 +46,7 @@ export default function AdminTransactions() {
   const [success, setSuccess] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchTransactions();
@@ -66,7 +67,7 @@ export default function AdminTransactions() {
       const res = await api.get("/transactions/");
       setTransactions(res.data);
     } catch (err) {
-      console.error(err);
+      setError("Error cargando las transacciones. Recarga la página.");
     } finally {
       setLoading(false);
     }
@@ -82,7 +83,7 @@ export default function AdminTransactions() {
       setSuccess("Transacción confirmada exitosamente.");
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      console.error(err);
+      setError("Error confirmando la transacción. Intenta de nuevo.")
     } finally {
       setProcessing(null);
     }

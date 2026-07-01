@@ -53,8 +53,6 @@ export default function Login() {
       login(access_token, userData);
       navigate(userData?.role === "superadmin" ? "/admin" : "/dashboard");
     } catch (err) {
-      console.log("Status:", err.response?.status);
-      console.log("Detail:", err.response?.data?.detail);
       const detail = err.response?.data?.detail;
       if (typeof detail === "object" && detail !== null) {
         if (detail.blocked) {

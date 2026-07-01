@@ -20,6 +20,242 @@ import {
   Shield,
 } from "lucide-react";
 
+function InstitutionRow({ inst, isSelected, onSelect }) {
+  return (
+    <div
+      key={inst.id}
+      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors cursor-pointer"
+      style={{
+        borderColor: "var(--border-color)",
+        backgroundColor: isSelected
+          ? "var(--color-primary-light)"
+          : "transparent",
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected)
+          e.currentTarget.style.backgroundColor = "var(--bg-primary)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
+      }}
+      onClick={() => onSelect(inst)}
+    >
+      <div className="col-span-4 flex items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "var(--color-primary-light)" }}
+        >
+          <Building2 size={16} style={{ color: "var(--color-icon)" }} />
+        </div>
+        <div>
+          <p
+            className="text-sm font-medium truncate max-w-40"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {inst.name}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            {inst.education_level?.split(" ").slice(0, 2).join(" ")}...
+          </p>
+        </div>
+      </div>
+      <div className="col-span-3">
+        <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+          {inst.municipality}
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          {inst.department}
+        </p>
+      </div>
+      <div className="col-span-2">
+        <p
+          className="text-xs font-mono"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {inst.dane_code}
+        </p>
+      </div>
+      <div className="col-span-2">
+        <span
+          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+          style={{
+            backgroundColor: inst.is_active ? "#f0fdf4" : "#fee2e2",
+            color: inst.is_active ? "#16a34a" : "#dc2626",
+          }}
+        >
+          {inst.is_active ? (
+            <>
+              <CheckCircle size={11} /> Activa
+            </>
+          ) : (
+            <>
+              <XCircle size={11} /> Inactiva
+            </>
+          )}
+        </span>
+      </div>
+      <div className="col-span-1">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(inst);
+          }}
+          className="text-xs font-medium hover:underline"
+          style={{ color: "var(--color-primary)" }}
+        >
+          Detalles
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InstitutionDetailPanel({ selected, onClose }) {
+  const fields = [
+    {
+      icon: MapPin,
+      label: "Ubicación",
+      value: `${selected.municipality}, ${selected.department}`,
+      sub: selected.address,
+    },
+    { icon: Hash, label: "Código DANE", value: selected.dane_code, mono: true },
+    selected.license_number && {
+      icon: Shield,
+      label: "Licencia",
+      value: selected.license_number,
+    },
+    selected.phone && { icon: Phone, label: "Teléfono", value: selected.phone },
+    selected.email && {
+      icon: Mail,
+      label: "Correo",
+      value: selected.email,
+      breakAll: true,
+    },
+  ].filter(Boolean);
+
+  const badges = [
+    {
+      label: "Estado",
+      value: selected.is_active ? "Activa" : "Inactiva",
+      bg: selected.is_active ? "#f0fdf4" : "#fee2e2",
+      color: selected.is_active ? "#16a34a" : "#dc2626",
+    },
+    {
+      label: "Verificada",
+      value: selected.is_verified ? "Sí" : "Pendiente",
+      bg: selected.is_verified
+        ? "var(--color-primary-light)"
+        : "var(--bg-primary)",
+      color: selected.is_verified
+        ? "var(--color-primary)"
+        : "var(--text-secondary)",
+    },
+  ];
+
+  return (
+    <div className="w-80 flex-shrink-0">
+      <div
+        className="rounded-xl border p-6 sticky top-24"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--border-color)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3
+            className="font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Detalle
+          </h3>
+          <button onClick={onClose} style={{ color: "var(--text-secondary)" }}>
+            <XCircle size={16} />
+          </button>
+        </div>
+
+        <div
+          className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+          style={{ backgroundColor: "var(--color-primary-light)" }}
+        >
+          <Building2 size={24} style={{ color: "var(--color-icon)" }} />
+        </div>
+
+        <h4 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+          {selected.name}
+        </h4>
+        <p className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>
+          {selected.education_level}
+        </p>
+
+        <div className="space-y-3">
+          {fields.map(({ icon: Icon, label, value, sub, mono, breakAll }) => (
+            <div key={label} className="flex items-start gap-3">
+              <Icon
+                size={14}
+                className="flex-shrink-0 mt-0.5"
+                style={{ color: "var(--text-secondary)" }}
+              />
+              <div>
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {label}
+                </p>
+                <p
+                  className={`text-sm ${mono ? "font-mono" : ""} ${breakAll ? "break-all" : ""}`}
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {value}
+                </p>
+                {sub && (
+                  <p
+                    className="text-xs"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {sub}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="mt-5 pt-5 border-t space-y-2"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          {badges.map(({ label, value, bg, color }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span
+                className="text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {label}
+              </span>
+              <span
+                className="text-xs font-medium px-2 py-1 rounded-full"
+                style={{ backgroundColor: bg, color }}
+              >
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>
+          Registrada el{" "}
+          {new Date(selected.created_at).toLocaleDateString("es-CO", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminInstitutions() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -31,10 +267,17 @@ export default function AdminInstitutions() {
   const [showInactivity, setShowInactivity] = useState(false);
 
   useEffect(() => {
-    api.get("/institutions/").then((res) => {
-      setInstitutions(res.data);
-      setLoading(false);
-    });
+    const fetchInstitutions = async () => {
+      try {
+        const res = await api.get("/institutions/");
+        setInstitutions(res.data);
+      } catch {
+        // silencioso — sin datos críticos que mostrar
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInstitutions();
   }, []);
 
   useInactivity({
@@ -197,114 +440,12 @@ export default function AdminInstitutions() {
                     <span className="col-span-1">Ver</span>
                   </div>
                   {filtered.map((inst) => (
-                    <div
+                    <InstitutionRow
                       key={inst.id}
-                      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors cursor-pointer"
-                      style={{
-                        borderColor: "var(--border-color)",
-                        backgroundColor:
-                          selected?.id === inst.id
-                            ? "var(--color-primary-light)"
-                            : "transparent",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (selected?.id !== inst.id)
-                          e.currentTarget.style.backgroundColor =
-                            "var(--bg-primary)";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (selected?.id !== inst.id)
-                          e.currentTarget.style.backgroundColor = "transparent";
-                      }}
-                      onClick={() => setSelected(inst)}
-                    >
-                      <div className="col-span-4 flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{
-                            backgroundColor: "var(--color-primary-light)",
-                          }}
-                        >
-                          <Building2
-                            size={16}
-                            style={{ color: "var(--color-icon)" }}
-                          />
-                        </div>
-                        <div>
-                          <p
-                            className="text-sm font-medium truncate max-w-40"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {inst.name}
-                          </p>
-                          <p
-                            className="text-xs"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            {inst.education_level
-                              ?.split(" ")
-                              .slice(0, 2)
-                              .join(" ")}
-                            ...
-                          </p>
-                        </div>
-                      </div>
-                      <div className="col-span-3">
-                        <p
-                          className="text-sm"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {inst.municipality}
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {inst.department}
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <p
-                          className="text-xs font-mono"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {inst.dane_code}
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <span
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
-                          style={{
-                            backgroundColor: inst.is_active
-                              ? "#f0fdf4"
-                              : "#fee2e2",
-                            color: inst.is_active ? "#16a34a" : "#dc2626",
-                          }}
-                        >
-                          {inst.is_active ? (
-                            <>
-                              <CheckCircle size={11} /> Activa
-                            </>
-                          ) : (
-                            <>
-                              <XCircle size={11} /> Inactiva
-                            </>
-                          )}
-                        </span>
-                      </div>
-                      <div className="col-span-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelected(inst);
-                          }}
-                          className="text-xs font-medium hover:underline"
-                          style={{ color: "var(--color-primary)" }}
-                        >
-                          Detalles
-                        </button>
-                      </div>
-                    </div>
+                      inst={inst}
+                      isSelected={selected?.id === inst.id}
+                      onSelect={setSelected}
+                    />
                   ))}
                 </>
               )}
@@ -312,176 +453,15 @@ export default function AdminInstitutions() {
           </div>
 
           {/* Panel detalle */}
+
           {selected && (
-            <div className="w-80 flex-shrink-0">
-              <div
-                className="rounded-xl border p-6 sticky top-24"
-                style={{
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: "var(--border-color)",
-                }}
-              >
-                <div className="flex items-center justify-between mb-5">
-                  <h3
-                    className="font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Detalle
-                  </h3>
-                  <button
-                    onClick={() => setSelected(null)}
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    <XCircle size={16} />
-                  </button>
-                </div>
-
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "var(--color-primary-light)" }}
-                >
-                  <Building2 size={24} style={{ color: "var(--color-icon)" }} />
-                </div>
-
-                <h4
-                  className="font-bold mb-1"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {selected.name}
-                </h4>
-                <p
-                  className="text-xs mb-5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {selected.education_level}
-                </p>
-
-                <div className="space-y-3">
-                  {[
-                    {
-                      icon: MapPin,
-                      label: "Ubicación",
-                      value: `${selected.municipality}, ${selected.department}`,
-                      sub: selected.address,
-                    },
-                    {
-                      icon: Hash,
-                      label: "Código DANE",
-                      value: selected.dane_code,
-                      mono: true,
-                    },
-                    selected.license_number && {
-                      icon: Shield,
-                      label: "Licencia",
-                      value: selected.license_number,
-                    },
-                    selected.phone && {
-                      icon: Phone,
-                      label: "Teléfono",
-                      value: selected.phone,
-                    },
-                    selected.email && {
-                      icon: Mail,
-                      label: "Correo",
-                      value: selected.email,
-                      breakAll: true,
-                    },
-                  ]
-                    .filter(Boolean)
-                    .map(
-                      ({ icon: Icon, label, value, sub, mono, breakAll }) => (
-                        <div key={label} className="flex items-start gap-3">
-                          <Icon
-                            size={14}
-                            className="flex-shrink-0 mt-0.5"
-                            style={{ color: "var(--text-secondary)" }}
-                          />
-                          <div>
-                            <p
-                              className="text-xs"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              {label}
-                            </p>
-                            <p
-                              className={`text-sm ${mono ? "font-mono" : ""} ${breakAll ? "break-all" : ""}`}
-                              style={{ color: "var(--text-primary)" }}
-                            >
-                              {value}
-                            </p>
-                            {sub && (
-                              <p
-                                className="text-xs"
-                                style={{ color: "var(--text-secondary)" }}
-                              >
-                                {sub}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                </div>
-
-                <div
-                  className="mt-5 pt-5 border-t space-y-2"
-                  style={{ borderColor: "var(--border-color)" }}
-                >
-                  {[
-                    {
-                      label: "Estado",
-                      value: selected.is_active ? "Activa" : "Inactiva",
-                      bg: selected.is_active ? "#f0fdf4" : "#fee2e2",
-                      color: selected.is_active ? "#16a34a" : "#dc2626",
-                    },
-                    {
-                      label: "Verificada",
-                      value: selected.is_verified ? "Sí" : "Pendiente",
-                      bg: selected.is_verified
-                        ? "var(--color-primary-light)"
-                        : "var(--bg-primary)",
-                      color: selected.is_verified
-                        ? "var(--color-primary)"
-                        : "var(--text-secondary)",
-                    },
-                  ].map(({ label, value, bg, color }) => (
-                    <div
-                      key={label}
-                      className="flex items-center justify-between"
-                    >
-                      <span
-                        className="text-xs"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {label}
-                      </span>
-                      <span
-                        className="text-xs font-medium px-2 py-1 rounded-full"
-                        style={{ backgroundColor: bg, color }}
-                      >
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <p
-                  className="text-xs mt-4"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Registrada el{" "}
-                  {new Date(selected.created_at).toLocaleDateString("es-CO", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </p>
-              </div>
-            </div>
+            <InstitutionDetailPanel
+              selected={selected}
+              onClose={() => setSelected(null)}
+            />
           )}
         </div>
       </main>
-
       {showLogout && (
         <LogoutModal
           onConfirm={() => {

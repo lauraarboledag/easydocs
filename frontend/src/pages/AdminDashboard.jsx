@@ -20,21 +20,124 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-const TRANSACTION_STATUS = {
-  pending: { label: "Pendiente", bg: "#fef3c7", color: "#b45309", icon: Clock },
-  confirmed: {
-    label: "Confirmado",
-    bg: "#f0fdf4",
-    color: "#16a34a",
-    icon: CheckCircle,
-  },
-  rejected: {
-    label: "Rechazado",
-    bg: "#fee2e2",
-    color: "#dc2626",
-    icon: XCircle,
-  },
-};
+function MetricCard({ label, value, sub, icon: Icon, iconColor, alert }) {
+  return (
+    <div
+      className="rounded-xl p-5 border"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: alert ? "#fbbf24" : "var(--border-color)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span
+          className="text-xs uppercase tracking-wide"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {label}
+        </span>
+        <Icon size={14} style={{ color: iconColor }} />
+      </div>
+      <p
+        className="text-3xl font-bold"
+        style={{ color: alert ? "#f59e0b" : "var(--text-primary)" }}
+      >
+        {value}
+      </p>
+      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+        {sub}
+      </p>
+    </div>
+  );
+}
+
+function TransactionAmount({ amount, date }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center"
+        style={{ backgroundColor: "#fef3c7" }}
+      >
+        <Clock size={16} className="text-yellow-600" />
+      </div>
+      <div>
+        <p
+          className="text-sm font-medium"
+          style={{ color: "var(--text-primary)" }}
+        >
+          ${(amount / 100).toLocaleString("es-CO")} COP
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          {new Date(date).toLocaleDateString("es-CO", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PendingTransactionItem({ transaction, onConfirm }) {
+  return (
+    <div
+      className="flex items-center justify-between p-4 rounded-xl"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <TransactionAmount
+        amount={transaction.amount}
+        date={transaction.created_at}
+      />
+      <div className="flex items-center gap-2">
+        <span
+          className="text-xs px-2 py-1 rounded-full font-medium"
+          style={{ backgroundColor: "#fef3c7", color: "#b45309" }}
+        >
+          Pendiente
+        </span>
+        <button
+          onClick={() => onConfirm(transaction.id)}
+          className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
+        >
+          <CheckCircle size={12} /> Confirmar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InstitutionItem({ inst }) {
+  return (
+    <div
+      className="flex items-center justify-between py-2.5 border-b last:border-0"
+      style={{ borderColor: "var(--border-color)" }}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "var(--color-primary-light)" }}
+        >
+          <Building2 size={14} style={{ color: "var(--color-icon)" }} />
+        </div>
+        <div>
+          <p
+            className="text-sm font-medium truncate max-w-32"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {inst.name}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            {inst.municipality}
+          </p>
+        </div>
+      </div>
+      <div
+        className={`w-2 h-2 rounded-full ${inst.is_active ? "bg-green-400" : "bg-gray-300"}`}
+      />
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -45,6 +148,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,8 +161,8 @@ export default function AdminDashboard() {
         setInstitutions(instRes.data);
         setTransactions(transRes.data);
         setPlans(plansRes.data);
-      } catch (err) {
-        console.error(err);
+      } catch {
+        setError("Error cargando datos. Recarga la página.");
       } finally {
         setLoading(false);
       }
@@ -90,8 +194,8 @@ export default function AdminDashboard() {
       });
       const res = await api.get("/transactions/");
       setTransactions(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setError("Error confirmando la transacción. Intenta de nuevo.");
     }
   };
 
@@ -189,71 +293,37 @@ export default function AdminDashboard() {
 
           {/* Métricas */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[
-              {
-                label: "Instituciones",
-                value: institutions.length,
-                sub: "Registradas",
-                icon: Building2,
-                iconColor: "var(--color-primary)",
-              },
-              {
-                label: "Planes",
-                value: plans.length,
-                sub: "Disponibles",
-                icon: CreditCard,
-                iconColor: "var(--color-primary)",
-              },
-              {
-                label: "Pendientes",
-                value: pendingTransactions.length,
-                sub: "Sin confirmar",
-                icon: Clock,
-                iconColor:
-                  pendingTransactions.length > 0
-                    ? "#f59e0b"
-                    : "var(--color-icon)",
-                alert: pendingTransactions.length > 0,
-              },
-              {
-                label: "Confirmadas",
-                value: confirmedTransactions.length,
-                sub: "Este período",
-                icon: TrendingUp,
-                iconColor: "#16a34a",
-              },
-            ].map(({ label, value, sub, icon: Icon, iconColor, alert }) => (
-              <div
-                key={label}
-                className="rounded-xl p-5 border"
-                style={{
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: alert ? "#fbbf24" : "var(--border-color)",
-                }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span
-                    className="text-xs uppercase tracking-wide"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {label}
-                  </span>
-                  <Icon size={14} style={{ color: iconColor }} />
-                </div>
-                <p
-                  className="text-3xl font-bold"
-                  style={{ color: alert ? "#f59e0b" : "var(--text-primary)" }}
-                >
-                  {value}
-                </p>
-                <p
-                  className="text-xs mt-1"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {sub}
-                </p>
-              </div>
-            ))}
+            <MetricCard
+              label="Instituciones"
+              value={institutions.length}
+              sub="Registradas"
+              icon={Building2}
+              iconColor="var(--color-primary)"
+            />
+            <MetricCard
+              label="Planes"
+              value={plans.length}
+              sub="Disponibles"
+              icon={CreditCard}
+              iconColor="var(--color-primary)"
+            />
+            <MetricCard
+              label="Pendientes"
+              value={pendingTransactions.length}
+              sub="Sin confirmar"
+              icon={Clock}
+              iconColor={
+                pendingTransactions.length > 0 ? "#f59e0b" : "var(--color-icon)"
+              }
+              alert={pendingTransactions.length > 0}
+            />
+            <MetricCard
+              label="Confirmadas"
+              value={confirmedTransactions.length}
+              sub="Este período"
+              icon={TrendingUp}
+              iconColor="#16a34a"
+            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -309,61 +379,11 @@ export default function AdminDashboard() {
               ) : (
                 <div className="space-y-3">
                   {pendingTransactions.slice(0, 5).map((transaction) => (
-                    <div
+                    <PendingTransactionItem
                       key={transaction.id}
-                      className="flex items-center justify-between p-4 rounded-xl"
-                      style={{ backgroundColor: "var(--bg-primary)" }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: "#fef3c7" }}
-                        >
-                          <Clock size={16} className="text-yellow-600" />
-                        </div>
-                        <div>
-                          <p
-                            className="text-sm font-medium"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            $
-                            {(transaction.amount / 100).toLocaleString("es-CO")}{" "}
-                            COP
-                          </p>
-                          <p
-                            className="text-xs"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            {new Date(
-                              transaction.created_at,
-                            ).toLocaleDateString("es-CO", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="text-xs px-2 py-1 rounded-full font-medium"
-                          style={{
-                            backgroundColor: "#fef3c7",
-                            color: "#b45309",
-                          }}
-                        >
-                          Pendiente
-                        </span>
-                        <button
-                          onClick={() =>
-                            handleConfirmTransaction(transaction.id)
-                          }
-                          className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
-                        >
-                          <CheckCircle size={12} /> Confirmar
-                        </button>
-                      </div>
-                    </div>
+                      transaction={transaction}
+                      onConfirm={handleConfirmTransaction}
+                    />
                   ))}
                 </div>
               )}
@@ -417,42 +437,7 @@ export default function AdminDashboard() {
               ) : (
                 <div className="space-y-3">
                   {institutions.slice(0, 5).map((inst) => (
-                    <div
-                      key={inst.id}
-                      className="flex items-center justify-between py-2.5 border-b last:border-0"
-                      style={{ borderColor: "var(--border-color)" }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{
-                            backgroundColor: "var(--color-primary-light)",
-                          }}
-                        >
-                          <Building2
-                            size={14}
-                            style={{ color: "var(--color-icon)" }}
-                          />
-                        </div>
-                        <div>
-                          <p
-                            className="text-sm font-medium truncate max-w-32"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {inst.name}
-                          </p>
-                          <p
-                            className="text-xs"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            {inst.municipality}
-                          </p>
-                        </div>
-                      </div>
-                      <div
-                        className={`w-2 h-2 rounded-full ${inst.is_active ? "bg-green-400" : "bg-gray-300"}`}
-                      />
-                    </div>
+                    <InstitutionItem key={inst.id} inst={inst} />
                   ))}
                 </div>
               )}
@@ -477,6 +462,18 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        {error && (
+          <div className="mb-6 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+            <button
+              onClick={() => setError(null)}
+              className="ml-auto text-red-400 hover:text-red-600"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </main>
 
       {showLogout && (

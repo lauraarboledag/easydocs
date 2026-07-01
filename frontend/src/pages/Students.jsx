@@ -100,7 +100,7 @@ export default function Students() {
       const res = await api.get("/programs/");
       setPrograms(res.data);
     } catch (err) {
-      console.error(err);
+      setError("Error al cargar los programas. Intenta de nuevo más tarde");
     }
   };
 
@@ -116,7 +116,7 @@ export default function Students() {
       );
       setStudents(sorted);
     } catch (err) {
-      console.error(err);
+      setError("Error al cargar los estudiantes. Intenta de nuevo más tarde");
     } finally {
       setLoading(false);
     }
@@ -218,7 +218,7 @@ export default function Students() {
       fetchStudents();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      console.error(err);
+      setError("Error al desactivar estudiante. Intenta de nuevo más tarde");
     }
   };
 
@@ -234,7 +234,7 @@ export default function Students() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error(err);
+      setError("Error al descargar plantilla. Intenta de nuevo más tarde");
     }
   };
 
@@ -250,7 +250,7 @@ export default function Students() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error(err);
+      setError("Error al exportar documento. Intenta de nuevo más tarde");
     }
   };
 

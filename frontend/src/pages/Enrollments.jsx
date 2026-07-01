@@ -90,7 +90,7 @@ export default function Enrollments() {
       setPrograms(programsRes.data);
       setTemplates(templatesRes.data);
     } catch (err) {
-      console.error(err);
+      setError("Error al mostrar estudiantes. Intenta de nuevo más tarde")
     }
   };
 
@@ -107,7 +107,7 @@ export default function Enrollments() {
       );
       setEnrollments(sorted);
     } catch (err) {
-      console.error(err);
+      setError("Error al mostrar matrículas. Intenta de nuevo más tarde");
     } finally {
       setLoading(false);
     }
@@ -147,7 +147,7 @@ export default function Enrollments() {
       fetchEnrollments();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      console.error(err);
+      setError("Error al cancelar. Intenta de nuevo más tarde");
     }
   };
 
@@ -167,7 +167,7 @@ export default function Enrollments() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error(err);
+      setError("Error al expotar. Intenta de nuevo más tarde");
     }
   };
 

@@ -25,6 +25,132 @@ const TABS = [
   { id: "appearance", label: "Apariencia", icon: Sun },
 ];
 
+const PASSWORD_RULES = [
+  { key: "length", label: "Mínimo 8 caracteres" },
+  { key: "uppercase", label: "Al menos una mayúscula" },
+  { key: "number", label: "Incluye números" },
+  { key: "special", label: "Carácter especial (!@#$%^&*)" },
+];
+
+function PasswordField({ label, field, value, show, onChange, onToggle }) {
+  return (
+    <div>
+      <label
+        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(field, e.target.value)}
+          className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10"
+          style={{
+            borderColor: "var(--border-color)",
+            backgroundColor: "var(--bg-primary)",
+            color: "var(--text-primary)",
+          }}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-3 top-1/2 -translate-y-1/2"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PasswordStrengthIndicator({ strength }) {
+  return (
+    <div className="space-y-2">
+      {PASSWORD_RULES.map(({ key, label }) => (
+        <div key={key} className="flex items-center gap-2">
+          <div
+            className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+            style={{
+              backgroundColor: strength[key] ? "#22c55e" : "transparent",
+              borderColor: strength[key] ? "#22c55e" : "var(--border-color)",
+            }}
+          >
+            {strength[key] && <CheckCircle size={10} className="text-white" />}
+          </div>
+          <span
+            className="text-xs"
+            style={{
+              color: strength[key] ? "#16a34a" : "var(--text-secondary)",
+            }}
+          >
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AppearanceTab({ theme, setTheme, themes }) {
+  return (
+    <div
+      className="rounded-xl border p-6"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-color)",
+      }}
+    >
+      <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+        Apariencia
+      </h2>
+      <p className="text-xs mb-6" style={{ color: "var(--text-secondary)" }}>
+        Elige el tema visual de tu panel de administración.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {themes.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTheme(t.id)}
+            className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+            style={{
+              borderColor:
+                theme === t.id ? "var(--color-primary)" : "var(--border-color)",
+              backgroundColor:
+                theme === t.id ? "var(--color-primary-light)" : "transparent",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner"
+              style={{ backgroundColor: t.color }}
+            />
+            <div className="flex-1">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {t.label}
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {t.description}
+              </p>
+            </div>
+            {theme === t.id && (
+              <CheckCircle
+                size={18}
+                style={{ color: "var(--color-primary)" }}
+                className="flex-shrink-0"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { user, logout } = useAuth();
   const { theme, setTheme, themes } = useTheme();
@@ -36,7 +162,6 @@ export default function AdminSettings() {
   const [error, setError] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
-
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -101,6 +226,12 @@ export default function AdminSettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const passwordFieldLabels = {
+    current: "Contraseña actual",
+    new: "Nueva contraseña",
+    confirm: "Confirmar contraseña",
   };
 
   return (
@@ -216,101 +347,30 @@ export default function AdminSettings() {
               >
                 Usa una contraseña segura que no uses en otros sitios.
               </p>
-
               <form
                 onSubmit={handleSavePassword}
                 className="space-y-4 max-w-md"
               >
                 {["current", "new", "confirm"].map((field) => (
-                  <div key={field}>
-                    <label
-                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {field === "current"
-                        ? "Contraseña actual"
-                        : field === "new"
-                          ? "Nueva contraseña"
-                          : "Confirmar contraseña"}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPasswords[field] ? "text" : "password"}
-                        value={passwords[field]}
-                        onChange={(e) =>
-                          handlePasswordChange(field, e.target.value)
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10"
-                        style={{
-                          borderColor: "var(--border-color)",
-                          backgroundColor: "var(--bg-primary)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowPasswords((p) => ({
-                            ...p,
-                            [field]: !p[field],
-                          }))
-                        }
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {showPasswords[field] ? (
-                          <EyeOff size={16} />
-                        ) : (
-                          <Eye size={16} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                  <PasswordField
+                    key={field}
+                    field={field}
+                    label={passwordFieldLabels[field]}
+                    value={passwords[field]}
+                    show={showPasswords[field]}
+                    onChange={handlePasswordChange}
+                    onToggle={() =>
+                      setShowPasswords((p) => ({ ...p, [field]: !p[field] }))
+                    }
+                  />
                 ))}
-
                 {passwords.new && (
-                  <div className="space-y-2">
-                    {[
-                      { key: "length", label: "Mínimo 8 caracteres" },
-                      { key: "uppercase", label: "Al menos una mayúscula" },
-                      { key: "number", label: "Incluye números" },
-                      { key: "special", label: "Carácter especial (!@#$%^&*)" },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <div
-                          className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                          style={{
-                            backgroundColor: passwordStrength[key]
-                              ? "#22c55e"
-                              : "transparent",
-                            borderColor: passwordStrength[key]
-                              ? "#22c55e"
-                              : "var(--border-color)",
-                          }}
-                        >
-                          {passwordStrength[key] && (
-                            <CheckCircle size={10} className="text-white" />
-                          )}
-                        </div>
-                        <span
-                          className="text-xs"
-                          style={{
-                            color: passwordStrength[key]
-                              ? "#16a34a"
-                              : "var(--text-secondary)",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <PasswordStrengthIndicator strength={passwordStrength} />
                 )}
-
                 <button
                   type="submit"
                   disabled={saving}
-                  className="font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm text-white"
+                  className="font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
                   style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   <Save size={16} />
@@ -321,72 +381,7 @@ export default function AdminSettings() {
           )}
 
           {activeTab === "appearance" && (
-            <div
-              className="rounded-xl border p-6"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <h2
-                className="font-bold mb-1"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Apariencia
-              </h2>
-              <p
-                className="text-xs mb-6"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Elige el tema visual de tu panel de administración.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {themes.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
-                    style={{
-                      borderColor:
-                        theme === t.id
-                          ? "var(--color-primary)"
-                          : "var(--border-color)",
-                      backgroundColor:
-                        theme === t.id
-                          ? "var(--color-primary-light)"
-                          : "transparent",
-                    }}
-                  >
-                    <div
-                      className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner"
-                      style={{ backgroundColor: t.color }}
-                    />
-                    <div className="flex-1">
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {t.label}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {t.description}
-                      </p>
-                    </div>
-                    {theme === t.id && (
-                      <CheckCircle
-                        size={18}
-                        style={{ color: "var(--color-primary)" }}
-                        className="flex-shrink-0"
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <AppearanceTab theme={theme} setTheme={setTheme} themes={themes} />
           )}
         </div>
       </main>

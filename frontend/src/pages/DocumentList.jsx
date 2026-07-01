@@ -60,6 +60,7 @@ export default function DocumentList() {
   const [showInactivity, setShowInactivity] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,7 +72,7 @@ export default function DocumentList() {
         setDocuments(docsRes.data);
         setTemplates(templatesRes.data);
       } catch (err) {
-        console.error(err);
+        setError("Error al cargar documentos. Recarga la página");
       } finally {
         setLoading(false);
       }
@@ -104,7 +105,7 @@ export default function DocumentList() {
         prev.map((d) => (d.id === doc.id ? { ...d, status: "generated" } : d)),
       );
     } catch (err) {
-      console.error(err);
+      setError("Error al descargar documento. Intenta de nuevo más tarde");
     } finally {
       setDownloading(null);
     }
@@ -119,7 +120,7 @@ export default function DocumentList() {
         prev.map((d) => (d.id === docId ? { ...d, status: "cancelled" } : d)),
       );
     } catch (err) {
-      console.error(err);
+      setError("Error al cancelar. Intenta de nuevo más tarde");
     }
   };
 
@@ -131,7 +132,7 @@ export default function DocumentList() {
       setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err) {
-      console.error(err);
+      setError("Error al eliminar documento. Intenta de nuevo más tarde");
     } finally {
       setDeleting(false);
     }

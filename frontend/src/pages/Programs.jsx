@@ -81,7 +81,7 @@ export default function Programs() {
       const res = await api.get("/programs/");
       setPrograms(res.data);
     } catch (err) {
-      console.error(err);
+      setError("Error al cargar. Intenta más tarde");
     } finally {
       setLoading(false);
     }
@@ -136,7 +136,7 @@ export default function Programs() {
       fetchPrograms();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      console.error(err);
+      setError("No se pudo desactivar el programa. Intenta de nuevo");
     }
   };
 
@@ -152,7 +152,7 @@ export default function Programs() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error(err);
+      setError("No se pudo descargar la plantilla. Intenta de nuevo más tarde");
     }
   };
 
@@ -168,7 +168,7 @@ export default function Programs() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error(err);
+      setError("No se pudo exportar el documento. Intenta de nuevo más tarde");
     }
   };
 

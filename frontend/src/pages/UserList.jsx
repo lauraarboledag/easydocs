@@ -85,7 +85,7 @@ export default function UserList() {
       );
       setUsers(sorted);
     } catch (err) {
-      console.error(err);
+      setError("Error al cargar usuarios. Intenta de nuevo más tarde")
     } finally {
       setLoading(false);
     }

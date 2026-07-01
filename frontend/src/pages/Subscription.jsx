@@ -103,6 +103,8 @@ export default function Subscription() {
   const [showInactivity, setShowInactivity] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
+  const [error, setError] = useState("");
+  
 
   useEffect(() => {
     const fetchData = async () => {
@@ -114,7 +116,7 @@ export default function Subscription() {
         setSubscription(subRes.data);
         setPlans(plansRes.data);
       } catch (err) {
-        console.error(err);
+        setError("Error al cargar los planes. Intenta de nuevo más tarde");
       } finally {
         setLoading(false);
       }

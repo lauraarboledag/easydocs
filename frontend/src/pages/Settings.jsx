@@ -109,7 +109,7 @@ export default function Settings() {
       });
       if (res.data.logo_url) setLogoPreview(res.data.logo_url);
     } catch (err) {
-      console.error(err);
+      setError("No se pudo cargar la información. Intenta de nuevo más tarde");
     } finally {
       setLoading(false);
     }

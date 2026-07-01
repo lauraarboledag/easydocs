@@ -68,6 +68,380 @@ function formatPrice(price) {
   return `$${(price / 100).toLocaleString("es-CO")} COP`;
 }
 
+function CycleToggle({ value, onChange }) {
+  return (
+    <div
+      className="flex items-center rounded-xl p-1"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      {["monthly", "annual"].map((cycle) => (
+        <button
+          key={cycle}
+          onClick={() => onChange(cycle)}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            backgroundColor:
+              value === cycle ? "var(--bg-secondary)" : "transparent",
+            color:
+              value === cycle ? "var(--text-primary)" : "var(--text-secondary)",
+            boxShadow: value === cycle ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+          }}
+        >
+          {cycle === "monthly" ? "Mensual" : "Anual"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PlanTableRow({ plan, onEdit }) {
+  const meta = PLAN_META[plan.name] || PLAN_META.free;
+  const Icon = meta.icon;
+  return (
+    <div
+      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
+      style={{ borderColor: "var(--border-color)" }}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.backgroundColor = "var(--bg-primary)")
+      }
+      onMouseLeave={(e) =>
+        (e.currentTarget.style.backgroundColor = "transparent")
+      }
+    >
+      <div className="col-span-3 flex items-center gap-3">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: meta.bg }}
+        >
+          <Icon size={15} style={{ color: meta.color }} />
+        </div>
+        <p
+          className="text-sm font-medium"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Plan {meta.label}
+        </p>
+      </div>
+      <div className="col-span-2">
+        <span
+          className="text-xs px-2.5 py-1 rounded-full font-medium"
+          style={{
+            backgroundColor: "var(--bg-primary)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          {plan.billing_cycle === "monthly" ? "Mensual" : "Anual"}
+        </span>
+      </div>
+      <div className="col-span-3">
+        <p
+          className="text-sm font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {formatPrice(plan.price)}
+        </p>
+        {plan.price > 0 && (
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            {plan.billing_cycle === "monthly" ? "/ mes" : "/ año"}
+          </p>
+        )}
+      </div>
+      <div className="col-span-2">
+        <span
+          className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1"
+          style={{
+            backgroundColor: plan.is_active ? "#f0fdf4" : "#fee2e2",
+            color: plan.is_active ? "#16a34a" : "#dc2626",
+          }}
+        >
+          {plan.is_active ? (
+            <>
+              <CheckCircle size={11} /> Activo
+            </>
+          ) : (
+            "Inactivo"
+          )}
+        </span>
+      </div>
+      <div className="col-span-2 flex justify-end">
+        <button
+          onClick={() => onEdit(plan)}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{
+            backgroundColor: "var(--color-primary-light)",
+            color: "var(--color-primary)",
+          }}
+        >
+          <Edit2 size={12} /> Editar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PlanPreviewCard({ planName, plan, previewCycle }) {
+  const meta = PLAN_META[planName];
+  const Icon = meta.icon;
+  return (
+    <div
+      className="rounded-2xl border-2 p-5 flex flex-col"
+      style={{
+        backgroundColor: "var(--bg-primary)",
+        borderColor:
+          planName === "professional" ? "#9333ea" : "var(--border-color)",
+      }}
+    >
+      {planName === "professional" && (
+        <div className="text-center mb-2">
+          <span className="bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+            Más popular
+          </span>
+        </div>
+      )}
+      <div className="flex items-center gap-2 mb-3">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: meta.bg }}
+        >
+          <Icon size={15} style={{ color: meta.color }} />
+        </div>
+        <p
+          className="text-sm font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Plan {meta.label}
+        </p>
+      </div>
+      <div className="mb-4">
+        <span
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {plan ? formatPrice(plan.price) : "—"}
+        </span>
+        {plan && plan.price > 0 && (
+          <span
+            className="text-xs ml-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {previewCycle === "monthly" ? "/ mes" : "/ año"}
+          </span>
+        )}
+      </div>
+      <ul className="space-y-1.5 flex-1">
+        {(PLAN_FEATURES[planName] || []).map((f) => (
+          <li
+            key={f}
+            className="flex items-center gap-2 text-xs"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <CheckCircle size={11} className="text-green-500 flex-shrink-0" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      <div
+        className="mt-4 py-2 rounded-xl text-xs font-semibold text-center"
+        style={{
+          backgroundColor: "var(--color-primary-light)",
+          color: "var(--color-primary)",
+        }}
+      >
+        Seleccionar
+      </div>
+    </div>
+  );
+}
+
+function EditPlanModal({
+  plan,
+  editForm,
+  setEditForm,
+  onSave,
+  onClose,
+  saving,
+  error,
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div
+        className="rounded-2xl shadow-xl w-full max-w-md"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
+        <div
+          className="flex items-center justify-between p-6 border-b"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <div>
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Editar Plan {PLAN_META[plan.name]?.label}
+            </h3>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {plan.billing_cycle === "monthly"
+                ? "Facturación mensual"
+                : "Facturación anual"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle size={15} /> {error}
+            </div>
+          )}
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Precio (en COP)
+            </label>
+            <div className="relative">
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                $
+              </span>
+              <input
+                type="number"
+                value={editForm.price}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, price: e.target.value }))
+                }
+                placeholder="0"
+                className="w-full border rounded-lg pl-7 pr-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            </div>
+            <p
+              className="text-xs mt-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Ingresa el valor en pesos colombianos. Ej: 150000 para $150.000
+              COP
+            </p>
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Estado del plan
+            </label>
+            <div className="flex gap-3">
+              {[
+                {
+                  value: true,
+                  label: "Activo",
+                  bg: "#f0fdf4",
+                  color: "#16a34a",
+                },
+                {
+                  value: false,
+                  label: "Inactivo",
+                  bg: "#fee2e2",
+                  color: "#dc2626",
+                },
+              ].map(({ value, label, bg, color }) => (
+                <button
+                  key={label}
+                  onClick={() =>
+                    setEditForm((p) => ({ ...p, is_active: value }))
+                  }
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors"
+                  style={{
+                    backgroundColor:
+                      editForm.is_active === value ? bg : "var(--bg-primary)",
+                    color:
+                      editForm.is_active === value
+                        ? color
+                        : "var(--text-secondary)",
+                    borderColor:
+                      editForm.is_active === value
+                        ? color
+                        : "var(--border-color)",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="rounded-xl p-4 border"
+            style={{
+              backgroundColor: "var(--color-primary-light)",
+              borderColor: "var(--color-primary)",
+            }}
+          >
+            <p
+              className="text-xs font-semibold mb-1"
+              style={{ color: "var(--color-primary)" }}
+            >
+              Vista previa del precio
+            </p>
+            <p
+              className="text-2xl font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {editForm.price > 0
+                ? `$${parseFloat(editForm.price || 0).toLocaleString("es-CO")} COP`
+                : "Gratis"}
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {plan.billing_cycle === "monthly" ? "/ mes" : "/ año"}
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 border font-medium py-3 rounded-lg transition-colors"
+              style={{
+                borderColor: "var(--border-color)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            >
+              <Save size={16} />
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPlans() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -80,7 +454,8 @@ export default function AdminPlans() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [previewCycle, setPreviewCycle] = useState("monthly");
+  const [tableCycle, setTableCycle] = useState("monthly"); // ← filtro tabla
+  const [previewCycle, setPreviewCycle] = useState("monthly"); // ← filtro vista previa
 
   useInactivity({
     timeout: 30,
@@ -100,8 +475,8 @@ export default function AdminPlans() {
     try {
       const res = await api.get("/plans/");
       setPlans(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setError("Error cargando los planes. Recarga la página.");
     } finally {
       setLoading(false);
     }
@@ -135,7 +510,6 @@ export default function AdminPlans() {
     }
   };
 
-  // Agrupar por nombre
   const grouped = {};
   for (const plan of plans) {
     if (!grouped[plan.name]) grouped[plan.name] = {};
@@ -143,6 +517,7 @@ export default function AdminPlans() {
   }
 
   const planNames = ["free", "basic", "professional", "enterprise"];
+  const filteredPlans = plans.filter((p) => p.billing_cycle === tableCycle);
 
   return (
     <div
@@ -203,6 +578,11 @@ export default function AdminPlans() {
               <CheckCircle size={16} /> {success}
             </div>
           )}
+          {error && !editingPlan && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
+              <AlertCircle size={16} /> {error}
+            </div>
+          )}
 
           {/* Tabla de planes */}
           <div className="mb-8">
@@ -218,10 +598,13 @@ export default function AdminPlans() {
                   className="text-sm mt-1"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  {plans.length} planes en total — edita precios y estado
-                  directamente
+                  {filteredPlans.length} planes{" "}
+                  {tableCycle === "monthly" ? "mensuales" : "anuales"} — edita
+                  precios y estado directamente
                 </p>
               </div>
+              {/* Toggle filtro tabla */}
+              <CycleToggle value={tableCycle} onChange={setTableCycle} />
             </div>
 
             <div
@@ -253,102 +636,13 @@ export default function AdminPlans() {
                     <span className="col-span-2">Estado</span>
                     <span className="col-span-2 text-right">Acciones</span>
                   </div>
-                  {plans.map((plan) => {
-                    const meta = PLAN_META[plan.name] || PLAN_META.free;
-                    const Icon = meta.icon;
-                    return (
-                      <div
-                        key={plan.id}
-                        className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
-                        style={{ borderColor: "var(--border-color)" }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "var(--bg-primary)")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "transparent")
-                        }
-                      >
-                        <div className="col-span-3 flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{ backgroundColor: meta.bg }}
-                          >
-                            <Icon size={15} style={{ color: meta.color }} />
-                          </div>
-                          <p
-                            className="text-sm font-medium"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            Plan {meta.label}
-                          </p>
-                        </div>
-                        <div className="col-span-2">
-                          <span
-                            className="text-xs px-2.5 py-1 rounded-full font-medium"
-                            style={{
-                              backgroundColor: "var(--bg-primary)",
-                              color: "var(--text-secondary)",
-                            }}
-                          >
-                            {plan.billing_cycle === "monthly"
-                              ? "Mensual"
-                              : "Anual"}
-                          </span>
-                        </div>
-                        <div className="col-span-3">
-                          <p
-                            className="text-sm font-bold"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {formatPrice(plan.price)}
-                          </p>
-                          {plan.price > 0 && (
-                            <p
-                              className="text-xs"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              {plan.billing_cycle === "monthly"
-                                ? "/ mes"
-                                : "/ año"}
-                            </p>
-                          )}
-                        </div>
-                        <div className="col-span-2">
-                          <span
-                            className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1"
-                            style={{
-                              backgroundColor: plan.is_active
-                                ? "#f0fdf4"
-                                : "#fee2e2",
-                              color: plan.is_active ? "#16a34a" : "#dc2626",
-                            }}
-                          >
-                            {plan.is_active ? (
-                              <>
-                                <CheckCircle size={11} /> Activo
-                              </>
-                            ) : (
-                              "Inactivo"
-                            )}
-                          </span>
-                        </div>
-                        <div className="col-span-2 flex justify-end">
-                          <button
-                            onClick={() => handleEdit(plan)}
-                            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                            style={{
-                              backgroundColor: "var(--color-primary-light)",
-                              color: "var(--color-primary)",
-                            }}
-                          >
-                            <Edit2 size={12} /> Editar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {filteredPlans.map((plan) => (
+                    <PlanTableRow
+                      key={plan.id}
+                      plan={plan}
+                      onEdit={handleEdit}
+                    />
+                  ))}
                 </>
               )}
             </div>
@@ -380,34 +674,7 @@ export default function AdminPlans() {
                   Así se muestran los planes en el registro y checkout
                 </p>
               </div>
-              <div
-                className="flex items-center rounded-xl p-1"
-                style={{ backgroundColor: "var(--bg-primary)" }}
-              >
-                {["monthly", "annual"].map((cycle) => (
-                  <button
-                    key={cycle}
-                    onClick={() => setPreviewCycle(cycle)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    style={{
-                      backgroundColor:
-                        previewCycle === cycle
-                          ? "var(--bg-secondary)"
-                          : "transparent",
-                      color:
-                        previewCycle === cycle
-                          ? "var(--text-primary)"
-                          : "var(--text-secondary)",
-                      boxShadow:
-                        previewCycle === cycle
-                          ? "0 1px 3px rgba(0,0,0,0.1)"
-                          : "none",
-                    }}
-                  >
-                    {cycle === "monthly" ? "Mensual" : "Anual"}
-                  </button>
-                ))}
-              </div>
+              <CycleToggle value={previewCycle} onChange={setPreviewCycle} />
             </div>
 
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -415,82 +682,13 @@ export default function AdminPlans() {
                 const planGroup = grouped[planName];
                 if (!planGroup) return null;
                 const plan = planGroup[previewCycle] || planGroup["monthly"];
-                const meta = PLAN_META[planName];
-                const Icon = meta.icon;
                 return (
-                  <div
+                  <PlanPreviewCard
                     key={planName}
-                    className="rounded-2xl border-2 p-5 flex flex-col"
-                    style={{
-                      backgroundColor: "var(--bg-primary)",
-                      borderColor:
-                        planName === "professional"
-                          ? "#9333ea"
-                          : "var(--border-color)",
-                    }}
-                  >
-                    {planName === "professional" && (
-                      <div className="text-center mb-2">
-                        <span className="bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                          Más popular
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-3">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: meta.bg }}
-                      >
-                        <Icon size={15} style={{ color: meta.color }} />
-                      </div>
-                      <p
-                        className="text-sm font-bold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        Plan {meta.label}
-                      </p>
-                    </div>
-                    <div className="mb-4">
-                      <span
-                        className="text-2xl font-bold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {plan ? formatPrice(plan.price) : "—"}
-                      </span>
-                      {plan && plan.price > 0 && (
-                        <span
-                          className="text-xs ml-1"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {previewCycle === "monthly" ? "/ mes" : "/ año"}
-                        </span>
-                      )}
-                    </div>
-                    <ul className="space-y-1.5 flex-1">
-                      {(PLAN_FEATURES[planName] || []).map((f) => (
-                        <li
-                          key={f}
-                          className="flex items-center gap-2 text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          <CheckCircle
-                            size={11}
-                            className="text-green-500 flex-shrink-0"
-                          />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <div
-                      className="mt-4 py-2 rounded-xl text-xs font-semibold text-center"
-                      style={{
-                        backgroundColor: "var(--color-primary-light)",
-                        color: "var(--color-primary)",
-                      }}
-                    >
-                      Seleccionar
-                    </div>
-                  </div>
+                    planName={planName}
+                    plan={plan}
+                    previewCycle={previewCycle}
+                  />
                 );
               })}
             </div>
@@ -498,189 +696,16 @@ export default function AdminPlans() {
         </div>
       </main>
 
-      {/* Modal edición */}
       {editingPlan && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div
-            className="rounded-2xl shadow-xl w-full max-w-md"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
-          >
-            <div
-              className="flex items-center justify-between p-6 border-b"
-              style={{ borderColor: "var(--border-color)" }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Editar Plan {PLAN_META[editingPlan.name]?.label}
-                </h3>
-                <p
-                  className="text-xs mt-0.5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {editingPlan.billing_cycle === "monthly"
-                    ? "Facturación mensual"
-                    : "Facturación anual"}
-                </p>
-              </div>
-              <button
-                onClick={() => setEditingPlan(null)}
-                className="p-2 rounded-lg"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                  <AlertCircle size={15} /> {error}
-                </div>
-              )}
-
-              <div>
-                <label
-                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Precio (en COP)
-                </label>
-                <div className="relative">
-                  <span
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    value={editForm.price}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, price: e.target.value }))
-                    }
-                    placeholder="0"
-                    className="w-full border rounded-lg pl-7 pr-4 py-3 text-sm focus:outline-none focus:ring-2"
-                    style={{
-                      borderColor: "var(--border-color)",
-                      backgroundColor: "var(--bg-primary)",
-                      color: "var(--text-primary)",
-                    }}
-                  />
-                </div>
-                <p
-                  className="text-xs mt-1"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Ingresa el valor en pesos colombianos. Ej: 150000 para
-                  $150.000 COP
-                </p>
-              </div>
-
-              <div>
-                <label
-                  className="block text-xs font-semibold uppercase tracking-wide mb-2"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Estado del plan
-                </label>
-                <div className="flex gap-3">
-                  {[
-                    {
-                      value: true,
-                      label: "Activo",
-                      bg: "#f0fdf4",
-                      color: "#16a34a",
-                    },
-                    {
-                      value: false,
-                      label: "Inactivo",
-                      bg: "#fee2e2",
-                      color: "#dc2626",
-                    },
-                  ].map(({ value, label, bg, color }) => (
-                    <button
-                      key={label}
-                      onClick={() =>
-                        setEditForm((p) => ({ ...p, is_active: value }))
-                      }
-                      className="flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors"
-                      style={{
-                        backgroundColor:
-                          editForm.is_active === value
-                            ? bg
-                            : "var(--bg-primary)",
-                        color:
-                          editForm.is_active === value
-                            ? color
-                            : "var(--text-secondary)",
-                        borderColor:
-                          editForm.is_active === value
-                            ? color
-                            : "var(--border-color)",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                className="rounded-xl p-4 border"
-                style={{
-                  backgroundColor: "var(--color-primary-light)",
-                  borderColor: "var(--color-primary)",
-                }}
-              >
-                <p
-                  className="text-xs font-semibold mb-1"
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  Vista previa del precio
-                </p>
-                <p
-                  className="text-2xl font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {editForm.price > 0
-                    ? `$${parseFloat(editForm.price || 0).toLocaleString("es-CO")} COP`
-                    : "Gratis"}
-                </p>
-                <p
-                  className="text-xs"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {editingPlan.billing_cycle === "monthly" ? "/ mes" : "/ año"}
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setEditingPlan(null)}
-                  className="flex-1 border font-medium py-3 rounded-lg transition-colors"
-                  style={{
-                    borderColor: "var(--border-color)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
-                  style={{ backgroundColor: "var(--color-primary)" }}
-                >
-                  <Save size={16} />
-                  {saving ? "Guardando..." : "Guardar cambios"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EditPlanModal
+          plan={editingPlan}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          onSave={handleSave}
+          onClose={() => setEditingPlan(null)}
+          saving={saving}
+          error={error}
+        />
       )}
 
       {showLogout && (
