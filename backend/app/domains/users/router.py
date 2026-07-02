@@ -95,6 +95,31 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class CreateSuperadminRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    password: str
+
+
+@router.post("/admin/superadmin", response_model=UserResponse, status_code=201)
+def create_superadmin(
+    data: CreateSuperadminRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.superadmin:
+        raise HTTPException(
+            status_code=403, detail="Solo superadmins pueden crear otros superadmins."
+        )
+    user_data = UserCreate(
+        email=data.email,
+        password=data.password,
+        full_name=data.full_name,
+        role=UserRole.superadmin,
+    )
+    return create_user(db, user_data)
+
+
 @router.post("/auth/forgot-password")
 def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.execute(select(User).where(User.email == data.email)).scalar_one_or_none()

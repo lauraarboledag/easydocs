@@ -18,11 +18,13 @@ import {
   User,
   Sun,
   Shield,
+  UserPlus,
 } from "lucide-react";
 
 const TABS = [
   { id: "account", label: "Mi cuenta", icon: User },
   { id: "appearance", label: "Apariencia", icon: Sun },
+  { id: "team", label: "Equipo", icon: UserPlus },
 ];
 
 const PASSWORD_RULES = [
@@ -147,6 +149,170 @@ function AppearanceTab({ theme, setTheme, themes }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function TeamTab({ onSuccess, onError }) {
+  const [form, setForm] = useState({ full_name: "", email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [strength, setStrength] = useState({
+    length: false,
+    uppercase: false,
+    number: false,
+    special: false,
+  });
+
+  const handleChange = (field, value) => {
+    setForm((p) => ({ ...p, [field]: value }));
+    if (field === "password") {
+      setStrength({
+        length: value.length >= 8,
+        uppercase: /[A-Z]/.test(value),
+        number: /[0-9]/.test(value),
+        special: /[!@#$%^&*]/.test(value),
+      });
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!Object.values(strength).every(Boolean)) {
+      onError("La contraseña no cumple con todos los requisitos.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post("/admin/superadmin", form);
+      onSuccess(`Superadmin ${form.full_name} creado exitosamente.`);
+      setForm({ full_name: "", email: "", password: "" });
+      setStrength({
+        length: false,
+        uppercase: false,
+        number: false,
+        special: false,
+      });
+    } catch (err) {
+      onError(err.response?.data?.detail || "Error al crear el superadmin.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="rounded-xl border p-6"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-color)",
+      }}
+    >
+      <div className="flex items-center gap-3 mb-1">
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: "#fef9c3" }}
+        >
+          <Shield size={16} className="text-yellow-600" />
+        </div>
+        <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
+          Crear superadministrador
+        </h2>
+      </div>
+      <p className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>
+        Solo los superadmins pueden crear otros superadmins. Usa esta función
+        con cuidado.
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Nombre completo
+          </label>
+          <input
+            type="text"
+            value={form.full_name}
+            onChange={(e) => handleChange("full_name", e.target.value)}
+            placeholder="Nombre Apellido"
+            required
+            className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+            style={{
+              borderColor: "var(--border-color)",
+              backgroundColor: "var(--bg-primary)",
+              color: "var(--text-primary)",
+            }}
+          />
+        </div>
+
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Correo electrónico
+          </label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            placeholder="correo@easydocs.com"
+            required
+            className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
+            style={{
+              borderColor: "var(--border-color)",
+              backgroundColor: "var(--bg-primary)",
+              color: "var(--text-primary)",
+            }}
+          />
+        </div>
+
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Contraseña
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => handleChange("password", e.target.value)}
+              placeholder="Contraseña segura"
+              required
+              className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((p) => !p)}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {form.password && <PasswordStrengthIndicator strength={strength} />}
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
+          style={{ backgroundColor: "var(--color-primary)" }}
+        >
+          <UserPlus size={16} />
+          {saving ? "Creando..." : "Crear superadmin"}
+        </button>
+      </form>
     </div>
   );
 }
@@ -382,6 +548,16 @@ export default function AdminSettings() {
 
           {activeTab === "appearance" && (
             <AppearanceTab theme={theme} setTheme={setTheme} themes={themes} />
+          )}
+
+          {activeTab === "team" && (
+            <TeamTab
+              onSuccess={(msg) => {
+                setSuccess(msg);
+                setTimeout(() => setSuccess(""), 4000);
+              }}
+              onError={(msg) => setError(msg)}
+            />
           )}
         </div>
       </main>

@@ -19,6 +19,8 @@ import {
   Award,
   TrendingUp,
   Crown,
+  Eye,
+  ImageIcon,
 } from "lucide-react";
 
 const FIELD_LABELS = {
@@ -141,6 +143,12 @@ const CHAPTER_GROUPS = {
   ],
 };
 
+const LOGO_POSITIONS = [
+  { id: "top-left", label: "Arriba izquierda" },
+  { id: "top-center", label: "Arriba centro" },
+  { id: "top-right", label: "Arriba derecha" },
+];
+
 function RocketAnimation() {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -164,6 +172,20 @@ function RocketAnimation() {
   );
 }
 
+// Inyecta el estilo de posición del logo directamente en el HTML renderizado
+function injectLogoPosition(html, position) {
+  const alignMap = {
+    "top-left": "left",
+    "top-center": "center",
+    "top-right": "right",
+  };
+  const align = alignMap[position] || "left";
+  return html.replace(
+    /<img([^>]*style=")([^"]*)"([^>]*)>/,
+    `<img$1$2; display:block; margin-left:${align === "left" ? "0" : "auto"}; margin-right:${align === "right" ? "0" : "auto"};"$3>`,
+  );
+}
+
 export default function DocumentNew() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -182,8 +204,21 @@ export default function DocumentNew() {
     Object.keys(CHAPTER_GROUPS)[0],
   );
 
+  // Estado vista previa
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [logoPosition, setLogoPosition] = useState("top-left");
+
   useEffect(() => {
-    api.get("/templates/").then((res) => setTemplates(res.data));
+    const fetchTemplates = async () => {
+      try {
+        const res = await api.get("/templates/");
+        setTemplates(res.data);
+      } catch {
+        setError("Error cargando plantillas.");
+      }
+    };
+    fetchTemplates();
   }, []);
 
   useInactivity({
@@ -212,7 +247,8 @@ export default function DocumentNew() {
     setError("");
   };
 
-  const handleCreate = async () => {
+  // Paso 2 → 3: validar y cargar vista previa
+  const handleGoToPreview = async () => {
     const empty = selectedTemplate.required_fields.filter((f) => !formData[f]);
     if (empty.length > 0) {
       setError(
@@ -220,6 +256,23 @@ export default function DocumentNew() {
       );
       return;
     }
+    setPreviewLoading(true);
+    setError("");
+    try {
+      const res = await api.post(`/templates/${selectedTemplate.id}/preview`, {
+        document_data: formData,
+      });
+      setPreviewHtml(res.data.html);
+      setStep(3);
+    } catch {
+      setError("Error cargando la vista previa. Intenta de nuevo.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Paso 3 → 4: crear documento real
+  const handleCreate = async () => {
     setLoading(true);
     try {
       const res = await api.post("/documents/", {
@@ -227,7 +280,7 @@ export default function DocumentNew() {
         document_data: formData,
       });
       setCreatedDoc(res.data);
-      setStep(3);
+      setStep(4);
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (err.response?.status === 403 && detail?.limit_reached) {
@@ -247,31 +300,34 @@ export default function DocumentNew() {
       const res = await api.get(`/documents/${createdDoc.id}/pdf`, {
         responseType: "blob",
       });
-      const url = window.URL.createObjectURL(
-        new Blob([res.data], { type: "application/pdf" }),
-      );
+      const blob = new Blob([res.data], { type: "application/octet-stream" });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute(
-        "download",
-        `${selectedTemplate.name}_${createdDoc.id.split("-")[0]}.pdf`,
-      );
+      link.download = `${selectedTemplate.name}_${createdDoc.id.split("-")[0]}.pdf`;
+      link.style.display = "none";
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch {
       setError("Error al generar el PDF.");
     } finally {
       setDownloading(false);
     }
   };
 
-  const getTemplatesByChapter = (chapterTypes) => {
-    return templates.filter((t) => chapterTypes.includes(t.document_type));
-  };
+  const getTemplatesByChapter = (chapterTypes) =>
+    templates.filter((t) => chapterTypes.includes(t.document_type));
 
-  const STEPS = ["Tipo de documento", "Datos del documento", "Descargar PDF"];
+  const STEPS = ["Tipo de documento", "Datos", "Vista previa", "Descargar"];
+
+  // HTML con posición de logo aplicada
+  const htmlWithLogoPosition = previewHtml
+    ? injectLogoPosition(previewHtml, logoPosition)
+    : "";
 
   return (
     <div
@@ -310,7 +366,8 @@ export default function DocumentNew() {
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {step === 1 && "Selecciona el tipo de documento"}
                 {step === 2 && selectedTemplate?.name}
-                {step === 3 && "Documento generado"}
+                {step === 3 && "Revisa tu documento antes de generarlo"}
+                {step === 4 && "Documento generado"}
               </p>
             </div>
           </div>
@@ -337,8 +394,8 @@ export default function DocumentNew() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
-          {/* Stepper centrado */}
+        <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
+          {/* Stepper */}
           <div className="flex items-center justify-center gap-2 mb-8">
             {STEPS.map((label, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -374,7 +431,7 @@ export default function DocumentNew() {
                     {label}
                   </span>
                 </div>
-                {i < 2 && (
+                {i < 3 && (
                   <ChevronRight
                     size={14}
                     className="mx-1"
@@ -387,12 +444,11 @@ export default function DocumentNew() {
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
-              <AlertCircle size={16} />
-              {error}
+              <AlertCircle size={16} /> {error}
             </div>
           )}
 
-          {/* Paso 1 — Selección agrupada por capítulo */}
+          {/* Paso 1 — Selección */}
           {step === 1 && (
             <div>
               <h2
@@ -407,8 +463,6 @@ export default function DocumentNew() {
               >
                 Elige la plantilla reglamentaria que necesitas generar.
               </p>
-
-              {/* Tabs de capítulo */}
               <div
                 className="flex gap-1 p-1 rounded-xl mb-6 border"
                 style={{
@@ -448,7 +502,6 @@ export default function DocumentNew() {
                   </button>
                 ))}
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {getTemplatesByChapter(CHAPTER_GROUPS[activeChapter]).map(
                   (template) => (
@@ -550,7 +603,6 @@ export default function DocumentNew() {
                   </p>
                 </div>
               </div>
-
               <div
                 className="rounded-xl border p-6"
                 style={{
@@ -571,7 +623,6 @@ export default function DocumentNew() {
                   Los datos de tu institución se incluirán automáticamente.
                   Completa los campos específicos.
                 </p>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {selectedTemplate.required_fields.map((field) => {
                     const isMultiline = MULTILINE_FIELDS.includes(field);
@@ -622,7 +673,6 @@ export default function DocumentNew() {
                     );
                   })}
                 </div>
-
                 <div
                   className="flex justify-between mt-8 pt-6 border-t"
                   style={{ borderColor: "var(--border-color)" }}
@@ -632,20 +682,20 @@ export default function DocumentNew() {
                     className="font-medium flex items-center gap-2 transition-colors"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    <ChevronLeft size={16} />
-                    Cambiar plantilla
+                    <ChevronLeft size={16} /> Cambiar plantilla
                   </button>
                   <button
-                    onClick={handleCreate}
-                    disabled={loading}
+                    onClick={handleGoToPreview}
+                    disabled={previewLoading}
                     className="text-white font-semibold py-3 px-8 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-40"
                     style={{ backgroundColor: "var(--color-primary)" }}
                   >
-                    {loading ? (
-                      "Creando..."
+                    {previewLoading ? (
+                      "Cargando vista previa..."
                     ) : (
                       <>
-                        Crear documento <ChevronRight size={16} />
+                        <Eye size={16} /> Vista previa{" "}
+                        <ChevronRight size={16} />
                       </>
                     )}
                   </button>
@@ -654,8 +704,142 @@ export default function DocumentNew() {
             </div>
           )}
 
-          {/* Paso 3 — Descarga */}
-          {step === 3 && createdDoc && (
+          {/* Paso 3 — Vista previa */}
+          {step === 3 && previewHtml && (
+            <div className="flex gap-6">
+              {/* iframe con el documento */}
+              <div className="flex-1">
+                <div
+                  className="rounded-xl border overflow-hidden"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-color)",
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 border-b"
+                    style={{ borderColor: "var(--border-color)" }}
+                  >
+                    <Eye size={14} style={{ color: "var(--color-primary)" }} />
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Vista previa — {selectedTemplate?.name}
+                    </span>
+                  </div>
+                  <iframe
+                    srcDoc={htmlWithLogoPosition}
+                    title="Vista previa del documento"
+                    className="w-full border-0"
+                    style={{ height: "700px", backgroundColor: "white" }}
+                  />
+                </div>
+              </div>
+
+              {/* Panel de ajustes */}
+              <div className="w-72 flex-shrink-0">
+                <div
+                  className="rounded-xl border p-5 sticky top-24"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-color)",
+                  }}
+                >
+                  <h3
+                    className="font-semibold mb-4"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Ajustes del documento
+                  </h3>
+
+                  {/* Posición del logo */}
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ImageIcon
+                        size={14}
+                        style={{ color: "var(--color-primary)" }}
+                      />
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Posición del logo
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {LOGO_POSITIONS.map((pos) => (
+                        <button
+                          key={pos.id}
+                          onClick={() => setLogoPosition(pos.id)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm transition-colors text-left"
+                          style={{
+                            backgroundColor:
+                              logoPosition === pos.id
+                                ? "var(--color-primary-light)"
+                                : "var(--bg-primary)",
+                            borderColor:
+                              logoPosition === pos.id
+                                ? "var(--color-primary)"
+                                : "var(--border-color)",
+                            color:
+                              logoPosition === pos.id
+                                ? "var(--color-primary)"
+                                : "var(--text-secondary)",
+                            fontWeight: logoPosition === pos.id ? "600" : "400",
+                          }}
+                        >
+                          {logoPosition === pos.id && <CheckCircle size={13} />}
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    className="rounded-lg p-3 mb-6 text-xs"
+                    style={{
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    💡 Las firmas se podrán configurar próximamente desde{" "}
+                    <strong>Configuración → Firmas</strong>.
+                  </div>
+
+                  {/* Botones */}
+                  <button
+                    onClick={handleCreate}
+                    disabled={loading}
+                    className="w-full text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-40 mb-2"
+                    style={{ backgroundColor: "var(--color-primary)" }}
+                  >
+                    {loading ? (
+                      "Generando..."
+                    ) : (
+                      <>
+                        <CheckCircle size={16} /> Generar documento
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setStep(2)}
+                    className="w-full py-2.5 rounded-lg text-sm font-medium border transition-colors"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    <ChevronLeft size={14} className="inline mr-1" />
+                    Volver a editar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Paso 4 — Descarga */}
+          {step === 4 && createdDoc && (
             <div
               className="rounded-2xl border p-12 text-center"
               style={{
@@ -679,7 +863,6 @@ export default function DocumentNew() {
               >
                 ID: {createdDoc.id}
               </p>
-
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={handleDownload}
@@ -711,6 +894,8 @@ export default function DocumentNew() {
                     setSelectedTemplate(null);
                     setFormData({});
                     setCreatedDoc(null);
+                    setPreviewHtml("");
+                    setLogoPosition("top-left");
                     setError("");
                   }}
                   className="font-medium hover:underline py-3 px-4"
@@ -725,6 +910,7 @@ export default function DocumentNew() {
       </main>
 
       <EduBot />
+
       {showLogout && (
         <LogoutModal
           onConfirm={() => {
@@ -750,7 +936,6 @@ export default function DocumentNew() {
             className="rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4"
             style={{ backgroundColor: "var(--bg-secondary)" }}
           >
-            {/* Ícono */}
             <div className="flex justify-center mb-4">
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center"
@@ -762,8 +947,6 @@ export default function DocumentNew() {
                 />
               </div>
             </div>
-
-            {/* Título */}
             <h3
               className="text-lg font-bold text-center mb-1"
               style={{ color: "var(--text-primary)" }}
@@ -783,22 +966,15 @@ export default function DocumentNew() {
               </span>{" "}
               permitidos este mes.
             </p>
-
-            {/* Barra de progreso */}
             <div
               className="w-full rounded-full h-2 mb-5"
               style={{ backgroundColor: "var(--bg-primary)" }}
             >
               <div
-                className="h-2 rounded-full transition-all"
-                style={{
-                  width: "100%",
-                  backgroundColor: "#dc2626",
-                }}
+                className="h-2 rounded-full"
+                style={{ width: "100%", backgroundColor: "#dc2626" }}
               />
             </div>
-
-            {/* Botones */}
             <button
               onClick={() => {
                 setLimitModal(null);
@@ -807,8 +983,7 @@ export default function DocumentNew() {
               className="w-full py-2.5 text-sm font-semibold text-white rounded-lg mb-2 flex items-center justify-center gap-2"
               style={{ backgroundColor: "var(--color-primary)" }}
             >
-              <Crown size={15} />
-              Mejorar mi plan
+              <Crown size={15} /> Mejorar mi plan
             </button>
             <button
               onClick={() => setLimitModal(null)}

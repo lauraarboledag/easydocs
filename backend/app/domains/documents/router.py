@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from app.database import get_db
 from app.core.auth import get_current_user
+from app.core.pdf_engine import render_html_preview
+from app.domains.institutions.services import get_institution
 from app.core.features import require_superadmin
 from app.domains.users.models import User
 from app.domains.subscriptions.models import Subscription, Plan
@@ -45,6 +48,43 @@ def edit_template(
     current_user: User = Depends(require_superadmin),
 ):
     return update_template(db, template_id, data)
+
+
+class PreviewRequest(BaseModel):
+    document_data: dict
+
+
+@router.post("/templates/{template_id}/preview")
+def preview_template(
+    template_id: str,
+    data: PreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    template = db.execute(
+        select(DocumentTemplate).where(DocumentTemplate.id == template_id)
+    ).scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada.")
+
+    institution = get_institution(db, current_user.institution_id)
+    institution_dict = {
+        "nombre": institution.name,
+        "municipio": institution.municipality,
+        "direccion": institution.address,
+        "telefono": institution.phone,
+        "email": institution.email,
+        "licencia": institution.license_number,
+        "logo_url": institution.logo_url or "",
+    }
+
+    rendered_html = render_html_preview(
+        template.template_html,
+        data.document_data,
+        institution_dict,
+    )
+
+    return {"html": rendered_html}
 
 
 @router.get("/templates/", response_model=list[DocumentTemplateResponse])

@@ -3,6 +3,7 @@ from weasyprint import HTML
 import tempfile
 import os
 
+
 def render_pdf(template_html: str, context: dict, institution: dict = None) -> bytes:
     """
     Renderiza el PDF inyectando tanto los datos del formulario
@@ -18,7 +19,9 @@ def render_pdf(template_html: str, context: dict, institution: dict = None) -> b
 
     rendered_html = template.render(**full_context)
 
-    with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as f:
+    with tempfile.NamedTemporaryFile(
+        suffix=".html", delete=False, mode="w", encoding="utf-8"
+    ) as f:
         f.write(rendered_html)
         tmp_path = f.name
 
@@ -28,3 +31,20 @@ def render_pdf(template_html: str, context: dict, institution: dict = None) -> b
         os.unlink(tmp_path)
 
     return pdf_bytes
+
+
+def render_html_preview(
+    template_html: str, context: dict, institution: dict = None
+) -> str:
+    """
+    Renderiza el HTML con Jinja2 sin generar PDF.
+    Usado para la vista previa en el frontend.
+    """
+    env = Environment(loader=BaseLoader())
+    template = env.from_string(template_html)
+
+    full_context = {**context}
+    if institution:
+        full_context["institucion"] = institution
+
+    return template.render(**full_context)
