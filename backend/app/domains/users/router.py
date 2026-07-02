@@ -1,36 +1,32 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from pydantic import BaseModel, EmailStr
 from app.database import get_db
-from app.core.auth import get_current_user
-from app.domains.users.schemas import (
-    UserCreate,
-    UserResponse,
-    LoginRequest,
-    TokenResponse,
-)
 from app.core.auth import (
     hash_password,
     verify_password,
     create_access_token,
     get_current_user,
 )
+from app.domains.users.schemas import (
+    UserCreate,
+    UserResponse,
+    LoginRequest,
+    TokenResponse,
+)
 from app.domains.users.services import create_user, login, list_users
-from app.domains.users.models import User, UserRole
+from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
 from app.domains.institutions.schemas import InstitutionCreate
 from app.domains.institutions.services import create_institution
-from pydantic import BaseModel, EmailStr
-from app.domains.users.models import User
-from app.domains.users.models import PasswordResetToken
-from datetime import datetime, timedelta
-from app.domains.users.models import LoginAttempt
 from app.core.email import send_password_reset_email, send_welcome_email
 from app.config import settings
 
 router = APIRouter(tags=["Usuarios"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class RegisterInstitutionRequest(BaseModel):
@@ -40,15 +36,10 @@ class RegisterInstitutionRequest(BaseModel):
     representative_password: str
 
 
-@router.post("/auth/register-superadmin", response_model=UserResponse, status_code=201)
-def register_superadmin(data: UserCreate, db: Session = Depends(get_db)):
-    """Solo para crear el primer superadmin. Eliminar o proteger en producción."""
-    return create_user(db, data)
-
-
 @router.post("/auth/register", response_model=TokenResponse, status_code=201)
+@limiter.limit("3/hour")
 def register_institution_and_representative(
-    data: RegisterInstitutionRequest, db: Session = Depends(get_db)
+    request: Request, data: RegisterInstitutionRequest, db: Session = Depends(get_db)
 ):
     """Registro público — crea institución y representante en un solo paso."""
     institution = create_institution(db, data.institution)
@@ -61,17 +52,15 @@ def register_institution_and_representative(
     )
     user = create_user(db, user_data)
 
-    # Email de bienvenida (LAU-22) — en background para no bloquear el registro
     try:
         send_welcome_email(
-            to_email="nightshadelust1876@gmail.com",  # Temporal, arreglar cuando se consiga dominio
+            to_email="nightshadelust1876@gmail.com",  # Temporal hasta verificar dominio
             full_name=user.full_name,
             institution_name=institution.name,
         )
     except Exception as e:
         print(f"[LAU-22] Error enviando email de bienvenida: {e}")
 
-    # Generar token directamente sin pasar por login
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
@@ -108,18 +97,16 @@ class ResetPasswordRequest(BaseModel):
 
 @router.post("/auth/forgot-password")
 def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    # Buscar usuario por email
     user = db.execute(select(User).where(User.email == data.email)).scalar_one_or_none()
 
-    # Siempre devolver 200 aunque no exista el email (seguridad)
     if not user:
         return {"message": "Si el correo existe, recibirás un enlace de recuperación."}
 
-    # Invalidar tokens anteriores
     old_tokens = (
         db.execute(
             select(PasswordResetToken).where(
-                PasswordResetToken.user_id == user.id, PasswordResetToken.used == False
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used == False,
             )
         )
         .scalars()
@@ -129,13 +116,11 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
         t.used = True
     db.commit()
 
-    # Crear nuevo token
     reset_token = PasswordResetToken(user_id=user.id)
     db.add(reset_token)
     db.commit()
     db.refresh(reset_token)
 
-    # Enviar email
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
     send_password_reset_email(user.email, reset_url, user.full_name)
 
@@ -144,7 +129,6 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
 @router.post("/auth/reset-password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    # Buscar token válido
     reset_token = db.execute(
         select(PasswordResetToken).where(
             PasswordResetToken.token == data.token,
@@ -158,14 +142,8 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
             status_code=400, detail="El enlace es inválido o ha expirado."
         )
 
-    # Actualizar contraseña
     user = db.execute(select(User).where(User.id == reset_token.user_id)).scalar_one()
-
-    from app.core.auth import hash_password
-
     user.password_hash = hash_password(data.new_password)
-
-    # Invalidar token
     reset_token.used = True
     db.commit()
 
@@ -175,16 +153,14 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
 MAX_ATTEMPTS = 3
 BLOCK_MINUTES = 20
 
-limiter = Limiter(key_func=get_remote_address)
-
 
 @router.post("/auth/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     ip = request.client.host
-
-    # Verificar intentos fallidos en los últimos 20 minutos
     since = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
+
+    # Bloqueo solo por email, temporalmente hasta despliegue
     failed_attempts = (
         db.execute(
             select(LoginAttempt).where(
@@ -198,14 +174,13 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
     )
 
     if len(failed_attempts) >= MAX_ATTEMPTS:
-        # Calcular tiempo restante
         oldest = min(a.created_at for a in failed_attempts)
         unlock_at = oldest + timedelta(minutes=BLOCK_MINUTES)
         remaining = int((unlock_at - datetime.utcnow()).total_seconds() / 60) + 1
         raise HTTPException(
             status_code=429,
             detail={
-                "message": f"Cuenta bloqueada por demasiados intentos fallidos.",
+                "message": "Cuenta bloqueada por demasiados intentos fallidos.",
                 "blocked": True,
                 "remaining_minutes": remaining,
                 "unlock_at": unlock_at.isoformat(),
@@ -214,14 +189,12 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
 
     try:
         result = login(db, data.email, data.password)
-        # Login exitoso — limpiar intentos fallidos
         for attempt in failed_attempts:
             db.delete(attempt)
         db.add(LoginAttempt(email=data.email, ip_address=ip, success=True))
         db.commit()
         return result
     except HTTPException:
-        # Login fallido — registrar intento
         db.add(LoginAttempt(email=data.email, ip_address=ip, success=False))
         db.commit()
         attempts_left = MAX_ATTEMPTS - len(failed_attempts) - 1
@@ -229,7 +202,7 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
             raise HTTPException(
                 status_code=401,
                 detail={
-                    "message": f"Contraseña incorrecta.",
+                    "message": "Contraseña incorrecta.",
                     "blocked": False,
                     "attempts_left": attempts_left,
                 },

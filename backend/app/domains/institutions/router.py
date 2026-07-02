@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.auth import get_current_user
@@ -28,14 +28,30 @@ def update_my_institution(
     return update_institution(db, current_user.institution_id, data)
 
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/svg+xml"}
+MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2MB
+
+
 @router.post("/my/logo")
 async def upload_logo(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Formato no permitido. Usa JPG, PNG, WEBP o SVG.",
+        )
+
     contents = await file.read()
-    # Guardar como base64 en la base de datos
+
+    if len(contents) > MAX_LOGO_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="El logo no puede superar 2MB.",
+        )
+
     logo_base64 = (
         f"data:{file.content_type};base64,{base64.b64encode(contents).decode()}"
     )

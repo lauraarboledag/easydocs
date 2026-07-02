@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 import httpx
-import os
 from app.database import get_db
 from app.core.auth import get_current_user
 from app.domains.users.models import User
+from app.config import settings
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(tags=["EduBot"])
+limiter = Limiter(key_func=get_remote_address)
 
 SYSTEM_PROMPT = """Eres EduBot, el asistente normativo de EasyDocs para instituciones de Educación para el Trabajo y el Desarrollo Humano (ETDH) en Colombia.
 
@@ -32,15 +35,15 @@ class MessageRequest(BaseModel):
 
 
 @router.post("/edubot/chat")
+@limiter.limit("20/minute")
 async def chat(
+    request: Request,
     data: MessageRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    print(f"EduBot llamado. GROQ_API_KEY presente: {bool(os.getenv('GROQ_API_KEY'))}")
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="API key de Groq no configurada.")
+    if not settings.GROQ_API_KEY:
+        raise HTTPException(status_code=500, detail="Servicio de IA no disponible.")
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in data.history or []:
@@ -53,7 +56,7 @@ async def chat(
             response = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
+                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
                     "Content-Type": "application/json",
                 },
                 json={
@@ -66,7 +69,7 @@ async def chat(
 
         if response.status_code != 200:
             raise HTTPException(
-                status_code=500, detail=f"Error Groq API: {response.text}"
+                status_code=500, detail="Error al contactar el servicio de IA."
             )
 
         result = response.json()
@@ -77,6 +80,5 @@ async def chat(
         raise HTTPException(
             status_code=504, detail="EduBot tardó demasiado. Intenta de nuevo."
         )
-    except Exception as e:
-        print(f"EduBot error: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error interno en EduBot.")
