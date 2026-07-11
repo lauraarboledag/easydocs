@@ -248,7 +248,8 @@ export default function DocumentNew() {
   };
 
   // Paso 2 → 3: validar y cargar vista previa
-  const handleGoToPreview = async () => {
+  const handleGoToPreview = async (position = logoPosition) => {
+    console.log("handleGoToPreview ejecutado", selectedTemplate?.id, formData);
     const empty = selectedTemplate.required_fields.filter((f) => !formData[f]);
     if (empty.length > 0) {
       setError(
@@ -256,16 +257,36 @@ export default function DocumentNew() {
       );
       return;
     }
+    console.log("Campos completos, llamando preview...");
     setPreviewLoading(true);
     setError("");
     try {
       const res = await api.post(`/templates/${selectedTemplate.id}/preview`, {
         document_data: formData,
+        logo_position: position,
       });
+      console.log("Preview response:", res.data);
       setPreviewHtml(res.data.html);
       setStep(3);
-    } catch {
+    } catch (err) {
+      console.error("Preview error:", err);
       setError("Error cargando la vista previa. Intenta de nuevo.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleLogoPositionChange = async (position) => {
+    setLogoPosition(position);
+    setPreviewLoading(true);
+    try {
+      const res = await api.post(`/templates/${selectedTemplate.id}/preview`, {
+        document_data: formData,
+        logo_position: position,
+      });
+      setPreviewHtml(res.data.html);
+    } catch {
+      setError("Error actualizando la vista previa.");
     } finally {
       setPreviewLoading(false);
     }
@@ -323,11 +344,6 @@ export default function DocumentNew() {
     templates.filter((t) => chapterTypes.includes(t.document_type));
 
   const STEPS = ["Tipo de documento", "Datos", "Vista previa", "Descargar"];
-
-  // HTML con posición de logo aplicada
-  const htmlWithLogoPosition = previewHtml
-    ? injectLogoPosition(previewHtml, logoPosition)
-    : "";
 
   return (
     <div
@@ -685,7 +701,7 @@ export default function DocumentNew() {
                     <ChevronLeft size={16} /> Cambiar plantilla
                   </button>
                   <button
-                    onClick={handleGoToPreview}
+                    onClick={() => handleGoToPreview()}
                     disabled={previewLoading}
                     className="text-white font-semibold py-3 px-8 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-40"
                     style={{ backgroundColor: "var(--color-primary)" }}
@@ -729,7 +745,7 @@ export default function DocumentNew() {
                     </span>
                   </div>
                   <iframe
-                    srcDoc={htmlWithLogoPosition}
+                    srcDoc={previewHtml}
                     title="Vista previa del documento"
                     className="w-full border-0"
                     style={{ height: "700px", backgroundColor: "white" }}
@@ -771,7 +787,7 @@ export default function DocumentNew() {
                       {LOGO_POSITIONS.map((pos) => (
                         <button
                           key={pos.id}
-                          onClick={() => setLogoPosition(pos.id)}
+                          onClick={() => handleLogoPositionChange(pos.id)}
                           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm transition-colors text-left"
                           style={{
                             backgroundColor:

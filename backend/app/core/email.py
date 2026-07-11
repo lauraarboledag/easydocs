@@ -85,7 +85,7 @@ def send_welcome_email(to_email: str, full_name: str, institution_name: str):
             </div>
 
             <div style="text-align: center; margin: 32px 0;">
-                <a href="http://localhost:5173/login"
+                <a href="{settings.FRONTEND_URL}/login"
                    style="background: #2952cc; color: white; padding: 14px 32px; border-radius: 8px;
                           text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
                     Ingresar a EasyDocs

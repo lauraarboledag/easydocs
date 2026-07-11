@@ -7,6 +7,7 @@ from app.domains.subscriptions.router import router as subscriptions_router
 from app.domains.documents.router import router as documents_router
 from app.domains.edubot.router import router as edubot_router
 from app.domains.students.router import router as students_router
+from app.config import settings
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -22,7 +23,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[settings.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

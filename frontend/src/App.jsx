@@ -25,6 +25,7 @@ import ResetPassword from "./pages/ResetPassword";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import Checkout from "./pages/Checkout";
 import AdminPlans from "./pages/AdminPlans";
+import NotFound from "./pages/NotFound";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -174,6 +175,7 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

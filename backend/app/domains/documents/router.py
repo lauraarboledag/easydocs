@@ -52,6 +52,7 @@ def edit_template(
 
 class PreviewRequest(BaseModel):
     document_data: dict
+    logo_position: str = "top-left"
 
 
 @router.post("/templates/{template_id}/preview")
@@ -68,6 +69,13 @@ def preview_template(
         raise HTTPException(status_code=404, detail="Plantilla no encontrada.")
 
     institution = get_institution(db, current_user.institution_id)
+
+    align_map = {
+        "top-left": "left",
+        "top-center": "center",
+        "top-right": "right",
+    }
+
     institution_dict = {
         "nombre": institution.name,
         "municipio": institution.municipality,
@@ -76,6 +84,7 @@ def preview_template(
         "email": institution.email,
         "licencia": institution.license_number,
         "logo_url": institution.logo_url or "",
+        "logo_align": align_map.get(data.logo_position, "left"),
     }
 
     rendered_html = render_html_preview(
@@ -83,7 +92,6 @@ def preview_template(
         data.document_data,
         institution_dict,
     )
-
     return {"html": rendered_html}
 
 
