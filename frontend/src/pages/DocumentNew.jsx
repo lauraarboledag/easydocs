@@ -172,20 +172,6 @@ function RocketAnimation() {
   );
 }
 
-// Inyecta el estilo de posición del logo directamente en el HTML renderizado
-function injectLogoPosition(html, position) {
-  const alignMap = {
-    "top-left": "left",
-    "top-center": "center",
-    "top-right": "right",
-  };
-  const align = alignMap[position] || "left";
-  return html.replace(
-    /<img([^>]*style=")([^"]*)"([^>]*)>/,
-    `<img$1$2; display:block; margin-left:${align === "left" ? "0" : "auto"}; margin-right:${align === "right" ? "0" : "auto"};"$3>`,
-  );
-}
-
 export default function DocumentNew() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -203,8 +189,6 @@ export default function DocumentNew() {
   const [activeChapter, setActiveChapter] = useState(
     Object.keys(CHAPTER_GROUPS)[0],
   );
-
-  // Estado vista previa
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [logoPosition, setLogoPosition] = useState("top-left");
@@ -247,9 +231,7 @@ export default function DocumentNew() {
     setError("");
   };
 
-  // Paso 2 → 3: validar y cargar vista previa
   const handleGoToPreview = async (position = logoPosition) => {
-    console.log("handleGoToPreview ejecutado", selectedTemplate?.id, formData);
     const empty = selectedTemplate.required_fields.filter((f) => !formData[f]);
     if (empty.length > 0) {
       setError(
@@ -257,7 +239,6 @@ export default function DocumentNew() {
       );
       return;
     }
-    console.log("Campos completos, llamando preview...");
     setPreviewLoading(true);
     setError("");
     try {
@@ -265,11 +246,9 @@ export default function DocumentNew() {
         document_data: formData,
         logo_position: position,
       });
-      console.log("Preview response:", res.data);
       setPreviewHtml(res.data.html);
       setStep(3);
-    } catch (err) {
-      console.error("Preview error:", err);
+    } catch {
       setError("Error cargando la vista previa. Intenta de nuevo.");
     } finally {
       setPreviewLoading(false);
@@ -292,7 +271,6 @@ export default function DocumentNew() {
     }
   };
 
-  // Paso 3 → 4: crear documento real
   const handleCreate = async () => {
     setLoading(true);
     try {
@@ -723,7 +701,6 @@ export default function DocumentNew() {
           {/* Paso 3 — Vista previa */}
           {step === 3 && previewHtml && (
             <div className="flex gap-6">
-              {/* iframe con el documento */}
               <div className="flex-1">
                 <div
                   className="rounded-xl border overflow-hidden"
@@ -753,7 +730,6 @@ export default function DocumentNew() {
                 </div>
               </div>
 
-              {/* Panel de ajustes */}
               <div className="w-72 flex-shrink-0">
                 <div
                   className="rounded-xl border p-5 sticky top-24"
@@ -768,8 +744,6 @@ export default function DocumentNew() {
                   >
                     Ajustes del documento
                   </h3>
-
-                  {/* Posición del logo */}
                   <div className="mb-6">
                     <div className="flex items-center gap-2 mb-3">
                       <ImageIcon
@@ -811,7 +785,6 @@ export default function DocumentNew() {
                       ))}
                     </div>
                   </div>
-
                   <div
                     className="rounded-lg p-3 mb-6 text-xs"
                     style={{
@@ -822,8 +795,6 @@ export default function DocumentNew() {
                     💡 Las firmas se podrán configurar próximamente desde{" "}
                     <strong>Configuración → Firmas</strong>.
                   </div>
-
-                  {/* Botones */}
                   <button
                     onClick={handleCreate}
                     disabled={loading}
