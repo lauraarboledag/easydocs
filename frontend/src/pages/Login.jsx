@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Shield, FileText, ChevronLeft } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,94 +77,117 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Panel izquierdo */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-center p-12 text-white overflow-hidden">
+
+      {/* Panel izquierdo — video + info */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden">
         <video
-          autoPlay
-          muted
-          loop
-          playsInline
+          autoPlay muted loop playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source src="/videos/Login.mp4" type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-[#1a2b4a]/80" />
-        <div className="relative z-10 max-w-md">
-          <div className="mb-12">
-            <img
-              src="/logo_easydocs_blanco.png"
-              alt="EasyDocs"
-              className="h-32 w-auto object-contain"
-            />
+        <div className="absolute inset-0 bg-[#0d1b35]/85" />
+
+        {/* Logo */}
+        <div className="relative z-10">
+          <img
+            src="/logo_easydocs_blanco.png"
+            alt="EasyDocs"
+            className="h-16 w-auto object-contain"
+          />
+        </div>
+
+        {/* Texto central */}
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-4 py-1.5 mb-6">
+            <Shield size={13} className="text-blue-300" />
+            <span className="text-blue-200 text-xs font-medium">
+              {"Plataforma oficial para instituciones ETDH"}
+            </span>
           </div>
-          <h1 className="text-4xl font-bold leading-tight mb-6">Bienvenido</h1>
-          <p className="text-blue-200 text-lg">
-            Accede a tu plataforma de gestión documental institucional.
+          <h1 className="text-4xl font-bold leading-tight mb-4">
+            Bienvenido de nuevo
+          </h1>
+          <p className="text-blue-200 text-lg leading-relaxed mb-8">
+            {"Accede a tu plataforma de gestión documental y continúa con el trabajo administrativo de tu institución."}
+          </p>
+
+          {/* Info cards */}
+          <div className="space-y-3">
+            {[
+              { icon: FileText, text: "LR001 – LR009 y certificados Capítulo II" },
+              { icon: Shield, text: "Cumplimiento Decreto 1075 de 2015" },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
+                <Icon size={16} className="text-blue-300 flex-shrink-0" />
+                <span className="text-blue-100 text-sm">{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer panel */}
+        <div className="relative z-10">
+          <p className="text-blue-400 text-xs">
+            {"© 2026 EasyDocs \u00B7 EduDynamis"}
           </p>
         </div>
       </div>
 
-      {/* Panel derecho */}
+      {/* Panel derecho — formulario */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-16 py-12 bg-white">
         <div className="max-w-md mx-auto w-full">
+
+          {/* Logo móvil */}
           <div className="mb-10 lg:hidden">
             <img
               src="/logo_easydocs_blanco.png"
               alt="EasyDocs"
-              className="h-20 w-auto object-contain"
+              className="h-14 w-auto object-contain"
             />
           </div>
 
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Iniciar sesión
-          </h2>
-          <p className="text-gray-500 mb-8">
-            Ingresa tus credenciales para acceder a tu institución.
-          </p>
-
+          {/* Volver */}
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mb-8 transition-colors"
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-8 transition-colors"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16l-4-4m0 0l4-4m-4 4h18"
-              />
-            </svg>
-            Volver al inicio
+            <ChevronLeft size={16} /> Volver al inicio
           </button>
 
+          {/* Encabezado */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-[#1a2b4a] mb-2">
+              Iniciar sesión
+            </h2>
+            <p className="text-gray-500 text-sm">
+              Ingresa tus credenciales para acceder a tu institución.
+            </p>
+          </div>
+
+          {/* Error */}
           {error && (
             <div
-              className={`border px-4 py-3 rounded-lg text-sm flex items-center gap-2 mb-5 ${
+              className={`border px-4 py-3 rounded-lg text-sm flex items-start gap-2 mb-6 ${
                 blockedUntil
                   ? "bg-red-50 border-red-200 text-red-700"
                   : "bg-yellow-50 border-yellow-200 text-yellow-700"
               }`}
             >
-              <AlertCircle size={16} className="flex-shrink-0" />
-              <div className="flex-1">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <div>
                 <p>{error}</p>
                 {countdown && (
-                  <p className="font-mono font-bold text-lg mt-1">
-                    {countdown}
-                  </p>
+                  <p className="font-mono font-bold text-lg mt-1">{countdown}</p>
                 )}
               </div>
             </div>
           )}
 
+          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
                 Correo institucional
               </label>
               <input
@@ -174,20 +197,20 @@ export default function Login() {
                 onChange={handleChange}
                 placeholder="correo@institucion.edu.co"
                 required
-                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2952cc]"
+                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-700">
-                  Contraseña
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {"Contraseña"}
                 </label>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-[#2952cc] hover:underline"
                 >
-                  ¿Olvidaste tu contraseña?
+                  {"¿Olvidaste tu contraseña?"}
                 </Link>
               </div>
               <div className="relative">
@@ -199,7 +222,7 @@ export default function Login() {
                   placeholder="Tu contraseña"
                   required
                   disabled={!!blockedUntil}
-                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2952cc] pr-10 disabled:bg-gray-50 disabled:text-gray-400"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent pr-10 disabled:bg-gray-50 disabled:text-gray-400 transition-all"
                 />
                 <button
                   type="button"
@@ -210,8 +233,8 @@ export default function Login() {
                 </button>
               </div>
               {attemptsLeft !== null && (
-                <p className="text-xs text-yellow-600 mt-1">
-                  Intentos restantes: {attemptsLeft}
+                <p className="text-xs text-yellow-600 mt-1.5">
+                  {"Intentos restantes: "}{attemptsLeft}
                 </p>
               )}
             </div>
@@ -219,24 +242,35 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || !!blockedUntil}
-              className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 text-white font-semibold py-4 px-6 rounded-lg transition-colors"
+              className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3.5 px-6 rounded-lg transition-colors mt-2"
             >
-              {loading
-                ? "Ingresando..."
-                : blockedUntil
-                  ? `Bloqueado ${countdown || ""}`
-                  : "Ingresar"}
+              {loading ? "Ingresando..." : blockedUntil ? `Bloqueado ${countdown || ""}` : "Ingresar"}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-8">
-            ¿No tienes cuenta?{" "}
-            <Link
-              to="/registro"
-              className="text-[#2952cc] font-medium hover:underline"
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-xs text-gray-400">o</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+
+          {/* Registro */}
+          <div className="bg-gray-50 rounded-xl p-4 text-center">
+            <p className="text-sm text-gray-500 mb-3">
+              {"¿Tu institución aún no está registrada?"}
+            </p>
+            <button
+              onClick={() => navigate("/registro")}
+              className="w-full border-2 border-[#2952cc] text-[#2952cc] hover:bg-[#2952cc] hover:text-white font-semibold py-2.5 px-6 rounded-lg transition-colors text-sm"
             >
-              Registra tu institución
-            </Link>
+              Registrar institución
+            </button>
+          </div>
+
+          {/* Decreto */}
+          <p className="text-center text-xs text-gray-400 mt-6">
+            {"Alineado con el Decreto 1075 de 2015 para instituciones ETDH en Colombia."}
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   Settings,
   LogOut,
+  CalendarDays
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
     icon: ArrowLeftRight,
     path: "/admin/transacciones",
   },
+  { label: "Calendario", icon: CalendarDays, path: "/admin/calendario" },
 ];
 
 export default function AdminSidebar({ onLogout }) {

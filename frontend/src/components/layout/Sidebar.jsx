@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   BookOpen,
+  CalendarDays,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { label: "Estudiantes", icon: GraduationCap, path: "/estudiantes" },
   { label: "Programas", icon: BookOpen, path: "/programas" },
   { label: "Matrículas", icon: ClipboardList, path: "/matriculas" },
+  { label: "Calendario", icon: CalendarDays, path: "/calendario" },
   { label: "Suscripción", icon: CreditCard, path: "/suscripcion" },
 ];
 

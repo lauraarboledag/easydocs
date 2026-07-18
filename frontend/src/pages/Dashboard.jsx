@@ -10,14 +10,12 @@ import EduBot from "../components/EduBot";
 import {
   FileText,
   Plus,
-  FileCheck,
   TrendingUp,
   TrendingDown,
   Shield,
   Bell,
   FilePen,
   Award,
-  BarChart3,
   ClipboardList,
   GraduationCap,
   BookOpen,
@@ -25,7 +23,7 @@ import {
   Clock,
   XCircle,
   ArrowRight,
-  Users,
+  CalendarDays,
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -59,6 +57,149 @@ const PLAN_LIMITS = {
   enterprise: Infinity,
 };
 
+const PLAN_LABELS = {
+  free: "Free",
+  basic: "Básico",
+  professional: "Profesional",
+  enterprise: "Empresarial",
+};
+
+function MetricCard({ label, value, sub, icon: Icon, iconColor, alert }) {
+  return (
+    <div
+      className="rounded-xl p-5 border"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: alert ? "#fbbf24" : "var(--border-color)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span
+          className="text-xs uppercase tracking-wide"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {label}
+        </span>
+        <Icon size={14} style={{ color: iconColor || "var(--color-icon)" }} />
+      </div>
+      <p
+        className="text-3xl font-bold"
+        style={{ color: alert ? "#f59e0b" : "var(--text-primary)" }}
+      >
+        {value}
+      </p>
+      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+        {sub}
+      </p>
+    </div>
+  );
+}
+
+function BannerClock() {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const s = time.getSeconds();
+  const m = time.getMinutes();
+  const h = time.getHours() % 12;
+
+  const toXY = (deg, len) => ({
+    x: 60 + len * Math.cos(((deg - 90) * Math.PI) / 180),
+    y: 60 + len * Math.sin(((deg - 90) * Math.PI) / 180),
+  });
+
+  const hTip = toXY(h * 30 + m * 0.5, 28);
+  const mTip = toXY(m * 6 + s * 0.1, 38);
+  const sTip = toXY(s * 6, 42);
+  const sTail = toXY(s * 6 + 180, 10);
+
+  const timeStr = time.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const dateStr = time.toLocaleDateString("es-CO", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
+
+  return (
+    <div className="flex items-center gap-4 flex-shrink-0">
+      <svg width="90" height="90" viewBox="0 0 120 120">
+        <circle
+          cx="60"
+          cy="60"
+          r="54"
+          fill="var(--bg-primary)"
+          stroke="var(--color-primary)"
+          strokeWidth="2"
+          opacity="0.3"
+        />
+        {Array.from({ length: 12 }, (_, i) => {
+          const angle = (i * 30 - 90) * (Math.PI / 180);
+          const major = i % 3 === 0;
+          return (
+            <circle
+              key={i}
+              cx={60 + (major ? 46 : 47) * Math.cos(angle)}
+              cy={60 + (major ? 46 : 47) * Math.sin(angle)}
+              r={major ? 3.5 : 2}
+              fill="var(--color-primary)"
+              opacity={major ? 0.8 : 0.3}
+            />
+          );
+        })}
+        <line
+          x1="60"
+          y1="60"
+          x2={hTip.x}
+          y2={hTip.y}
+          stroke="var(--text-primary)"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+        />
+        <line
+          x1="60"
+          y1="60"
+          x2={mTip.x}
+          y2={mTip.y}
+          stroke="var(--text-primary)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        <line
+          x1={sTail.x}
+          y1={sTail.y}
+          x2={sTip.x}
+          y2={sTip.y}
+          stroke="var(--color-primary)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <circle cx="60" cy="60" r="3" fill="var(--color-primary)" />
+      </svg>
+      <div>
+        <p
+          className="text-3xl font-bold font-mono"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {timeStr}
+        </p>
+        <p
+          className="text-xs mt-1 capitalize"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {dateStr}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -68,6 +209,7 @@ export default function Dashboard() {
   const [programs, setPrograms] = useState([]);
   const [students, setStudents] = useState([]);
   const [subscription, setSubscription] = useState(null);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
@@ -85,21 +227,34 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [docsRes, templatesRes, programsRes, studentsRes, subRes] =
-          await Promise.all([
-            api.get("/documents/"),
-            api.get("/templates/"),
-            api.get("/programs/"),
-            api.get("/students/"),
-            api.get("/subscriptions/my").catch(() => ({ data: null })),
-          ]);
+        const [
+          docsRes,
+          templatesRes,
+          programsRes,
+          studentsRes,
+          subRes,
+          eventsRes,
+        ] = await Promise.all([
+          api.get("/documents/"),
+          api.get("/templates/"),
+          api.get("/programs/"),
+          api.get("/students/"),
+          api.get("/subscriptions/my").catch(() => ({ data: null })),
+          api.get("/calendar/").catch(() => ({ data: [] })),
+        ]);
         setDocuments(docsRes.data);
         setTemplates(templatesRes.data);
         setPrograms(programsRes.data);
         setStudents(studentsRes.data);
         setSubscription(subRes.data);
-      } catch (err) {
-        console.error(err);
+        const todayStr = new Date().toISOString().split("T")[0];
+        setUpcomingEvents(
+          eventsRes.data
+            .filter((e) => e.event_date >= todayStr && !e.is_done)
+            .slice(0, 3),
+        );
+      } catch {
+        // silencioso
       } finally {
         setLoading(false);
       }
@@ -107,7 +262,32 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // Métricas calculadas
+  // Refrescar eventos al volver al dashboard
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchEvents();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const res = await api.get("/calendar/").catch(() => ({ data: [] }));
+      const todayStr = new Date().toISOString().split("T")[0];
+      setUpcomingEvents(
+        res.data
+          .filter((e) => e.event_date >= todayStr && !e.is_done)
+          .slice(0, 3),
+      );
+    } catch {
+      // silencioso
+    }
+  };
+
   const now = new Date();
   const thisMonth = documents.filter((d) => {
     const date = new Date(d.created_at);
@@ -138,13 +318,7 @@ export default function Dashboard() {
 
   const planName = subscription?.plan?.name || "free";
   const planLimit = PLAN_LIMITS[planName] ?? 10;
-  const planLabel =
-    {
-      free: "Free",
-      basic: "Básico",
-      professional: "Profesional",
-      enterprise: "Empresarial",
-    }[planName] || "Free";
+  const planLabel = PLAN_LABELS[planName] || "Free";
   const usagePercent =
     planLimit === Infinity
       ? 0
@@ -156,23 +330,24 @@ export default function Dashboard() {
         ? "#f59e0b"
         : "var(--color-primary)";
 
-  const getTemplateName = (templateId) => {
-    const t = templates.find((t) => t.id === templateId);
-    return t?.name || templateId;
-  };
+  const getTemplateName = (templateId) =>
+    templates.find((t) => t.id === templateId)?.name || templateId;
 
-  // Documentos recientes ordenados por fecha
   const recentDocs = [...documents]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 5);
 
-  // Distribución por estado
   const statusCounts = {
     generated: generatedCount,
     draft: documents.filter((d) => d.status === "draft").length,
     ai_draft: pendingDrafts,
     cancelled: documents.filter((d) => d.status === "cancelled").length,
   };
+
+  const hour = now.getHours();
+  const greeting =
+    hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const nextEvent = upcomingEvents[0];
 
   return (
     <div
@@ -183,18 +358,23 @@ export default function Dashboard() {
 
       <main className="ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-20"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <h1
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Panel de Control
-          </h1>
+          <div>
+            <h1
+              className="text-lg font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Panel de Control
+            </h1>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {user?.institution?.name || "Vista general"}
+            </p>
+          </div>
           <div className="flex items-center gap-4">
             <button
               className="relative p-2 transition-colors"
@@ -233,54 +413,140 @@ export default function Dashboard() {
         </header>
 
         <div className="flex-1 p-8">
-          {/* Banner bienvenida */}
+          {/* Banner */}
           <div
-            className="rounded-2xl p-8 mb-8 flex items-center justify-between"
+            className="rounded-2xl p-8 mb-8 relative overflow-hidden border"
             style={{
-              background: `linear-gradient(to right, var(--color-banner-from), var(--color-banner-to))`,
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--color-primary)",
+              borderWidth: "1.5px",
             }}
           >
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                ¡Bienvenido, {user?.full_name?.split(" ")[0]}!
-              </h2>
-              <p className="text-white/80 mb-6">
-                Gestiona los documentos reglamentarios de tu institución desde
-                aquí.
-              </p>
-              <button
-                onClick={() => navigate("/documentos/nuevo")}
-                className="bg-white font-semibold px-6 py-3 rounded-lg flex items-center gap-2 transition-colors hover:opacity-90"
-                style={{ color: "var(--color-primary)" }}
-              >
-                <Plus size={18} /> Generar documento
-              </button>
+            {/* Círculos decorativos */}
+            <div
+              className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-5"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            />
+            <div
+              className="absolute -bottom-16 right-32 w-64 h-64 rounded-full opacity-5"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            />
+
+            {/* Fila superior — saludo + reloj */}
+            <div className="relative z-10 flex items-start justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold text-white shadow-sm"
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                >
+                  {user?.full_name?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p
+                    className="text-sm font-medium mb-1"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    {greeting}
+                  </p>
+                  <h2
+                    className="text-2xl font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {user?.full_name?.split(" ")[0]}
+                  </h2>
+                  <p
+                    className="text-sm mt-0.5"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {upcomingEvents.length > 0
+                      ? `${upcomingEvents.length} evento${upcomingEvents.length !== 1 ? "s" : ""} pendiente${upcomingEvents.length !== 1 ? "s" : ""} — ${nextEvent.title}`
+                      : "No tienes eventos próximos"}
+                  </p>
+                </div>
+              </div>
+
+              <BannerClock />
             </div>
-            <div className="hidden lg:flex flex-col items-end gap-3 text-white/70 text-sm">
-              <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2">
-                <FileText size={16} className="text-white" />
-                <span className="text-white font-medium">
-                  {docsThisMonth} docs este mes
+
+            {/* Fila inferior — accesos directos + calendario */}
+            <div className="relative z-10 grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {[
+                {
+                  label: "Nuevo documento",
+                  icon: FilePen,
+                  path: "/documentos/nuevo",
+                },
+                {
+                  label: "Certificado",
+                  icon: Award,
+                  path: "/documentos/nuevo",
+                },
+                {
+                  label: "Matrículas",
+                  icon: ClipboardList,
+                  path: "/matriculas",
+                },
+                {
+                  label: "Estudiantes",
+                  icon: GraduationCap,
+                  path: "/estudiantes",
+                },
+              ].map(({ label, icon: Icon, path }) => (
+                <button
+                  key={label}
+                  onClick={() => navigate(path)}
+                  className="flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    borderColor: "var(--border-color)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--color-primary)";
+                    e.currentTarget.style.backgroundColor =
+                      "var(--color-primary-light)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-color)";
+                    e.currentTarget.style.backgroundColor = "var(--bg-primary)";
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: "var(--color-primary-light)" }}
+                  >
+                    <Icon size={15} style={{ color: "var(--color-primary)" }} />
+                  </div>
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {label}
+                  </span>
+                </button>
+              ))}
+
+              <button
+                onClick={() => navigate("/calendario")}
+                className="flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  borderColor: "var(--color-primary)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              >
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/20">
+                  <CalendarDays size={15} className="text-white" />
+                </div>
+                <span className="text-xs font-medium text-white">
+                  Calendario
                 </span>
-              </div>
-              <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2">
-                <BookOpen size={16} className="text-white" />
-                <span className="text-white font-medium">
-                  {programs.length} programas activos
-                </span>
-              </div>
-              <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2">
-                <GraduationCap size={16} className="text-white" />
-                <span className="text-white font-medium">
-                  {students.length} estudiantes
-                </span>
-              </div>
+              </button>
             </div>
           </div>
 
           {/* Métricas */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {/* Docs este mes */}
             <div
               className="rounded-xl p-5 border"
               style={{
@@ -316,7 +582,8 @@ export default function Dashboard() {
                       style={{ color: docsDelta >= 0 ? "#16a34a" : "#dc2626" }}
                     >
                       {docsDelta >= 0 ? "+" : ""}
-                      {docsDelta}% vs mes anterior
+                      {docsDelta}
+                      {"% vs mes anterior"}
                     </p>
                   </>
                 ) : (
@@ -330,108 +597,29 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Generados totales */}
-            <div
-              className="rounded-xl p-5 border"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className="text-xs uppercase tracking-wide"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Generados
-                </span>
-                <CheckCircle size={14} className="text-green-500" />
-              </div>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {generatedCount}
-              </p>
-              <p
-                className="text-xs mt-1"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {documents.length} en total
-              </p>
-            </div>
-
-            {/* Programas y estudiantes */}
-            <div
-              className="rounded-xl p-5 border"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className="text-xs uppercase tracking-wide"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Programas
-                </span>
-                <BookOpen size={14} style={{ color: "var(--color-icon)" }} />
-              </div>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {programs.length}
-              </p>
-              <p
-                className="text-xs mt-1"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {students.length} estudiantes registrados
-              </p>
-            </div>
-
-            {/* Borradores pendientes */}
-            <div
-              className="rounded-xl p-5 border"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                borderColor:
-                  pendingDrafts > 0 ? "#fbbf24" : "var(--border-color)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className="text-xs uppercase tracking-wide"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Borradores IA
-                </span>
-                <Clock
-                  size={14}
-                  style={{
-                    color: pendingDrafts > 0 ? "#f59e0b" : "var(--color-icon)",
-                  }}
-                />
-              </div>
-              <p
-                className="text-3xl font-bold"
-                style={{
-                  color: pendingDrafts > 0 ? "#f59e0b" : "var(--text-primary)",
-                }}
-              >
-                {pendingDrafts}
-              </p>
-              <p
-                className="text-xs mt-1"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {pendingDrafts > 0
-                  ? "Pendientes de revisión"
-                  : "Sin borradores pendientes"}
-              </p>
-            </div>
+            <MetricCard
+              label="Generados"
+              value={generatedCount}
+              sub={`${documents.length} en total`}
+              icon={CheckCircle}
+              iconColor="#16a34a"
+            />
+            <MetricCard
+              label="Programas"
+              value={programs.length}
+              sub={`${students.length} estudiantes`}
+              icon={BookOpen}
+            />
+            <MetricCard
+              label="Borradores IA"
+              value={pendingDrafts}
+              sub={
+                pendingDrafts > 0 ? "Pendientes de revisión" : "Sin borradores"
+              }
+              icon={Clock}
+              iconColor={pendingDrafts > 0 ? "#f59e0b" : "var(--color-icon)"}
+              alert={pendingDrafts > 0}
+            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -494,7 +682,7 @@ export default function Dashboard() {
                     className="mt-4 text-sm font-medium hover:underline"
                     style={{ color: "var(--color-primary)" }}
                   >
-                    Generar ahora →
+                    {"Generar ahora \u2192"}
                   </button>
                 </div>
               ) : (
@@ -562,7 +750,11 @@ export default function Dashboard() {
                         >
                           {new Date(doc.created_at).toLocaleDateString(
                             "es-CO",
-                            { day: "2-digit", month: "short", year: "numeric" },
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            },
                           )}
                         </span>
                       </div>
@@ -572,8 +764,87 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Panel derecho */}
+            {/* Panel lateral derecho */}
             <div className="space-y-4">
+              {/* Próximos eventos */}
+              <div
+                className="rounded-xl border p-5"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-color)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p
+                    className="font-semibold text-sm"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Próximos eventos
+                  </p>
+                  <button
+                    onClick={() => navigate("/calendario")}
+                    className="text-xs flex items-center gap-1 hover:underline"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    Ver calendario <ArrowRight size={12} />
+                  </button>
+                </div>
+                {upcomingEvents.length === 0 ? (
+                  <div className="text-center py-4">
+                    <CalendarDays
+                      size={20}
+                      className="mx-auto mb-2 opacity-30"
+                      style={{ color: "var(--text-secondary)" }}
+                    />
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Sin eventos próximos
+                    </p>
+                    <button
+                      onClick={() => navigate("/calendario")}
+                      className="text-xs mt-2 hover:underline"
+                      style={{ color: "var(--color-primary)" }}
+                    >
+                      {"Agregar evento \u2192"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingEvents.map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="flex items-start gap-3 p-2.5 rounded-lg"
+                        style={{ backgroundColor: "var(--bg-primary)" }}
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                          style={{ backgroundColor: "var(--color-primary)" }}
+                        />
+                        <div>
+                          <p
+                            className="text-xs font-medium"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {ev.title}
+                          </p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {new Date(ev.event_date).toLocaleDateString(
+                              "es-CO",
+                              { day: "2-digit", month: "short" },
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Uso del plan */}
               <div
                 className="rounded-xl border p-5"
@@ -591,15 +862,14 @@ export default function Dashboard() {
                       Plan {planLabel}
                     </p>
                     <p
-                      className="font-bold"
+                      className="font-bold text-sm"
                       style={{ color: "var(--text-primary)" }}
                     >
                       Uso este mes
                     </p>
                   </div>
-                  <Shield size={18} style={{ color: "var(--color-icon)" }} />
+                  <Shield size={16} style={{ color: "var(--color-icon)" }} />
                 </div>
-
                 <div className="flex items-end gap-1 mb-2">
                   <span
                     className="text-3xl font-bold"
@@ -611,10 +881,10 @@ export default function Dashboard() {
                     className="text-sm mb-1"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    / {planLimit === Infinity ? "∞" : planLimit}
+                    {"/ "}
+                    {planLimit === Infinity ? "\u221E" : planLimit}
                   </span>
                 </div>
-
                 <div
                   className="w-full rounded-full h-2 mb-1"
                   style={{ backgroundColor: "var(--bg-primary)" }}
@@ -637,10 +907,9 @@ export default function Dashboard() {
                   {planLimit === Infinity
                     ? "Documentos ilimitados"
                     : usagePercent >= 90
-                      ? "⚠️ Casi en el límite"
+                      ? "\u26A0\uFE0F Casi en el límite"
                       : `${planLimit - docsThisMonth} documentos restantes`}
                 </p>
-
                 {planName !== "enterprise" && (
                   <button
                     onClick={() => navigate("/suscripcion")}
@@ -650,7 +919,7 @@ export default function Dashboard() {
                       color: "var(--color-primary)",
                     }}
                   >
-                    Mejorar plan →
+                    {"Mejorar plan \u2192"}
                   </button>
                 )}
               </div>
@@ -719,69 +988,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-
-              {/* Accesos directos */}
-              <div
-                className="rounded-xl border p-5"
-                style={{
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: "var(--border-color)",
-                }}
-              >
-                <p
-                  className="font-semibold mb-3 text-sm"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Accesos directos
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    {
-                      label: "Nuevo doc",
-                      icon: FilePen,
-                      path: "/documentos/nuevo",
-                    },
-                    {
-                      label: "Certificado",
-                      icon: Award,
-                      path: "/documentos/nuevo",
-                    },
-                    {
-                      label: "Matrículas",
-                      icon: ClipboardList,
-                      path: "/matriculas",
-                    },
-                    {
-                      label: "Estudiantes",
-                      icon: GraduationCap,
-                      path: "/estudiantes",
-                    },
-                  ].map(({ label, icon: Icon, path }) => (
-                    <button
-                      key={label}
-                      onClick={() => navigate(path)}
-                      className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-colors"
-                      style={{ backgroundColor: "var(--bg-primary)" }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          "var(--color-primary-light)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          "var(--bg-primary)")
-                      }
-                    >
-                      <Icon size={20} style={{ color: "var(--color-icon)" }} />
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         </div>

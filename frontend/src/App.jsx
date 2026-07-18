@@ -26,6 +26,8 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import Checkout from "./pages/Checkout";
 import AdminPlans from "./pages/AdminPlans";
 import NotFound from "./pages/NotFound";
+import CalendarPage from "./pages/Calendar";
+import AdminCalendar from "./pages/AdminCalendar";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -176,6 +178,22 @@ function AppRoutes() {
         }
       />
       <Route path="*" element={<NotFound />} />
+      <Route
+        path="/calendario"
+        element={
+          <PrivateRoute>
+            <CalendarPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/calendario"
+        element={
+          <PrivateRoute>
+            <AdminCalendar />
+          </PrivateRoute>
+        }
+      />
     </Routes>
   );
 }
