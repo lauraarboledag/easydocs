@@ -14,8 +14,6 @@ from slowapi.errors import RateLimitExceeded
 from app.domains.calendar.router import router as calendar_router
 from fastapi.middleware.cors import CORSMiddleware
 
-security = HTTPBearer()
-
 app = FastAPI(
     title="EasyDocs API",
     description="Plataforma de gestión documental para instituciones ETDH",
@@ -23,11 +21,19 @@ app = FastAPI(
     swagger_ui_init_oauth={},
 )
 
+origins = [
+    "http://localhost:5173",
+    "https://easydocs-kappa.vercel.app",
+    settings.FRONTEND_URL,
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://easydocs-kappa.vercel.app/"],
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 limiter = Limiter(key_func=get_remote_address)
