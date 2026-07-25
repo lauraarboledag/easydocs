@@ -12,6 +12,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.domains.calendar.router import router as calendar_router
+from fastapi.middleware.cors import CORSMiddleware
 
 security = HTTPBearer()
 
@@ -24,12 +25,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://easydocs-kappa.vercel.app",
-        settings.FRONTEND_URL,
-    ],
-    allow_credentials=True,
+    allow_origins=["https://easydocs-kappa.vercel.app/"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
