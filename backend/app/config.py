@@ -10,9 +10,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
     FRONTEND_URL: str = "http://localhost:5173"
-    
 
-    class Config:
-        env_file = ".env"
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 settings = Settings()
