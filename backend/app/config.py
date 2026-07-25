@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
-    FRONTEND_URL: str = "https://easydocs-kappa.vercel.app"
+    FRONTEND_URL: str = "https://easydocs-kappa.vercel.app/"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
