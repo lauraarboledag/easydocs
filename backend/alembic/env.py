@@ -7,6 +7,7 @@ from app.domains.institutions.models import Institution
 from app.domains.users.models import User
 from app.domains.subscriptions.models import Plan, Subscription, Transaction
 from app.domains.documents.models import DocumentTemplate, Document
+from app.domains.calendar.models import CalendarEvent
 import sys, os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))

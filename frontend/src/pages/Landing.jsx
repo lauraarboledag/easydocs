@@ -58,20 +58,20 @@ const PLANS = [
   { name: "Free", price: "Gratis", docs: "10 docs/mes", users: "1 usuario" },
   {
     name: "Básico",
-    price: "Desde $50.000",
+    price: "Desde $89.000",
     docs: "50 docs/mes",
     users: "3 usuarios",
   },
   {
     name: "Profesional",
-    price: "Desde $150.000",
+    price: "Desde $189.000",
     docs: "200 docs/mes",
     users: "10 usuarios",
     popular: true,
   },
   {
     name: "Empresarial",
-    price: "A medida",
+    price: "349.000",
     docs: "Ilimitado",
     users: "Ilimitado",
   },

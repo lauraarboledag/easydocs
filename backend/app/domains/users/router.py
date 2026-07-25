@@ -54,7 +54,7 @@ def register_institution_and_representative(
 
     try:
         send_welcome_email(
-            to_email="nightshadelust1876@gmail.com",  # Temporal hasta verificar dominio
+            to_email=user.email,
             full_name=user.full_name,
             institution_name=institution.name,
         )

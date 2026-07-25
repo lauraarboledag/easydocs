@@ -36,4 +36,5 @@ class Institution(Base):
     programs = relationship("Program", back_populates="institution")
     students = relationship("Student", back_populates="institution")
     enrollments = relationship("Enrollment", back_populates="institution")
+    calendar_events = relationship("CalendarEvent", back_populates="institution")
     

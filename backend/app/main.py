@@ -11,6 +11,7 @@ from app.config import settings
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from app.domains.calendar.router import router as calendar_router
 
 security = HTTPBearer()
 
@@ -39,6 +40,7 @@ app.include_router(subscriptions_router)
 app.include_router(documents_router)
 app.include_router(edubot_router)
 app.include_router(students_router)
+app.include_router(calendar_router)
 
 
 @app.get("/")
