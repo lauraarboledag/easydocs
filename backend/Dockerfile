@@ -15,8 +15,8 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
 
 ENV PYTHONPATH=/code
 
-CMD ["sh", "-c", "ls -la && ls -la /code && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
