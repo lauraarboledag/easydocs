@@ -8,12 +8,12 @@ from app.domains.users.models import User
 from app.domains.subscriptions.models import Plan, Subscription, Transaction
 from app.domains.documents.models import DocumentTemplate, Document
 from app.domains.calendar.models import CalendarEvent
+from app.domains.students.models import Program, Student, Enrollment
 import sys, os
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
 from app.database import Base
 from app.config import settings
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
