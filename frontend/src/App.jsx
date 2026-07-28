@@ -177,7 +177,6 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route path="*" element={<NotFound />} />
       <Route
         path="/calendario"
         element={
@@ -194,6 +193,7 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
