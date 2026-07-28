@@ -19,6 +19,7 @@ import {
   Save,
   AlertCircle,
   Eye,
+  Plus,
 } from "lucide-react";
 
 const PLAN_META = {
@@ -61,6 +62,52 @@ const PLAN_FEATURES = {
     "EduBot IA",
     "Transcripción de audio IA",
   ],
+};
+
+const PLAN_NAME_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "basic", label: "Básico" },
+  { value: "professional", label: "Profesional" },
+  { value: "enterprise", label: "Empresarial" },
+];
+
+const DEFAULT_FEATURES = {
+  free: {
+    documentos_lr001_lr009: true,
+    certificados_capitulo_ii: false,
+    edubot: false,
+    transcripcion_audio: false,
+    usuarios_maximos: 1,
+    documentos_por_mes: 10,
+    soporte: "ninguno",
+  },
+  basic: {
+    documentos_lr001_lr009: true,
+    certificados_capitulo_ii: false,
+    edubot: false,
+    transcripcion_audio: false,
+    usuarios_maximos: 3,
+    documentos_por_mes: 50,
+    soporte: "email",
+  },
+  professional: {
+    documentos_lr001_lr009: true,
+    certificados_capitulo_ii: true,
+    edubot: true,
+    transcripcion_audio: false,
+    usuarios_maximos: 10,
+    documentos_por_mes: 200,
+    soporte: "email_chat",
+  },
+  enterprise: {
+    documentos_lr001_lr009: true,
+    certificados_capitulo_ii: true,
+    edubot: true,
+    transcripcion_audio: true,
+    usuarios_maximos: null,
+    documentos_por_mes: null,
+    soporte: "prioritario",
+  },
 };
 
 function formatPrice(price) {
@@ -442,6 +489,185 @@ function EditPlanModal({
   );
 }
 
+function CreatePlanModal({ form, setForm, onSave, onClose, saving, error }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div
+        className="rounded-2xl shadow-xl w-full max-w-md"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
+        <div
+          className="flex items-center justify-between p-6 border-b"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <div>
+            <h3
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Crear nuevo plan
+            </h3>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Define el nombre, ciclo y precio del plan
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle size={15} /> {error}
+            </div>
+          )}
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nombre del plan
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {PLAN_NAME_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setForm((p) => ({ ...p, name: value }))}
+                  className="py-2.5 rounded-lg text-sm font-medium border-2 transition-colors"
+                  style={{
+                    backgroundColor:
+                      form.name === value
+                        ? "var(--color-primary-light)"
+                        : "var(--bg-primary)",
+                    color:
+                      form.name === value
+                        ? "var(--color-primary)"
+                        : "var(--text-secondary)",
+                    borderColor:
+                      form.name === value
+                        ? "var(--color-primary)"
+                        : "var(--border-color)",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Ciclo de facturación
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "monthly", label: "Mensual" },
+                { value: "annual", label: "Anual" },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() =>
+                    setForm((p) => ({ ...p, billing_cycle: value }))
+                  }
+                  className="py-2.5 rounded-lg text-sm font-medium border-2 transition-colors"
+                  style={{
+                    backgroundColor:
+                      form.billing_cycle === value
+                        ? "var(--color-primary-light)"
+                        : "var(--bg-primary)",
+                    color:
+                      form.billing_cycle === value
+                        ? "var(--color-primary)"
+                        : "var(--text-secondary)",
+                    borderColor:
+                      form.billing_cycle === value
+                        ? "var(--color-primary)"
+                        : "var(--border-color)",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Precio (en COP)
+            </label>
+            <div className="relative">
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                $
+              </span>
+              <input
+                type="number"
+                value={form.price}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, price: e.target.value }))
+                }
+                placeholder="0"
+                className="w-full border rounded-lg pl-7 pr-4 py-3 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            </div>
+            <p
+              className="text-xs mt-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Deja en 0 para plan gratuito. Se usan las características por
+              defecto del plan según el nombre elegido.
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 border font-medium py-3 rounded-lg transition-colors"
+              style={{
+                borderColor: "var(--border-color)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            >
+              <Plus size={16} />
+              {saving ? "Creando..." : "Crear plan"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPlans() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -451,11 +677,17 @@ export default function AdminPlans() {
   const [showInactivity, setShowInactivity] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [editForm, setEditForm] = useState({ price: "", is_active: true });
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "free",
+    billing_cycle: "monthly",
+    price: "",
+  });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [tableCycle, setTableCycle] = useState("monthly"); // ← filtro tabla
-  const [previewCycle, setPreviewCycle] = useState("monthly"); // ← filtro vista previa
+  const [tableCycle, setTableCycle] = useState("monthly");
+  const [previewCycle, setPreviewCycle] = useState("monthly");
 
   useInactivity({
     timeout: 30,
@@ -505,6 +737,35 @@ export default function AdminPlans() {
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(err.response?.data?.detail || "Error al actualizar el plan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openCreate = () => {
+    setCreateForm({ name: "free", billing_cycle: "monthly", price: "" });
+    setError("");
+    setShowCreate(true);
+  };
+
+  const handleCreate = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await api.post("/plans/", {
+        name: createForm.name,
+        billing_cycle: createForm.billing_cycle,
+        price: Math.round(parseFloat(createForm.price || 0) * 100),
+        features: DEFAULT_FEATURES[createForm.name],
+      });
+      setSuccess(
+        `Plan ${PLAN_META[createForm.name].label} creado correctamente.`,
+      );
+      setShowCreate(false);
+      fetchPlans();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Error al crear el plan.");
     } finally {
       setSaving(false);
     }
@@ -578,7 +839,7 @@ export default function AdminPlans() {
               <CheckCircle size={16} /> {success}
             </div>
           )}
-          {error && !editingPlan && (
+          {error && !editingPlan && !showCreate && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
               <AlertCircle size={16} /> {error}
             </div>
@@ -603,8 +864,16 @@ export default function AdminPlans() {
                   precios y estado directamente
                 </p>
               </div>
-              {/* Toggle filtro tabla */}
-              <CycleToggle value={tableCycle} onChange={setTableCycle} />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={openCreate}
+                  className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl text-white transition-colors"
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                >
+                  <Plus size={15} /> Crear plan
+                </button>
+                <CycleToggle value={tableCycle} onChange={setTableCycle} />
+              </div>
             </div>
 
             <div
@@ -620,6 +889,24 @@ export default function AdminPlans() {
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Cargando planes...
+                </div>
+              ) : filteredPlans.length === 0 ? (
+                <div className="text-center py-16">
+                  <p
+                    className="text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Sin planes{" "}
+                    {tableCycle === "monthly" ? "mensuales" : "anuales"}{" "}
+                    registrados aún
+                  </p>
+                  <button
+                    onClick={openCreate}
+                    className="mt-3 text-sm font-medium hover:underline"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    Crear el primero →
+                  </button>
                 </div>
               ) : (
                 <>
@@ -703,6 +990,17 @@ export default function AdminPlans() {
           setEditForm={setEditForm}
           onSave={handleSave}
           onClose={() => setEditingPlan(null)}
+          saving={saving}
+          error={error}
+        />
+      )}
+
+      {showCreate && (
+        <CreatePlanModal
+          form={createForm}
+          setForm={setCreateForm}
+          onSave={handleCreate}
+          onClose={() => setShowCreate(false)}
           saving={saving}
           error={error}
         />
