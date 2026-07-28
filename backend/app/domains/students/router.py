@@ -307,8 +307,6 @@ async def import_students_xlsx(
             total_hours = str(row[11]).strip() if len(row) > 11 and row[11] else None
             resolution = str(row[12]).strip() if len(row) > 12 and row[12] else None
 
-            print(f"Fila {i}: estudiante='{row[0]}' programa='{program_name}'")
-
             # Buscar o crear programa
             program = None
             if program_name:
@@ -328,7 +326,6 @@ async def import_students_xlsx(
                         resolution=resolution,
                     )
                     program = create_program(db, prog_data, current_user.institution_id)
-                    print(f"Programa creado: {program.name}")
 
             # Crear estudiante
             is_minor_val = (
@@ -361,7 +358,6 @@ async def import_students_xlsx(
                 ),
             )
             student = create_student(db, data, current_user.institution_id)
-            print(f"Estudiante creado: {student.full_name}")
 
             # Crear matrícula si hay programa
             if program:
@@ -370,11 +366,9 @@ async def import_students_xlsx(
                     program_id=program.id,
                 )
                 create_enrollment(db, enrollment_data, current_user.institution_id)
-                print(f"Matrícula creada: {student.full_name} -> {program.name}")
 
             created += 1
         except Exception as e:
-            print(f"ERROR fila {i}: {type(e).__name__}: {e}")
             errors.append(f"Fila {i}: {str(e)}")
 
     return {

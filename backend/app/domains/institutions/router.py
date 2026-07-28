@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.auth import get_current_user
+from app.core.features import require_superadmin
 from app.domains.users.models import User
 from app.domains.institutions.schemas import InstitutionCreate, InstitutionResponse
 from app.domains.institutions.services import (
@@ -15,7 +16,10 @@ router = APIRouter(prefix="/institutions", tags=["Instituciones"])
 
 
 @router.get("/", response_model=list[InstitutionResponse])
-def get_institutions(db: Session = Depends(get_db)):
+def get_institutions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin),
+):
     return list_institutions(db)
 
 
@@ -63,5 +67,12 @@ async def upload_logo(
 
 
 @router.get("/{institution_id}", response_model=InstitutionResponse)
-def get_institution_by_id(institution_id: str, db: Session = Depends(get_db)):
+def get_institution_by_id(
+    institution_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Solo superadmin o la propia institución pueden ver estos datos
+    if current_user.role != "superadmin" and current_user.institution_id != institution_id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para ver esta institución.")
     return get_institution(db, institution_id)

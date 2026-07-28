@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.database import get_db
 from app.core.auth import get_current_user
-from app.core.features import get_active_subscription, require_feature
+from app.core.features import get_active_subscription, require_feature, require_superadmin
 from app.domains.users.models import User
-from app.domains.subscriptions.models import Subscription
+from app.domains.subscriptions.models import Subscription, Plan
 from pydantic import BaseModel
 from typing import Optional
 from app.domains.subscriptions.schemas import (
@@ -33,7 +33,7 @@ router = APIRouter(tags=["Suscripciones"])
 def add_plan(
     data: PlanCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_superadmin),
 ):
     return create_plan(db, data)
 
@@ -61,7 +61,8 @@ def my_subscription(
 
 @router.get("/transactions/", response_model=list[TransactionResponse])
 def get_transactions(
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin),
 ):
     return list_transactions(db)
 
@@ -73,7 +74,7 @@ def confirm(
     transaction_id: str,
     data: ConfirmTransaction,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_superadmin),
 ):
     return confirm_transaction(db, transaction_id, data, current_user.id)
 
@@ -84,7 +85,6 @@ def change_plan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Desactivar suscripción actual
     current_sub = db.execute(
         select(Subscription).where(
             Subscription.institution_id == current_user.institution_id,
@@ -97,7 +97,6 @@ def change_plan(
         current_sub.status = SubscriptionStatus.cancelled
         db.commit()
 
-    # Crear nueva suscripción
     return create_subscription(
         db,
         SubscriptionCreate(
@@ -116,14 +115,10 @@ def update_plan(
     plan_id: str,
     data: PlanUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_superadmin),
 ):
-    from app.domains.subscriptions.models import Plan
-
     plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
     if not plan:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="Plan no encontrado.")
     if data.price is not None:
         plan.price = data.price
