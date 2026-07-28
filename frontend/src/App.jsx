@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
-// Pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -40,159 +39,192 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/" />;
 }
 
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Cargando...
+      </div>
+    );
+  if (!user) return <Navigate to="/" />;
+  if (user.role !== "superadmin") return <NotFound />;
+  return children;
+}
+
+function InstitutionRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Cargando...
+      </div>
+    );
+  if (!user) return <Navigate to="/" />;
+  if (user.role === "superadmin") return <NotFound />;
+  return children;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/registro" element={<Register />} />
+
+      {/* Rutas de instituciones */}
       <Route
         path="/dashboard"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <PrivateRoute>
-            <AdminDashboard />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/documentos"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <DocumentList />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/documentos/nuevo"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <DocumentNew />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/usuarios"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <UserList />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin/instituciones"
-        element={
-          <PrivateRoute>
-            <AdminInstitutions />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin/plantillas"
-        element={
-          <PrivateRoute>
-            <AdminTemplates />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin/transacciones"
-        element={
-          <PrivateRoute>
-            <AdminTransactions />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/suscripcion"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Subscription />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/programas"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Programs />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/estudiantes"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Students />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/matriculas"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Enrollments />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/configuracion"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Settings />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
-      <Route
-        path="/admin/configuracion"
-        element={
-          <PrivateRoute>
-            <AdminSettings />
-          </PrivateRoute>
-        }
-      />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/terminos" element={<TermsAndConditions />} />
       <Route
         path="/checkout"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <Checkout />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin/planes"
-        element={
-          <PrivateRoute>
-            <AdminPlans />
-          </PrivateRoute>
+          </InstitutionRoute>
         }
       />
       <Route
         path="/calendario"
         element={
-          <PrivateRoute>
+          <InstitutionRoute>
             <CalendarPage />
-          </PrivateRoute>
+          </InstitutionRoute>
+        }
+      />
+
+      {/* Rutas de superadmin */}
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/instituciones"
+        element={
+          <AdminRoute>
+            <AdminInstitutions />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/plantillas"
+        element={
+          <AdminRoute>
+            <AdminTemplates />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/transacciones"
+        element={
+          <AdminRoute>
+            <AdminTransactions />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/configuracion"
+        element={
+          <AdminRoute>
+            <AdminSettings />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/planes"
+        element={
+          <AdminRoute>
+            <AdminPlans />
+          </AdminRoute>
         }
       />
       <Route
         path="/admin/calendario"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <AdminCalendar />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
+
+      {/* Públicas */}
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/terminos" element={<TermsAndConditions />} />
+
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
