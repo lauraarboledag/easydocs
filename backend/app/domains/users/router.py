@@ -23,6 +23,7 @@ from app.domains.users.services import (
     verify_credentials,
     send_2fa_code,
     verify_2fa_code,
+    block_account_by_token,
     list_users,
 )
 from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
@@ -265,15 +266,30 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
 
 @router.post("/auth/verify-2fa", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def verify_2fa(request: Request, data: VerifyCodeRequest, db: Session = Depends(get_db)):
-    return verify_2fa_code(db, data.user_id, data.code)
+def verify_2fa(
+    request: Request, data: VerifyCodeRequest, db: Session = Depends(get_db)
+):
+    ip_address = request.client.host
+    user_agent = request.headers.get("user-agent", "Desconocido")
+    return verify_2fa_code(db, data.user_id, data.code, ip_address, user_agent)
 
 
 @router.post("/auth/resend-2fa")
 @limiter.limit("3/minute")
-def resend_2fa(request: Request, data: VerifyCodeRequest, db: Session = Depends(get_db)):
+def resend_2fa(
+    request: Request, data: VerifyCodeRequest, db: Session = Depends(get_db)
+):
     user = db.execute(select(User).where(User.id == data.user_id)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
     send_2fa_code(db, user)
     return {"message": "Código reenviado."}
+
+
+class BlockAccountRequest(BaseModel):
+    token: str
+
+
+@router.post("/auth/block-account")
+def block_account(data: BlockAccountRequest, db: Session = Depends(get_db)):
+    return block_account_by_token(db, data.token)

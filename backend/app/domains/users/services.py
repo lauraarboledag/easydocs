@@ -3,11 +3,11 @@ from sqlalchemy import select
 from fastapi import HTTPException
 from datetime import datetime
 import secrets
-from app.domains.users.models import User, TwoFactorCode
+from app.domains.users.models import User, TwoFactorCode, KnownDevice
 from app.domains.users.schemas import UserCreate
 from app.core.auth import hash_password, verify_password, create_access_token
-from app.core.email import send_2fa_code_email
-
+from app.core.email import send_2fa_code_email, send_new_device_email
+from app.config import settings
 
 def create_user(db: Session, data: UserCreate) -> User:
     existing = db.execute(
@@ -70,7 +70,9 @@ def send_2fa_code(db: Session, user: User):
     send_2fa_code_email(user.email, code, user.full_name)
 
 
-def verify_2fa_code(db: Session, user_id: str, code: str):
+def verify_2fa_code(
+    db: Session, user_id: str, code: str, ip_address: str = None, user_agent: str = None
+):
     """Verifica el código 2FA y retorna el token si es válido."""
     two_factor = db.execute(
         select(TwoFactorCode).where(
@@ -88,6 +90,10 @@ def verify_2fa_code(db: Session, user_id: str, code: str):
     db.commit()
 
     user = db.execute(select(User).where(User.id == user_id)).scalar_one()
+
+    if ip_address or user_agent:
+        check_and_register_device(db, user, ip_address, user_agent)
+
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
@@ -98,3 +104,56 @@ def list_users(db: Session, institution_id: str) -> list[User]:
         .scalars()
         .all()
     )
+
+
+def check_and_register_device(
+    db: Session, user: User, ip_address: str, user_agent: str
+):
+    """Verifica si el dispositivo es conocido. Si no, lo registra y envía alerta."""
+    existing = db.execute(
+        select(KnownDevice).where(
+            KnownDevice.user_id == user.id,
+            KnownDevice.ip_address == ip_address,
+            KnownDevice.user_agent == user_agent,
+        )
+    ).scalar_one_or_none()
+
+    if existing:
+        existing.last_seen_at = datetime.utcnow()
+        db.commit()
+        return
+
+    device = KnownDevice(
+        user_id=user.id,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    db.add(device)
+    db.commit()
+    db.refresh(device)
+
+    block_url = f"{settings.FRONTEND_URL}/block-account?token={device.block_token}"
+    try:
+        send_new_device_email(
+            user.email, user.full_name, ip_address, user_agent, block_url
+        )
+    except Exception as e:
+        print(f"[LAU-44] Error enviando alerta de nuevo dispositivo: {e}")
+
+
+def block_account_by_token(db: Session, block_token: str):
+    """Bloquea la cuenta del usuario usando el token del email de alerta."""
+    device = db.execute(
+        select(KnownDevice).where(KnownDevice.block_token == block_token)
+    ).scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Enlace inválido o ya utilizado.")
+
+    user = db.execute(select(User).where(User.id == device.user_id)).scalar_one()
+    user.is_active = False
+    db.commit()
+
+    return {
+        "message": f"La cuenta de {user.full_name} ha sido bloqueada por seguridad."
+    }

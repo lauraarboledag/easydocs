@@ -65,7 +65,8 @@ class LoginAttempt(Base):
     ip_address = Column(String, nullable=True)
     success = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
+
 class TwoFactorCode(Base):
     __tablename__ = "two_factor_codes"
 
@@ -73,9 +74,27 @@ class TwoFactorCode(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     code = Column(String(6), nullable=False)
     expires_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(minutes=5)
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.utcnow() + timedelta(minutes=5),
     )
     used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+
+
+class KnownDevice(Base):
+    __tablename__ = "known_devices"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    block_token = Column(
+        String, unique=True, nullable=False, default=lambda: secrets.token_urlsafe(32)
+    )
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -27,6 +26,7 @@ import AdminPlans from "./pages/AdminPlans";
 import NotFound from "./pages/NotFound";
 import CalendarPage from "./pages/Calendar";
 import AdminCalendar from "./pages/AdminCalendar";
+import BlockAccount from "./pages/BlockAccount";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -224,6 +224,7 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/terminos" element={<TermsAndConditions />} />
+      <Route path="/block-account" element={<BlockAccount />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

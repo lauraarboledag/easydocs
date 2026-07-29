@@ -148,3 +148,56 @@ def send_welcome_email(to_email: str, full_name: str, institution_name: str):
         """,
         }
     )
+
+
+def send_new_device_email(
+    to_email: str, full_name: str, ip_address: str, user_agent: str, block_url: str
+):
+    resend.Emails.send(
+        {
+            "from": FROM_EMAIL,
+            "to": [to_email],
+            "subject": "Nuevo inicio de sesión detectado — EasyDocs",
+            "html": f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1a2b4a; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">EasyDocs</h1>
+                <p style="color: #93c5fd; margin: 8px 0 0 0; font-size: 14px;">Gestión Documental ETDH</p>
+            </div>
+
+            <h2 style="color: #1a2b4a; font-size: 20px;">Hola, {full_name}</h2>
+            <p style="color: #4b5563; line-height: 1.6;">
+                Detectamos un inicio de sesión en tu cuenta desde un dispositivo o ubicación que no reconocemos.
+            </p>
+
+            <div style="background: #f9fafb; border-radius: 10px; padding: 20px; margin: 24px 0; border: 1px solid #e5e7eb;">
+                <p style="color: #4b5563; font-size: 13px; margin: 6px 0;">
+                    <strong>Dirección IP:</strong> {ip_address}
+                </p>
+                <p style="color: #4b5563; font-size: 13px; margin: 6px 0;">
+                    <strong>Dispositivo:</strong> {user_agent}
+                </p>
+            </div>
+
+            <p style="color: #4b5563; line-height: 1.6;">
+                Si fuiste tú, no necesitas hacer nada. Si no reconoces esta actividad,
+                bloquea tu cuenta de inmediato:
+            </p>
+
+            <div style="text-align: center; margin: 32px 0;">
+                <a href="{block_url}"
+                   style="background: #dc2626; color: white; padding: 14px 32px; border-radius: 8px;
+                          text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                    No fui yo, bloquear mi cuenta
+                </a>
+            </div>
+
+            <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                </p>
+            </div>
+        </div>
+        """,
+        }
+    )
