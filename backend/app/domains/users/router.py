@@ -18,7 +18,13 @@ from app.domains.users.schemas import (
     LoginRequest,
     TokenResponse,
 )
-from app.domains.users.services import create_user, login, list_users
+from app.domains.users.services import (
+    create_user,
+    verify_credentials,
+    send_2fa_code,
+    verify_2fa_code,
+    list_users,
+)
 from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
 from app.domains.institutions.schemas import InstitutionCreate
 from app.domains.institutions.services import create_institution
@@ -179,13 +185,17 @@ MAX_ATTEMPTS = 3
 BLOCK_MINUTES = 20
 
 
-@router.post("/auth/login", response_model=TokenResponse)
+class VerifyCodeRequest(BaseModel):
+    user_id: str
+    code: str
+
+
+@router.post("/auth/login")
 @limiter.limit("5/minute")
 def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     ip = request.client.host
     since = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
 
-    # Bloqueo solo por email, temporalmente hasta despliegue
     failed_attempts = (
         db.execute(
             select(LoginAttempt).where(
@@ -213,12 +223,19 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
         )
 
     try:
-        result = login(db, data.email, data.password)
+        user = verify_credentials(db, data.email, data.password)
         for attempt in failed_attempts:
             db.delete(attempt)
         db.add(LoginAttempt(email=data.email, ip_address=ip, success=True))
         db.commit()
-        return result
+
+        # Credenciales correctas — enviar código 2FA en lugar de token
+        send_2fa_code(db, user)
+        return {
+            "requires_2fa": True,
+            "user_id": user.id,
+            "message": "Te enviamos un código de verificación a tu correo.",
+        }
     except HTTPException:
         db.add(LoginAttempt(email=data.email, ip_address=ip, success=False))
         db.commit()
@@ -244,3 +261,19 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
                     ).isoformat(),
                 },
             )
+
+
+@router.post("/auth/verify-2fa", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def verify_2fa(request: Request, data: VerifyCodeRequest, db: Session = Depends(get_db)):
+    return verify_2fa_code(db, data.user_id, data.code)
+
+
+@router.post("/auth/resend-2fa")
+@limiter.limit("3/minute")
+def resend_2fa(request: Request, data: VerifyCodeRequest, db: Session = Depends(get_db)):
+    user = db.execute(select(User).where(User.id == data.user_id)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    send_2fa_code(db, user)
+    return {"message": "Código reenviado."}
