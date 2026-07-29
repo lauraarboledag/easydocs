@@ -256,7 +256,7 @@ export default function Login() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="/videos/Login.mp4" type="video/mp4" />
+          <source src="/videos/login_video.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-[#0d1b35]/85" />
 
