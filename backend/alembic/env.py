@@ -4,7 +4,7 @@ from sqlalchemy import pool
 from alembic import context
 from app.database import Base
 from app.domains.institutions.models import Institution
-from app.domains.users.models import User
+from app.domains.users.models import User, PasswordResetToken, LoginAttempt, TwoFactorCode, KnownDevice, RefreshToken
 from app.domains.subscriptions.models import Plan, Subscription, Transaction
 from app.domains.documents.models import DocumentTemplate, Document
 from app.domains.calendar.models import CalendarEvent

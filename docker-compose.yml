@@ -21,7 +21,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/code
     environment:
       - DATABASE_URL=postgresql://easydocs:easydocs123@db:5432/easydocs_db
       - SECRET_KEY=${SECRET_KEY}
