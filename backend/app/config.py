@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
     FRONTEND_URL: str = "https://easydocs-kappa.vercel.app/"
+    GOOGLE_CLIENT_ID: Optional[str] = None
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

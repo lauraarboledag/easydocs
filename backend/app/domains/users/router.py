@@ -31,6 +31,8 @@ from app.domains.institutions.schemas import InstitutionCreate
 from app.domains.institutions.services import create_institution
 from app.core.email import send_password_reset_email, send_welcome_email
 from app.config import settings
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 router = APIRouter(tags=["Usuarios"])
 limiter = Limiter(key_func=get_remote_address)
@@ -71,6 +73,39 @@ def register_institution_and_representative(
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+
+class GoogleUserInfo(BaseModel):
+    email: str
+    full_name: str
+    already_exists: bool
+
+
+@router.post("/auth/google/verify", response_model=GoogleUserInfo)
+def verify_google_token(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+    """Verifica el token de Google y retorna la info del usuario para prellenar el registro."""
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            data.credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+        )
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Token de Google inválido.")
+
+    email = idinfo.get("email")
+    full_name = idinfo.get("name", "")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="No se pudo obtener el correo de Google.")
+
+    existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+
+    return GoogleUserInfo(
+        email=email,
+        full_name=full_name,
+        already_exists=existing is not None,
+    )
 
 @router.post("/users/", response_model=UserResponse, status_code=201)
 def register_user(
