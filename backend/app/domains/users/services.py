@@ -70,10 +70,10 @@ def send_2fa_code(db: Session, user: User):
     send_2fa_code_email(user.email, code, user.full_name)
 
 
-def verify_2fa_code(
-    db: Session, user_id: str, code: str, ip_address: str = None, user_agent: str = None
-):
-    """Verifica el código 2FA y retorna el token si es válido."""
+def verify_2fa_code(db: Session, user_id: str, code: str, ip_address: str = None, user_agent: str = None):
+    """Verifica el código 2FA y retorna access + refresh token si es válido."""
+    from app.core.auth import create_refresh_token
+
     two_factor = db.execute(
         select(TwoFactorCode).where(
             TwoFactorCode.user_id == user_id,
@@ -84,7 +84,10 @@ def verify_2fa_code(
     ).scalar_one_or_none()
 
     if not two_factor:
-        raise HTTPException(status_code=401, detail="Código inválido o expirado.")
+        raise HTTPException(
+            status_code=401,
+            detail="Código inválido o expirado."
+        )
 
     two_factor.used = True
     db.commit()
@@ -95,7 +98,8 @@ def verify_2fa_code(
         check_and_register_device(db, user, ip_address, user_agent)
 
     token = create_access_token({"sub": user.id, "role": user.role})
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    refresh_token = create_refresh_token(db, user.id)
+    return {"access_token": token, "refresh_token": refresh_token, "token_type": "bearer", "user": user}
 
 
 def list_users(db: Session, institution_id: str) -> list[User]:
@@ -138,7 +142,7 @@ def check_and_register_device(
             user.email, user.full_name, ip_address, user_agent, block_url
         )
     except Exception as e:
-        print(f"[LAU-44] Error enviando alerta de nuevo dispositivo: {e}")
+        print(f"Error enviando alerta de nuevo dispositivo: {e}")
 
 
 def block_account_by_token(db: Session, block_token: str):
@@ -157,3 +161,15 @@ def block_account_by_token(db: Session, block_token: str):
     return {
         "message": f"La cuenta de {user.full_name} ha sido bloqueada por seguridad."
     }
+
+def revoke_refresh_token(db: Session, refresh_token: str):
+    """Revoca un refresh token específico (logout)."""
+    from app.domains.users.models import RefreshToken
+
+    stored = db.execute(
+        select(RefreshToken).where(RefreshToken.token == refresh_token)
+    ).scalar_one_or_none()
+
+    if stored:
+        stored.revoked = True
+        db.commit()

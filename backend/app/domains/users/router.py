@@ -10,6 +10,8 @@ from app.core.auth import (
     hash_password,
     verify_password,
     create_access_token,
+    create_refresh_token,
+    rotate_refresh_token,
     get_current_user,
 )
 from app.domains.users.schemas import (
@@ -25,6 +27,7 @@ from app.domains.users.services import (
     verify_2fa_code,
     block_account_by_token,
     list_users,
+    revoke_refresh_token
 )
 from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
 from app.domains.institutions.schemas import InstitutionCreate
@@ -69,7 +72,7 @@ def register_institution_and_representative(
             institution_name=institution.name,
         )
     except Exception as e:
-        print(f"[LAU-22] Error enviando email de bienvenida: {e}")
+        print(f"Error enviando email de bienvenida: {e}")
 
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
@@ -324,6 +327,32 @@ async def login_user(
                 },
             )
 
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/auth/refresh")
+@limiter.limit("30/minute")
+def refresh_access_token(
+    request: Request, data: RefreshRequest, db: Session = Depends(get_db)
+):
+    result = rotate_refresh_token(db, data.refresh_token)
+    if not result:
+        raise HTTPException(
+            status_code=401, detail="Refresh token inválido o expirado."
+        )
+    new_access_token, new_refresh_token = result
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+    }
+
+@router.post("/auth/logout")
+def logout(data: RefreshRequest, db: Session = Depends(get_db)):
+    revoke_refresh_token(db, data.refresh_token)
+    return {"message": "Sesión cerrada correctamente."}
 
 @router.post("/auth/verify-2fa", response_model=TokenResponse)
 @limiter.limit("10/minute")

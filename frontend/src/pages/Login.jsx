@@ -109,8 +109,8 @@ function VerifyCodeForm({ userId, email, onBack }) {
     setError("");
     try {
       const res = await api.post("/auth/verify-2fa", { user_id: userId, code });
-      const { access_token, user: userData } = res.data;
-      login(access_token, userData);
+      const { access_token, refresh_token, user: userData } = res.data;
+      login(access_token, userData, refresh_token);
       navigate(userData?.role === "superadmin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err.response?.data?.detail || "Código inválido o expirado.");
