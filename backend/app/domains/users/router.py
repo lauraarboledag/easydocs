@@ -33,6 +33,7 @@ from app.core.email import send_password_reset_email, send_welcome_email
 from app.config import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from app.core.captcha import verify_hcaptcha
 
 router = APIRouter(tags=["Usuarios"])
 limiter = Limiter(key_func=get_remote_address)
@@ -73,6 +74,7 @@ def register_institution_and_representative(
     token = create_access_token({"sub": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
+
 class GoogleAuthRequest(BaseModel):
     credential: str
 
@@ -97,7 +99,9 @@ def verify_google_token(data: GoogleAuthRequest, db: Session = Depends(get_db)):
     full_name = idinfo.get("name", "")
 
     if not email:
-        raise HTTPException(status_code=400, detail="No se pudo obtener el correo de Google.")
+        raise HTTPException(
+            status_code=400, detail="No se pudo obtener el correo de Google."
+        )
 
     existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
 
@@ -106,6 +110,7 @@ def verify_google_token(data: GoogleAuthRequest, db: Session = Depends(get_db)):
         full_name=full_name,
         already_exists=existing is not None,
     )
+
 
 @router.post("/users/", response_model=UserResponse, status_code=201)
 def register_user(
@@ -228,7 +233,9 @@ class VerifyCodeRequest(BaseModel):
 
 @router.post("/auth/login")
 @limiter.limit("5/minute")
-def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
+async def login_user(
+    request: Request, data: LoginRequest, db: Session = Depends(get_db)
+):
     ip = request.client.host
     since = datetime.utcnow() - timedelta(minutes=BLOCK_MINUTES)
 
@@ -243,6 +250,25 @@ def login_user(request: Request, data: LoginRequest, db: Session = Depends(get_d
         .scalars()
         .all()
     )
+    # Exigir captcha después del primer intento fallido
+    if len(failed_attempts) >= 1:
+        if not data.captcha_token:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Verificación de seguridad requerida.",
+                    "requires_captcha": True,
+                },
+            )
+        captcha_valid = await verify_hcaptcha(data.captcha_token)
+        if not captcha_valid:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Verificación de seguridad fallida. Intenta de nuevo.",
+                    "requires_captcha": True,
+                },
+            )
 
     if len(failed_attempts) >= MAX_ATTEMPTS:
         oldest = min(a.created_at for a in failed_attempts)

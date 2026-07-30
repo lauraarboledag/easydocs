@@ -24,7 +24,7 @@ class UserResponse(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-
+    captcha_token: Optional[str] = None
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

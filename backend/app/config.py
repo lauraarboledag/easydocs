@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     FRONTEND_URL: str = "https://easydocs-kappa.vercel.app/"
     GOOGLE_CLIENT_ID: Optional[str] = None
+    HCAPTCHA_SECRET_KEY: Optional[str] = None
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

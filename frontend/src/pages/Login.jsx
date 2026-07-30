@@ -12,6 +12,42 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
+function HCaptchaWidget({ onVerify, resetKey }) {
+  const containerRef = useRef(null);
+  const widgetIdRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (window.hcaptcha) {
+      setLoaded(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://js.hcaptcha.com/1/api.js";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setLoaded(true);
+    document.body.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded || !window.hcaptcha || !containerRef.current) return;
+
+    if (widgetIdRef.current !== null) {
+      window.hcaptcha.reset(widgetIdRef.current);
+      return;
+    }
+
+    widgetIdRef.current = window.hcaptcha.render(containerRef.current, {
+      sitekey: import.meta.env.VITE_HCAPTCHA_SITE_KEY,
+      callback: onVerify,
+      "expired-callback": () => onVerify(null),
+    });
+  }, [loaded, resetKey, onVerify]);
+
+  return <div ref={containerRef} className="flex justify-center my-4" />;
+}
+
 function VerifyCodeForm({ userId, email, onBack }) {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -183,7 +219,10 @@ export default function Login() {
   const [attemptsLeft, setAttemptsLeft] = useState(null);
   const [blockedUntil, setBlockedUntil] = useState(null);
   const [countdown, setCountdown] = useState(null);
-  const [pending2FA, setPending2FA] = useState(null); // { userId, email }
+  const [pending2FA, setPending2FA] = useState(null);
+  const [requiresCaptcha, setRequiresCaptcha] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -212,12 +251,17 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (blockedUntil) return;
+    if (requiresCaptcha && !captchaToken) {
+      setError("Completa la verificación de seguridad para continuar.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const res = await api.post("/auth/login", {
         email: form.email,
         password: form.password,
+        captcha_token: captchaToken,
       });
       if (res.data.requires_2fa) {
         setPending2FA({ userId: res.data.user_id, email: form.email });
@@ -225,7 +269,12 @@ export default function Login() {
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (typeof detail === "object" && detail !== null) {
-        if (detail.blocked) {
+        if (detail.requires_captcha) {
+          setRequiresCaptcha(true);
+          setCaptchaToken(null);
+          setCaptchaResetKey((k) => k + 1);
+          setError(detail.message || "Completa la verificación de seguridad.");
+        } else if (detail.blocked) {
           setBlockedUntil(detail.unlock_at);
           setError(
             `Cuenta bloqueada. Intenta de nuevo en ${detail.remaining_minutes} minuto${detail.remaining_minutes !== 1 ? "s" : ""}.`,
@@ -233,6 +282,9 @@ export default function Login() {
           setAttemptsLeft(null);
         } else {
           setAttemptsLeft(detail.attempts_left);
+          setRequiresCaptcha(true);
+          setCaptchaToken(null);
+          setCaptchaResetKey((k) => k + 1);
           setError(
             `Contraseña incorrecta. Te quedan ${detail.attempts_left} intento${detail.attempts_left !== 1 ? "s" : ""}.`,
           );
@@ -247,7 +299,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Panel izquierdo — video + info */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden">
         <video
           autoPlay
@@ -310,7 +361,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Panel derecho */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-16 py-12 bg-white">
         <div className="max-w-md mx-auto w-full">
           {pending2FA ? (
@@ -420,9 +470,20 @@ export default function Login() {
                   )}
                 </div>
 
+                {requiresCaptcha && (
+                  <HCaptchaWidget
+                    onVerify={setCaptchaToken}
+                    resetKey={captchaResetKey}
+                  />
+                )}
+
                 <button
                   type="submit"
-                  disabled={loading || !!blockedUntil}
+                  disabled={
+                    loading ||
+                    !!blockedUntil ||
+                    (requiresCaptcha && !captchaToken)
+                  }
                   className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3.5 px-6 rounded-lg transition-colors mt-2"
                 >
                   {loading
