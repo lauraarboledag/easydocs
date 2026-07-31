@@ -89,9 +89,13 @@ def confirm(
     return confirm_transaction(db, transaction_id, data, current_user.id)
 
 
+class ChangePlanRequest(BaseModel):
+    plan_id: str
+
+
 @router.post("/subscriptions/change-plan")
 def change_plan(
-    data: SubscriptionCreate,
+    data: ChangePlanRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
