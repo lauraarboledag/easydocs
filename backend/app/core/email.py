@@ -4,7 +4,7 @@ from app.config import settings
 
 resend.api_key = settings.RESEND_API_KEY
 
-FROM_EMAIL = "EasyDocs <onboarding@resend.dev>"
+FROM_EMAIL = "EasyDocs <noreply@edudynamis.org>"
 
 
 def send_2fa_code_email(to_email: str, code: str, full_name: str):
