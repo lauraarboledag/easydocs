@@ -9,6 +9,7 @@ from app.domains.institutions.services import (
     get_institution,
     update_institution,
     list_institutions,
+    delete_institution
 )
 import base64
 
@@ -76,3 +77,11 @@ def get_institution_by_id(
     if current_user.role != "superadmin" and current_user.institution_id != institution_id:
         raise HTTPException(status_code=403, detail="No tienes permiso para ver esta institución.")
     return get_institution(db, institution_id)
+
+@router.delete("/{institution_id}", status_code=204)
+def remove_institution(
+    institution_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin),
+):
+    delete_institution(db, institution_id)
