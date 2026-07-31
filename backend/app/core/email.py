@@ -201,3 +201,77 @@ def send_new_device_email(
         """,
         }
     )
+
+
+def send_email_change_code(to_email: str, code: str, full_name: str):
+    resend.Emails.send(
+        {
+            "from": FROM_EMAIL,
+            "to": [to_email],
+            "subject": f"Confirma tu nuevo correo: {code}",
+            "html": f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1a2b4a; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">EasyDocs</h1>
+                <p style="color: #93c5fd; margin: 8px 0 0 0; font-size: 14px;">Gestión Documental ETDH</p>
+            </div>
+
+            <h2 style="color: #1a2b4a; font-size: 20px;">Hola, {full_name}</h2>
+            <p style="color: #4b5563; line-height: 1.6;">
+                Recibimos una solicitud para cambiar el correo asociado a tu cuenta en EasyDocs.
+                Usa este código para confirmar que este correo te pertenece:
+            </p>
+
+            <div style="text-align: center; margin: 32px 0;">
+                <span style="background: #f0f4ff; color: #1a2b4a; padding: 16px 32px; border-radius: 8px;
+                             font-weight: bold; font-size: 32px; letter-spacing: 8px; display: inline-block;">
+                    {code}
+                </span>
+            </div>
+
+            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
+                Este código expira en <strong>10 minutos</strong>. Si no solicitaste este cambio, ignora este correo.
+            </p>
+
+            <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                </p>
+            </div>
+        </div>
+        """,
+        }
+    )
+
+
+def send_email_changed_notice(old_email: str, full_name: str, new_email: str):
+    resend.Emails.send(
+        {
+            "from": FROM_EMAIL,
+            "to": [old_email],
+            "subject": "Tu correo de EasyDocs fue cambiado",
+            "html": f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1a2b4a; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">EasyDocs</h1>
+                <p style="color: #93c5fd; margin: 8px 0 0 0; font-size: 14px;">Gestión Documental ETDH</p>
+            </div>
+
+            <h2 style="color: #1a2b4a; font-size: 20px;">Hola, {full_name}</h2>
+            <p style="color: #4b5563; line-height: 1.6;">
+                El correo de tu cuenta EasyDocs fue cambiado a <strong>{new_email}</strong>.
+            </p>
+            <p style="color: #4b5563; line-height: 1.6;">
+                Si no realizaste este cambio, contacta a soporte de inmediato en
+                <a href="mailto:soporte@edudynamis.com" style="color: #2952cc;">soporte@edudynamis.com</a>.
+            </p>
+
+            <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                </p>
+            </div>
+        </div>
+        """,
+        }
+    )

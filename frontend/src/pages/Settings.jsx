@@ -1,67 +1,363 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import api from "../services/api";
 import Sidebar from "../components/layout/Sidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
-import { useTheme } from "../context/ThemeContext";
 import {
   Bell,
   ChevronLeft,
   Save,
-  Upload,
   Eye,
   EyeOff,
   CheckCircle,
   AlertCircle,
-  Building2,
   User,
   Sun,
-  Image,
+  Mail,
+  Shield,
 } from "lucide-react";
 
 const TABS = [
-  { id: "institution", label: "Institución", icon: Building2 },
-  { id: "account", label: "Mi cuenta", icon: User },
+  { id: "account", label: "Contraseña", icon: User },
+  { id: "email", label: "Correo", icon: Mail },
   { id: "appearance", label: "Apariencia", icon: Sun },
 ];
 
-const inputStyle = {
-  borderColor: "var(--border-color)",
-  backgroundColor: "var(--bg-primary)",
-  color: "var(--text-primary)",
-};
+const PASSWORD_RULES = [
+  { key: "length", label: "Mínimo 8 caracteres" },
+  { key: "uppercase", label: "Al menos una mayúscula" },
+  { key: "number", label: "Incluye números" },
+  { key: "special", label: "Carácter especial (!@#$%^&*)" },
+];
+
+function PasswordField({ label, field, value, show, onChange, onToggle }) {
+  return (
+    <div>
+      <label
+        className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(field, e.target.value)}
+          className="w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10 transition-all"
+          style={{
+            borderColor: "var(--border-color)",
+            backgroundColor: "var(--bg-primary)",
+            color: "var(--text-primary)",
+          }}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-3 top-1/2 -translate-y-1/2"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PasswordStrengthIndicator({ strength }) {
+  return (
+    <div className="space-y-2">
+      {PASSWORD_RULES.map(({ key, label }) => (
+        <div key={key} className="flex items-center gap-2">
+          <div
+            className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+            style={{
+              backgroundColor: strength[key] ? "#22c55e" : "transparent",
+              borderColor: strength[key] ? "#22c55e" : "var(--border-color)",
+            }}
+          >
+            {strength[key] && <CheckCircle size={10} className="text-white" />}
+          </div>
+          <span
+            className="text-xs"
+            style={{
+              color: strength[key] ? "#16a34a" : "var(--text-secondary)",
+            }}
+          >
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AppearanceTab({ theme, setTheme, themes }) {
+  return (
+    <div
+      className="rounded-2xl border p-6"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-color)",
+      }}
+    >
+      <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+        Apariencia
+      </h2>
+      <p className="text-xs mb-6" style={{ color: "var(--text-secondary)" }}>
+        Elige el tema visual de tu panel.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {themes.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTheme(t.id)}
+            className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+            style={{
+              borderColor:
+                theme === t.id ? "var(--color-primary)" : "var(--border-color)",
+              backgroundColor:
+                theme === t.id ? "var(--color-primary-light)" : "transparent",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner"
+              style={{ backgroundColor: t.color }}
+            />
+            <div className="flex-1">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {t.label}
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {t.description}
+              </p>
+            </div>
+            {theme === t.id && (
+              <CheckCircle
+                size={18}
+                style={{ color: "var(--color-primary)" }}
+                className="flex-shrink-0"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmailChangeTab({ currentEmail, onSuccess, onError }) {
+  const [step, setStep] = useState("form"); // form | verify
+  const [newEmail, setNewEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleRequest = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.patch("/users/me/request-email-change", {
+        new_email: newEmail,
+        current_password: password,
+      });
+      setStep("verify");
+      onError("");
+    } catch (err) {
+      onError(
+        err.response?.data?.detail || "Error al solicitar el cambio de correo.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.patch("/users/me/confirm-email-change", { code });
+      onSuccess(
+        `Tu correo fue actualizado a ${newEmail}. Vuelve a iniciar sesión.`,
+      );
+      setTimeout(() => {
+        localStorage.clear();
+        window.location.href = "/login";
+      }, 2500);
+    } catch (err) {
+      onError(err.response?.data?.detail || "Código inválido o expirado.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="rounded-2xl border p-6"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-color)",
+      }}
+    >
+      <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+        Cambiar correo
+      </h2>
+      <p className="text-xs mb-6" style={{ color: "var(--text-secondary)" }}>
+        Correo actual: <span className="font-medium">{currentEmail}</span>
+      </p>
+
+      {step === "form" ? (
+        <form onSubmit={handleRequest} className="space-y-4 max-w-md">
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nuevo correo electrónico
+            </label>
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              required
+              placeholder="nuevo@correo.com"
+              className="w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Confirma tu contraseña actual
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10 transition-all"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
+            style={{ backgroundColor: "var(--color-primary)" }}
+          >
+            <Mail size={16} />
+            {loading ? "Enviando..." : "Enviar código de verificación"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleConfirm} className="space-y-4 max-w-md">
+          <div
+            className="rounded-xl p-4 flex items-start gap-3"
+            style={{ backgroundColor: "var(--color-primary-light)" }}
+          >
+            <Shield
+              size={16}
+              style={{ color: "var(--color-primary)" }}
+              className="flex-shrink-0 mt-0.5"
+            />
+            <p className="text-xs" style={{ color: "var(--color-primary)" }}>
+              Enviamos un código de 6 dígitos a <strong>{newEmail}</strong>.
+              Ingrésalo para confirmar el cambio.
+            </p>
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Código de verificación
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              required
+              placeholder="000000"
+              className="w-full border rounded-xl px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] focus:outline-none focus:ring-2 transition-all"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setStep("form")}
+              className="flex-1 py-3 rounded-xl text-sm font-medium border transition-colors"
+              style={{
+                borderColor: "var(--border-color)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading || code.length !== 6}
+              className="flex-1 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            >
+              {loading ? "Confirmando..." : "Confirmar cambio"}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const fileInputRef = useRef(null);
   const { theme, setTheme, themes } = useTheme();
+  const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState("institution");
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("account");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
-
-  const [instForm, setInstForm] = useState({
-    name: "",
-    dane_code: "",
-    department: "",
-    municipality: "",
-    address: "",
-    phone: "",
-    email: "",
-    education_level: "",
-    license_number: "",
-  });
-  const [logoPreview, setLogoPreview] = useState(null);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -88,71 +384,6 @@ export default function Settings() {
       navigate("/");
     },
   });
-
-  useEffect(() => {
-    fetchInstitution();
-  }, []);
-
-  const fetchInstitution = async () => {
-    try {
-      const res = await api.get(`/institutions/${user.institution_id}`);
-      setInstForm({
-        name: res.data.name || "",
-        dane_code: res.data.dane_code || "",
-        department: res.data.department || "",
-        municipality: res.data.municipality || "",
-        address: res.data.address || "",
-        phone: res.data.phone || "",
-        email: res.data.email || "",
-        education_level: res.data.education_level || "",
-        license_number: res.data.license_number || "",
-      });
-      if (res.data.logo_url) setLogoPreview(res.data.logo_url);
-    } catch (err) {
-      setError("No se pudo cargar la información. Intenta de nuevo más tarde");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveInstitution = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await api.put("/institutions/my", instForm);
-      setSuccess("Datos institucionales actualizados.");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(err.response?.data?.detail || "Error al guardar.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleLogoChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError("El logo no debe superar 2MB.");
-      return;
-    }
-    setUploadingLogo(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await api.post("/institutions/my/logo", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setLogoPreview(res.data.logo_url);
-      setSuccess("Logo actualizado exitosamente.");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError("Error al subir el logo.");
-    } finally {
-      setUploadingLogo(false);
-    }
-  };
 
   const handlePasswordChange = (field, value) => {
     setPasswords((p) => ({ ...p, [field]: value }));
@@ -193,6 +424,12 @@ export default function Settings() {
     }
   };
 
+  const passwordFieldLabels = {
+    current: "Contraseña actual",
+    new: "Nueva contraseña",
+    confirm: "Confirmar contraseña",
+  };
+
   return (
     <div
       className="min-h-screen flex"
@@ -224,7 +461,7 @@ export default function Settings() {
                 Configuración
               </h1>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                Personaliza tu cuenta e institución
+                Tu cuenta y preferencias
               </p>
             </div>
           </div>
@@ -251,21 +488,20 @@ export default function Settings() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+        <div className="flex-1 p-8 max-w-3xl mx-auto w-full">
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
               <CheckCircle size={16} /> {success}
             </div>
           )}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
               <AlertCircle size={16} /> {error}
             </div>
           )}
 
-          {/* Tabs */}
           <div
-            className="flex gap-1 border rounded-xl p-1 mb-6"
+            className="flex gap-1 rounded-2xl p-1 mb-6 border"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--border-color)",
@@ -279,7 +515,7 @@ export default function Settings() {
                   setError("");
                   setSuccess("");
                 }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors"
                 style={{
                   backgroundColor:
                     activeTab === id ? "var(--color-primary)" : "transparent",
@@ -292,315 +528,14 @@ export default function Settings() {
             ))}
           </div>
 
-          {/* Tab Institución */}
-          {activeTab === "institution" && (
-            <div className="space-y-6">
-              {/* Logo */}
-              <div
-                className="rounded-xl border p-6"
-                style={{
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: "var(--border-color)",
-                }}
-              >
-                <h2
-                  className="font-bold mb-1"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Logo institucional
-                </h2>
-                <p
-                  className="text-xs mb-5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Aparecerá en los documentos PDF generados. Máximo 2MB.
-                </p>
-                <div className="flex items-center gap-6">
-                  <div
-                    className="w-24 h-24 border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-                    style={{
-                      backgroundColor: "var(--bg-primary)",
-                      borderColor: "var(--border-color)",
-                    }}
-                  >
-                    {logoPreview ? (
-                      <img
-                        src={logoPreview}
-                        alt="Logo"
-                        className="w-full h-full object-contain p-2"
-                      />
-                    ) : (
-                      <Image
-                        size={32}
-                        style={{ color: "var(--text-secondary)", opacity: 0.4 }}
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingLogo}
-                      className="flex items-center gap-2 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-40"
-                      style={{ backgroundColor: "var(--color-primary)" }}
-                    >
-                      <Upload size={16} />
-                      {uploadingLogo ? "Subiendo..." : "Subir logo"}
-                    </button>
-                    <p
-                      className="text-xs mt-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      PNG, JPG o SVG. Fondo transparente recomendado.
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoChange}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Datos institucionales */}
-              <div
-                className="rounded-xl border p-6"
-                style={{
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: "var(--border-color)",
-                }}
-              >
-                <h2
-                  className="font-bold mb-1"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Datos institucionales
-                </h2>
-                <p
-                  className="text-xs mb-5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Esta información aparece en los documentos oficiales
-                  generados.
-                </p>
-                <form onSubmit={handleSaveInstitution} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Nombre de la institución
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.name}
-                        onChange={(e) =>
-                          setInstForm((p) => ({ ...p, name: e.target.value }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Código DANE
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.dane_code}
-                        onChange={(e) =>
-                          setInstForm((p) => ({
-                            ...p,
-                            dane_code: e.target.value,
-                          }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Resolución de funcionamiento
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.license_number}
-                        onChange={(e) =>
-                          setInstForm((p) => ({
-                            ...p,
-                            license_number: e.target.value,
-                          }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Departamento
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.department}
-                        onChange={(e) =>
-                          setInstForm((p) => ({
-                            ...p,
-                            department: e.target.value,
-                          }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Municipio
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.municipality}
-                        onChange={(e) =>
-                          setInstForm((p) => ({
-                            ...p,
-                            municipality: e.target.value,
-                          }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Dirección
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.address}
-                        onChange={(e) =>
-                          setInstForm((p) => ({
-                            ...p,
-                            address: e.target.value,
-                          }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Teléfono
-                      </label>
-                      <input
-                        type="text"
-                        value={instForm.phone}
-                        onChange={(e) =>
-                          setInstForm((p) => ({ ...p, phone: e.target.value }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Correo institucional
-                      </label>
-                      <input
-                        type="email"
-                        value={instForm.email}
-                        onChange={(e) =>
-                          setInstForm((p) => ({ ...p, email: e.target.value }))
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
-                        style={inputStyle}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-40"
-                      style={{ backgroundColor: "var(--color-primary)" }}
-                    >
-                      <Save size={16} />
-                      {saving ? "Guardando..." : "Guardar cambios"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Mi cuenta */}
           {activeTab === "account" && (
             <div
-              className="rounded-xl border p-6"
+              className="rounded-2xl border p-6"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-color)",
               }}
             >
-              {/* Info usuario */}
-              <div
-                className="flex items-center gap-4 p-4 rounded-xl mb-6"
-                style={{ backgroundColor: "var(--bg-primary)" }}
-              >
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: "var(--color-primary)" }}
-                >
-                  <span className="text-white font-bold text-lg">
-                    {user?.full_name?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <p
-                    className="font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {user?.full_name}
-                  </p>
-                  <p
-                    className="text-sm"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {user?.email}
-                  </p>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-medium capitalize mt-1 inline-block"
-                    style={{
-                      backgroundColor: "var(--color-primary-light)",
-                      color: "var(--color-primary)",
-                    }}
-                  >
-                    {user?.role}
-                  </span>
-                </div>
-              </div>
-
               <h2
                 className="font-bold mb-1"
                 style={{ color: "var(--text-primary)" }}
@@ -613,89 +548,30 @@ export default function Settings() {
               >
                 Usa una contraseña segura que no uses en otros sitios.
               </p>
-
               <form
                 onSubmit={handleSavePassword}
                 className="space-y-4 max-w-md"
               >
-                {[
-                  { key: "current", label: "Contraseña actual" },
-                  { key: "new", label: "Nueva contraseña" },
-                  { key: "confirm", label: "Confirmar contraseña" },
-                ].map(({ key, label }) => (
-                  <div key={key}>
-                    <label
-                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {label}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPasswords[key] ? "text" : "password"}
-                        value={passwords[key]}
-                        onChange={(e) =>
-                          handlePasswordChange(key, e.target.value)
-                        }
-                        className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 pr-10"
-                        style={inputStyle}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowPasswords((p) => ({ ...p, [key]: !p[key] }))
-                        }
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {showPasswords[key] ? (
-                          <EyeOff size={16} />
-                        ) : (
-                          <Eye size={16} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                {["current", "new", "confirm"].map((field) => (
+                  <PasswordField
+                    key={field}
+                    field={field}
+                    label={passwordFieldLabels[field]}
+                    value={passwords[field]}
+                    show={showPasswords[field]}
+                    onChange={handlePasswordChange}
+                    onToggle={() =>
+                      setShowPasswords((p) => ({ ...p, [field]: !p[field] }))
+                    }
+                  />
                 ))}
-
                 {passwords.new && (
-                  <div
-                    className="space-y-2 p-3 rounded-lg"
-                    style={{ backgroundColor: "var(--bg-primary)" }}
-                  >
-                    {[
-                      { key: "length", label: "Mínimo 8 caracteres" },
-                      { key: "uppercase", label: "Al menos una mayúscula" },
-                      { key: "number", label: "Incluye números" },
-                      { key: "special", label: "Carácter especial (!@#$%^&*)" },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${passwordStrength[key] ? "bg-green-500 border-green-500" : "border-gray-300"}`}
-                        >
-                          {passwordStrength[key] && (
-                            <CheckCircle size={10} className="text-white" />
-                          )}
-                        </div>
-                        <span
-                          className={`text-xs ${passwordStrength[key] ? "text-green-600" : ""}`}
-                          style={
-                            passwordStrength[key]
-                              ? {}
-                              : { color: "var(--text-secondary)" }
-                          }
-                        >
-                          {label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <PasswordStrengthIndicator strength={passwordStrength} />
                 )}
-
                 <button
                   type="submit"
                   disabled={saving}
-                  className="text-white font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors text-sm disabled:opacity-40"
+                  className="font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
                   style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   <Save size={16} />
@@ -705,93 +581,16 @@ export default function Settings() {
             </div>
           )}
 
-          {/* Tab Apariencia */}
+          {activeTab === "email" && (
+            <EmailChangeTab
+              currentEmail={user?.email}
+              onSuccess={(msg) => setSuccess(msg)}
+              onError={(msg) => setError(msg)}
+            />
+          )}
+
           {activeTab === "appearance" && (
-            <div
-              className="rounded-xl border p-6"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                borderColor: "var(--border-color)",
-              }}
-            >
-              <h2
-                className="font-bold mb-1"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Apariencia
-              </h2>
-              <p
-                className="text-xs mb-6"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Elige el tema visual que más te guste. Se guarda por usuario.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {themes.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
-                    style={{
-                      borderColor:
-                        theme === t.id
-                          ? "var(--color-primary)"
-                          : "var(--border-color)",
-                      backgroundColor:
-                        theme === t.id
-                          ? "var(--color-primary-light)"
-                          : "var(--bg-primary)",
-                    }}
-                  >
-                    <div
-                      className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner"
-                      style={{ backgroundColor: t.color }}
-                    />
-                    <div className="flex-1">
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {t.label}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {t.description}
-                      </p>
-                    </div>
-                    {theme === t.id && (
-                      <CheckCircle
-                        size={18}
-                        style={{ color: "var(--color-primary)" }}
-                        className="flex-shrink-0"
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div
-                className="mt-6 rounded-xl p-4 flex items-start gap-3 border"
-                style={{
-                  backgroundColor: "var(--color-primary-light)",
-                  borderColor: "var(--color-primary)",
-                }}
-              >
-                <AlertCircle
-                  size={16}
-                  className="flex-shrink-0 mt-0.5"
-                  style={{ color: "var(--color-primary)" }}
-                />
-                <p className="text-xs" style={{ color: "var(--text-primary)" }}>
-                  El tema se aplica instantáneamente y se guarda para tus
-                  próximas visitas. Cada usuario de tu institución puede elegir
-                  su propio tema.
-                </p>
-              </div>
-            </div>
+            <AppearanceTab theme={theme} setTheme={setTheme} themes={themes} />
           )}
         </div>
       </main>

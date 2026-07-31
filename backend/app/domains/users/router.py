@@ -26,8 +26,10 @@ from app.domains.users.services import (
     send_2fa_code,
     verify_2fa_code,
     block_account_by_token,
+    revoke_refresh_token,
+    request_email_change,
+    confirm_email_change,
     list_users,
-    revoke_refresh_token
 )
 from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
 from app.domains.institutions.schemas import InstitutionCreate
@@ -149,6 +151,33 @@ class CreateSuperadminRequest(BaseModel):
     full_name: str
     email: EmailStr
     password: str
+
+class RequestEmailChangeRequest(BaseModel):
+    new_email: EmailStr
+    current_password: str
+
+
+class ConfirmEmailChangeRequest(BaseModel):
+    code: str
+
+
+@router.patch("/users/me/request-email-change")
+def request_email_change_endpoint(
+    data: RequestEmailChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    request_email_change(db, current_user, data.new_email, data.current_password)
+    return {"message": "Te enviamos un código de verificación a tu nuevo correo."}
+
+
+@router.patch("/users/me/confirm-email-change", response_model=UserResponse)
+def confirm_email_change_endpoint(
+    data: ConfirmEmailChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return confirm_email_change(db, current_user, data.code)
 
 
 @router.post("/admin/superadmin", response_model=UserResponse, status_code=201)

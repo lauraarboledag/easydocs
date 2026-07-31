@@ -99,6 +99,7 @@ class KnownDevice(Base):
 
     user = relationship("User")
 
+
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
@@ -111,6 +112,24 @@ class RefreshToken(Base):
         DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(days=7)
     )
     revoked = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+
+
+class EmailChangeRequest(Base):
+    __tablename__ = "email_change_requests"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    new_email = Column(String, nullable=False)
+    code = Column(String(6), nullable=False)
+    expires_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.utcnow() + timedelta(minutes=10),
+    )
+    used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

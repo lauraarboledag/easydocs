@@ -9,6 +9,7 @@ from app.core.auth import hash_password, verify_password, create_access_token
 from app.core.email import send_2fa_code_email, send_new_device_email
 from app.config import settings
 
+
 def create_user(db: Session, data: UserCreate) -> User:
     existing = db.execute(
         select(User).where(User.email == data.email)
@@ -70,7 +71,9 @@ def send_2fa_code(db: Session, user: User):
     send_2fa_code_email(user.email, code, user.full_name)
 
 
-def verify_2fa_code(db: Session, user_id: str, code: str, ip_address: str = None, user_agent: str = None):
+def verify_2fa_code(
+    db: Session, user_id: str, code: str, ip_address: str = None, user_agent: str = None
+):
     """Verifica el código 2FA y retorna access + refresh token si es válido."""
     from app.core.auth import create_refresh_token
 
@@ -84,10 +87,7 @@ def verify_2fa_code(db: Session, user_id: str, code: str, ip_address: str = None
     ).scalar_one_or_none()
 
     if not two_factor:
-        raise HTTPException(
-            status_code=401,
-            detail="Código inválido o expirado."
-        )
+        raise HTTPException(status_code=401, detail="Código inválido o expirado.")
 
     two_factor.used = True
     db.commit()
@@ -99,7 +99,12 @@ def verify_2fa_code(db: Session, user_id: str, code: str, ip_address: str = None
 
     token = create_access_token({"sub": user.id, "role": user.role})
     refresh_token = create_refresh_token(db, user.id)
-    return {"access_token": token, "refresh_token": refresh_token, "token_type": "bearer", "user": user}
+    return {
+        "access_token": token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
 
 
 def list_users(db: Session, institution_id: str) -> list[User]:
@@ -162,6 +167,7 @@ def block_account_by_token(db: Session, block_token: str):
         "message": f"La cuenta de {user.full_name} ha sido bloqueada por seguridad."
     }
 
+
 def revoke_refresh_token(db: Session, refresh_token: str):
     """Revoca un refresh token específico (logout)."""
     from app.domains.users.models import RefreshToken
@@ -173,3 +179,80 @@ def revoke_refresh_token(db: Session, refresh_token: str):
     if stored:
         stored.revoked = True
         db.commit()
+
+
+def request_email_change(
+    db: Session, user: User, new_email: str, current_password: str
+):
+    """Valida contraseña, verifica que el nuevo email no esté en uso, y envía código."""
+    from app.domains.users.models import EmailChangeRequest
+    from app.core.email import send_email_change_code
+    import secrets as secrets_module
+
+    if not verify_password(current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta.")
+
+    existing = db.execute(
+        select(User).where(User.email == new_email)
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=400, detail="Ese correo ya está en uso por otra cuenta."
+        )
+
+    # Invalidar solicitudes anteriores sin usar
+    old_requests = (
+        db.execute(
+            select(EmailChangeRequest).where(
+                EmailChangeRequest.user_id == user.id,
+                EmailChangeRequest.used == False,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for r in old_requests:
+        r.used = True
+    db.commit()
+
+    code = f"{secrets_module.randbelow(1000000):06d}"
+    request = EmailChangeRequest(user_id=user.id, new_email=new_email, code=code)
+    db.add(request)
+    db.commit()
+
+    send_email_change_code(new_email, code, user.full_name)
+
+
+def confirm_email_change(db: Session, user: User, code: str):
+    """Verifica el código y actualiza el email del usuario."""
+    from app.domains.users.models import EmailChangeRequest, RefreshToken
+    from app.core.email import send_email_changed_notice
+    from sqlalchemy import delete
+
+    request = db.execute(
+        select(EmailChangeRequest).where(
+            EmailChangeRequest.user_id == user.id,
+            EmailChangeRequest.code == code,
+            EmailChangeRequest.used == False,
+            EmailChangeRequest.expires_at > datetime.utcnow(),
+        )
+    ).scalar_one_or_none()
+
+    if not request:
+        raise HTTPException(status_code=401, detail="Código inválido o expirado.")
+
+    old_email = user.email
+    request.used = True
+    user.email = request.new_email
+    db.commit()
+
+    # Invalidar todas las sesiones activas por seguridad
+    db.execute(delete(RefreshToken).where(RefreshToken.user_id == user.id))
+    db.commit()
+
+    try:
+        send_email_changed_notice(old_email, user.full_name, user.email)
+    except Exception as e:
+        print(f"Error enviando notificación de cambio de correo: {e}")
+
+    return user
