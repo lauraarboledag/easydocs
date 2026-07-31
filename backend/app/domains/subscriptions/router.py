@@ -1,11 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.database import get_db
 from app.core.auth import get_current_user
-from app.core.features import get_active_subscription, require_feature, require_superadmin
+from app.core.features import (
+    get_active_subscription,
+    require_feature,
+    require_superadmin,
+)
 from app.domains.users.models import User
 from app.domains.subscriptions.models import Subscription, Plan
+from app.domains.subscriptions.wompi import (
+    verify_wompi_signature,
+    map_plan_from_reference,
+)
 from pydantic import BaseModel
 from typing import Optional
 from app.domains.subscriptions.schemas import (
@@ -24,6 +33,7 @@ from app.domains.subscriptions.services import (
     confirm_transaction,
     get_institution_subscription,
     list_transactions,
+    activate_subscription_with_invoice,
 )
 
 router = APIRouter(tags=["Suscripciones"])
@@ -127,3 +137,104 @@ def update_plan(
     db.commit()
     db.refresh(plan)
     return plan
+
+
+@router.post("/webhooks/wompi")
+async def wompi_webhook(request: Request, db: Session = Depends(get_db)):
+    event_data = await request.json()
+
+    if not verify_wompi_signature(event_data):
+        raise HTTPException(status_code=401, detail="Firma inválida.")
+
+    event_type = event_data.get("event")
+    if event_type != "transaction.updated":
+        return {"message": "Evento ignorado."}
+
+    transaction = event_data.get("data", {}).get("transaction", {})
+    status = transaction.get("status")
+    reference = transaction.get("reference", "")
+
+    if status != "APPROVED":
+        return {"message": f"Transacción no aprobada, estado: {status}"}
+
+    parsed = map_plan_from_reference(reference)
+    if not parsed:
+        raise HTTPException(status_code=400, detail="Referencia de pago inválida.")
+
+    institution_id, plan_id = parsed
+
+    subscription, invoice = activate_subscription_with_invoice(
+        db,
+        institution_id=institution_id,
+        plan_id=plan_id,
+        payment_method="wompi",
+        transaction_id=transaction.get("id"),
+    )
+
+    return {
+        "message": "Suscripción activada.",
+        "invoice_number": invoice.invoice_number,
+    }
+
+
+@router.get("/invoices/", response_model=list[dict])
+def get_my_invoices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.domains.subscriptions.models import Invoice
+
+    invoices = (
+        db.execute(
+            select(Invoice)
+            .where(Invoice.institution_id == current_user.institution_id)
+            .order_by(Invoice.issued_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+    return [
+        {
+            "id": inv.id,
+            "invoice_number": inv.invoice_number,
+            "plan_name": inv.plan_name,
+            "billing_cycle": inv.billing_cycle,
+            "amount": inv.amount,
+            "payment_method": inv.payment_method,
+            "issued_at": inv.issued_at.isoformat(),
+        }
+        for inv in invoices
+    ]
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def download_invoice_pdf(
+    invoice_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.domains.subscriptions.models import Invoice
+    from app.domains.subscriptions.invoicing import render_invoice_pdf
+    from app.domains.institutions.services import get_institution
+
+    invoice = db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id,
+            Invoice.institution_id == current_user.institution_id,
+        )
+    ).scalar_one_or_none()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Factura no encontrada.")
+
+    institution = get_institution(db, current_user.institution_id)
+    pdf_bytes = render_invoice_pdf(invoice, institution)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={invoice.invoice_number}.pdf"
+        },
+    )

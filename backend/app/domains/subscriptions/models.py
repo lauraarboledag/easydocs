@@ -96,3 +96,29 @@ class Transaction(Base):
     
 
     subscription = relationship("Subscription", back_populates="transactions")
+    
+class Invoice(Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    invoice_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    institution_id: Mapped[str] = mapped_column(
+        String, ForeignKey("institutions.id"), nullable=False
+    )
+    subscription_id: Mapped[str] = mapped_column(
+        String, ForeignKey("subscriptions.id"), nullable=False
+    )
+    transaction_id: Mapped[str] = mapped_column(
+        String, ForeignKey("transactions.id"), nullable=True
+    )
+    plan_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    billing_cycle: Mapped[str] = mapped_column(String(20), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)  # centavos COP
+    payment_method: Mapped[str] = mapped_column(String(50), nullable=False)  # "wompi" | "transfer"
+    issued_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    institution = relationship("Institution")
+    subscription = relationship("Subscription")
+    transaction = relationship("Transaction")

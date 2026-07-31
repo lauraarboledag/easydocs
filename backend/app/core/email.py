@@ -275,3 +275,50 @@ def send_email_changed_notice(old_email: str, full_name: str, new_email: str):
         """,
         }
     )
+
+
+def send_invoice_email(
+    to_email: str, full_name: str, invoice_number: str, plan_label: str, pdf_base64: str
+):
+    resend.Emails.send(
+        {
+            "from": FROM_EMAIL,
+            "to": [to_email],
+            "subject": f"Factura {invoice_number} — EasyDocs",
+            "html": f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1a2b4a; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">EasyDocs</h1>
+                <p style="color: #93c5fd; margin: 8px 0 0 0; font-size: 14px;">Gestión Documental ETDH</p>
+            </div>
+
+            <h2 style="color: #1a2b4a; font-size: 20px;">¡Gracias, {full_name}! 🎉</h2>
+            <p style="color: #4b5563; line-height: 1.6;">
+                Tu pago fue confirmado y tu plan <strong>{plan_label}</strong> ya está activo.
+                Adjuntamos tu factura <strong>{invoice_number}</strong>.
+            </p>
+
+            <div style="background: #f0fdf4; border-radius: 10px; padding: 16px; margin: 24px 0; text-align: center;">
+                <p style="color: #16a34a; font-weight: bold; margin: 0;">✓ Plan activado exitosamente</p>
+            </div>
+
+            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
+                También puedes ver y descargar esta factura en cualquier momento desde
+                tu cuenta en EasyDocs, sección Suscripción → Facturas.
+            </p>
+
+            <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                </p>
+            </div>
+        </div>
+        """,
+            "attachments": [
+                {
+                    "filename": f"{invoice_number}.pdf",
+                    "content": pdf_base64,
+                }
+            ],
+        }
+    )

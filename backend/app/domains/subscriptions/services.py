@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from app.domains.users.models import User, UserRole
 from sqlalchemy import select
 from fastapi import HTTPException
 from datetime import datetime, timedelta
@@ -15,6 +16,7 @@ from app.domains.subscriptions.schemas import (
     SubscriptionCreate,
     ConfirmTransaction,
 )
+import base64
 
 
 def create_plan(db: Session, data: PlanCreate) -> Plan:
@@ -137,3 +139,93 @@ def get_institution_subscription(db: Session, institution_id: str) -> Subscripti
 
 def list_transactions(db: Session) -> list[Transaction]:
     return db.execute(select(Transaction)).scalars().all()
+
+def activate_subscription_with_invoice(
+    db: Session,
+    institution_id: str,
+    plan_id: str,
+    payment_method: str,
+    transaction_id: str = None,
+):
+    """
+    Activa una suscripción automáticamente (pago confirmado) y genera su factura.
+    payment_method: "wompi" | "transfer"
+    """
+    from datetime import timedelta
+    from app.domains.subscriptions.models import Invoice
+    from app.domains.subscriptions.invoicing import generate_invoice_number, render_invoice_pdf
+    from app.domains.institutions.services import get_institution
+    from app.core.email import send_invoice_email
+
+    plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan no encontrado.")
+
+    # Desactivar suscripción anterior si existe
+    current_sub = db.execute(
+        select(Subscription).where(
+            Subscription.institution_id == institution_id,
+            Subscription.is_active == True,
+        )
+    ).scalar_one_or_none()
+    if current_sub:
+        current_sub.is_active = False
+        current_sub.status = SubscriptionStatus.cancelled
+        db.commit()
+
+    # Crear la nueva suscripción ya activa
+    days = 365 if plan.billing_cycle.value == "annual" else 30
+    now = datetime.utcnow()
+    subscription = Subscription(
+        institution_id=institution_id,
+        plan_id=plan_id,
+        status=SubscriptionStatus.active,
+        starts_at=now,
+        expires_at=now + timedelta(days=days),
+        is_active=True,
+    )
+    db.add(subscription)
+    db.commit()
+    db.refresh(subscription)
+
+    # Generar factura
+    invoice_number = generate_invoice_number(db)
+    invoice = Invoice(
+        invoice_number=invoice_number,
+        institution_id=institution_id,
+        subscription_id=subscription.id,
+        transaction_id=transaction_id,
+        plan_name=plan.name.value,
+        billing_cycle=plan.billing_cycle.value,
+        amount=plan.price,
+        payment_method=payment_method,
+    )
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+
+    # Generar PDF y enviar por correo
+    institution = get_institution(db, institution_id)
+    pdf_bytes = render_invoice_pdf(invoice, institution)
+
+    representative = db.execute(
+        select(User).where(
+            User.institution_id == institution_id,
+            User.role == UserRole.representative,
+        )
+    ).scalar_one_or_none()
+
+    if representative:
+        try:
+            pdf_base64 = base64.b64encode(pdf_bytes).decode()
+            send_invoice_email(
+                to_email=representative.email,
+                full_name=representative.full_name,
+                invoice_number=invoice.invoice_number,
+                plan_label=plan.name.value,
+                pdf_base64=pdf_base64,
+            )
+        except Exception as e:
+            print(f"Error enviando factura por correo: {e}")
+
+    return subscription, invoice
