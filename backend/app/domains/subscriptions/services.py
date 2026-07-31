@@ -1,8 +1,12 @@
 from sqlalchemy.orm import Session
+from app.domains.subscriptions.models import Invoice
+from app.domains.subscriptions.invoicing import generate_invoice_number, render_invoice_pdf
 from app.domains.users.models import User, UserRole
+from app.domains.institutions.services import get_institution
 from sqlalchemy import select
 from fastapi import HTTPException
 from datetime import datetime, timedelta
+from app.core.email import send_invoice_email
 from app.domains.subscriptions.models import (
     Plan,
     Subscription,
@@ -120,6 +124,48 @@ def confirm_transaction(
 
     db.commit()
     db.refresh(transaction)
+
+    # Generar factura
+    plan = subscription.plan
+    invoice_number = generate_invoice_number(db)
+    invoice = Invoice(
+        invoice_number=invoice_number,
+        institution_id=subscription.institution_id,
+        subscription_id=subscription.id,
+        transaction_id=transaction.id,
+        plan_name=plan.name.value,
+        billing_cycle=plan.billing_cycle.value,
+        amount=plan.price,
+        payment_method="transfer",
+    )
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+
+    # Generar PDF y enviar por correo
+    try:
+        institution = get_institution(db, subscription.institution_id)
+        pdf_bytes = render_invoice_pdf(invoice, institution)
+
+        representative = db.execute(
+            select(User).where(
+                User.institution_id == subscription.institution_id,
+                User.role == UserRole.representative,
+            )
+        ).scalar_one_or_none()
+
+        if representative:
+            pdf_base64 = base64.b64encode(pdf_bytes).decode()
+            send_invoice_email(
+                to_email=representative.email,
+                full_name=representative.full_name,
+                invoice_number=invoice.invoice_number,
+                plan_label=plan.name.value,
+                pdf_base64=pdf_base64,
+            )
+    except Exception as e:
+        print(f"[LAU-29] Error generando/enviando factura de transferencia: {e}")
+
     return transaction
 
 
@@ -151,12 +197,6 @@ def activate_subscription_with_invoice(
     Activa una suscripción automáticamente (pago confirmado) y genera su factura.
     payment_method: "wompi" | "transfer"
     """
-    from datetime import timedelta
-    from app.domains.subscriptions.models import Invoice
-    from app.domains.subscriptions.invoicing import generate_invoice_number, render_invoice_pdf
-    from app.domains.institutions.services import get_institution
-    from app.core.email import send_invoice_email
-
     plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan no encontrado.")
