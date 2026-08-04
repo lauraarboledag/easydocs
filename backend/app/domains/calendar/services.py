@@ -15,7 +15,10 @@ def list_events(
     if institution_id:
         query = query.where(CalendarEvent.institution_id == institution_id)
     else:
-        query = query.where(CalendarEvent.created_by == user_id)
+        query = query.where(
+            CalendarEvent.created_by == user_id,
+            CalendarEvent.source_event_id.is_(None),
+        )
     return db.execute(query.order_by(CalendarEvent.event_date)).scalars().all()
 
 
