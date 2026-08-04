@@ -7,6 +7,7 @@ from app.core.auth import get_current_user
 from app.core.features import require_superadmin
 from app.domains.users.models import User
 from app.domains.calendar.models import EventColor
+from typing import Optional
 from app.domains.calendar.schemas import (
     CalendarEventCreate,
     CalendarEventUpdate,
@@ -87,7 +88,7 @@ def remove_event(
 
 class MandatoryEventCreate(BaseModel):
     title: str
-    description: str = None
+    description: Optional[str] = None
     event_date: datetime
     reminder_days_before: int = 7
     color: EventColor = EventColor.red
