@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum, Text
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum, Text, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 import enum
@@ -41,6 +41,15 @@ class CalendarEvent(Base):
         Enum(EventColor), nullable=False, default=EventColor.blue
     )
     is_done: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Eventos obligatorios del superadmin
+    is_mandatory: Mapped[bool] = mapped_column(Boolean, default=False)
+    reminder_days_before: Mapped[int] = mapped_column(Integer, nullable=True)
+    source_event_id: Mapped[str] = mapped_column(
+        String, ForeignKey("calendar_events.id"), nullable=True
+    )
+    reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -48,3 +57,4 @@ class CalendarEvent(Base):
 
     institution = relationship("Institution", back_populates="calendar_events")
     creator = relationship("User", foreign_keys=[created_by])
+    source_event = relationship("CalendarEvent", remote_side=[id])

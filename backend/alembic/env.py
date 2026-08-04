@@ -8,6 +8,7 @@ from app.domains.users.models import User, PasswordResetToken, LoginAttempt, Two
 from app.domains.subscriptions.models import Plan, Subscription, Transaction
 from app.domains.documents.models import DocumentTemplate, Document
 from app.domains.calendar.models import CalendarEvent
+from app.domains.notifications.models import Notification
 from app.domains.students.models import Program, Student, Enrollment
 import sys, os
 from app.database import Base

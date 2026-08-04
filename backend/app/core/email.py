@@ -322,3 +322,50 @@ def send_invoice_email(
             ],
         }
     )
+
+
+def send_event_reminder_email(
+    to_email: str,
+    full_name: str,
+    institution_name: str,
+    event_title: str,
+    event_date,
+    description: str,
+):
+    fecha_formateada = event_date.strftime("%d de %B de %Y")
+    resend.Emails.send(
+        {
+            "from": FROM_EMAIL,
+            "to": [to_email],
+            "subject": f"Recordatorio: {event_title} — {fecha_formateada}",
+            "html": f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1a2b4a; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">EasyDocs</h1>
+                <p style="color: #93c5fd; margin: 8px 0 0 0; font-size: 14px;">Gestión Documental ETDH</p>
+            </div>
+
+            <h2 style="color: #1a2b4a; font-size: 20px;">Hola, {full_name}</h2>
+            <p style="color: #4b5563; line-height: 1.6;">
+                Te recordamos que <strong>{institution_name}</strong> tiene un evento obligatorio próximo:
+            </p>
+
+            <div style="background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 20px; margin: 24px 0;">
+                <p style="color: #991b1b; font-weight: bold; font-size: 16px; margin: 0 0 8px 0;">{event_title}</p>
+                <p style="color: #7f1d1d; font-size: 14px; margin: 0 0 8px 0;"><strong>Fecha:</strong> {fecha_formateada}</p>
+                {f'<p style="color: #7f1d1d; font-size: 13px; margin: 0;">{description}</p>' if description else ''}
+            </div>
+
+            <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
+                Revisa el calendario de tu institución en EasyDocs para más detalles y para marcarlo como completado.
+            </p>
+
+            <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                </p>
+            </div>
+        </div>
+        """,
+        }
+    )

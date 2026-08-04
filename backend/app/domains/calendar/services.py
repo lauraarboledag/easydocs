@@ -3,7 +3,8 @@ from sqlalchemy import select
 from app.domains.calendar.models import CalendarEvent
 from app.domains.calendar.schemas import CalendarEventCreate, CalendarEventUpdate
 from datetime import datetime
-
+from app.domains.institutions.models import Institution
+from app.domains.calendar.models import EventType, EventColor
 
 def list_events(
     db: Session,
@@ -89,5 +90,85 @@ def delete_event(
         return False
 
     db.delete(event)
+    db.commit()
+    return True
+
+def create_mandatory_event(
+    db: Session,
+    title: str,
+    description: str,
+    event_date: datetime,
+    reminder_days_before: int,
+    color: str,
+    superadmin_id: str,
+) -> CalendarEvent:
+    """
+    Crea un evento maestro (sin institución) y lo clona en el calendario
+    de todas las instituciones activas.
+    """
+    # Evento maestro — referencia central, no aparece en ningún calendario institucional
+    master_event = CalendarEvent(
+        institution_id=None,
+        created_by=superadmin_id,
+        title=title,
+        description=description,
+        event_date=event_date,
+        color=EventColor(color),
+        type=EventType.system,
+        is_mandatory=True,
+        reminder_days_before=reminder_days_before,
+    )
+    db.add(master_event)
+    db.commit()
+    db.refresh(master_event)
+
+    # Clonar a todas las instituciones activas
+    institutions = db.execute(
+        select(Institution).where(Institution.is_active == True)
+    ).scalars().all()
+
+    for inst in institutions:
+        clone = CalendarEvent(
+            institution_id=inst.id,
+            created_by=superadmin_id,
+            title=title,
+            description=description,
+            event_date=event_date,
+            color=EventColor(color),
+            type=EventType.system,
+            is_mandatory=True,
+            reminder_days_before=reminder_days_before,
+            source_event_id=master_event.id,
+        )
+        db.add(clone)
+
+    db.commit()
+    return master_event
+
+
+def list_mandatory_events(db: Session) -> list[CalendarEvent]:
+    """Lista los eventos maestros creados por el superadmin."""
+    return db.execute(
+        select(CalendarEvent)
+        .where(CalendarEvent.is_mandatory == True, CalendarEvent.institution_id.is_(None))
+        .order_by(CalendarEvent.event_date.desc())
+    ).scalars().all()
+
+
+def delete_mandatory_event(db: Session, master_event_id: str) -> bool:
+    """Elimina un evento maestro y todas sus copias institucionales."""
+    master = db.execute(
+        select(CalendarEvent).where(CalendarEvent.id == master_event_id)
+    ).scalar_one_or_none()
+    if not master:
+        return False
+
+    clones = db.execute(
+        select(CalendarEvent).where(CalendarEvent.source_event_id == master_event_id)
+    ).scalars().all()
+    for clone in clones:
+        db.delete(clone)
+
+    db.delete(master)
     db.commit()
     return True
