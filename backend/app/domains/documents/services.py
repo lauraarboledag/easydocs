@@ -4,7 +4,9 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 from app.domains.documents.models import Document, DocumentTemplate, DocumentStatus
 from app.domains.documents.schemas import DocumentCreate, DocumentTemplateCreate
+from app.domains.notifications.services import create_notification
 from app.core.pdf_engine import render_pdf
+
 
 def create_template(db: Session, data: DocumentTemplateCreate) -> DocumentTemplate:
     existing = db.execute(
@@ -15,7 +17,7 @@ def create_template(db: Session, data: DocumentTemplateCreate) -> DocumentTempla
     if existing:
         raise HTTPException(
             status_code=400,
-            detail="Ya existe una plantilla para ese tipo de documento."
+            detail="Ya existe una plantilla para ese tipo de documento.",
         )
     template = DocumentTemplate(**data.model_dump())
     db.add(template)
@@ -23,16 +25,17 @@ def create_template(db: Session, data: DocumentTemplateCreate) -> DocumentTempla
     db.refresh(template)
     return template
 
+
 def list_templates(db: Session) -> list[DocumentTemplate]:
-    return db.execute(
-        select(DocumentTemplate).where(DocumentTemplate.is_active == True)
-    ).scalars().all()
+    return (
+        db.execute(select(DocumentTemplate).where(DocumentTemplate.is_active == True))
+        .scalars()
+        .all()
+    )
+
 
 def create_document(
-    db: Session,
-    data: DocumentCreate,
-    institution_id: str,
-    user_id: str
+    db: Session, data: DocumentCreate, institution_id: str, user_id: str
 ) -> Document:
     template = db.execute(
         select(DocumentTemplate).where(DocumentTemplate.id == data.template_id)
@@ -44,7 +47,7 @@ def create_document(
         if field not in data.document_data or not data.document_data[field]:
             raise HTTPException(
                 status_code=400,
-                detail=f"El campo obligatorio '{field}' está vacío o falta."
+                detail=f"El campo obligatorio '{field}' está vacío o falta.",
             )
 
     document = Document(
@@ -52,18 +55,31 @@ def create_document(
         template_id=data.template_id,
         created_by=user_id,
         status=DocumentStatus.draft,
-        document_data=data.document_data
+        document_data=data.document_data,
     )
     db.add(document)
     db.commit()
     db.refresh(document)
+    try:
+        template = db.execute(
+            select(DocumentTemplate).where(DocumentTemplate.id == document.template_id)
+        ).scalar_one_or_none()
+        create_notification(
+            db,
+            title="Documento generado",
+            message=f"{template.name if template else 'Documento'} se generó exitosamente.",
+            institution_id=institution_id,
+            calendar_event_id=None,
+        )
+    except Exception as e:
+        print(f"Error creando notificación de documento: {e}")
     return document
+
 
 def generate_pdf(db: Session, document_id: str, institution_id: str) -> bytes:
     document = db.execute(
         select(Document).where(
-            Document.id == document_id,
-            Document.institution_id == institution_id
+            Document.id == document_id, Document.institution_id == institution_id
         )
     ).scalar_one_or_none()
     if not document:
@@ -89,41 +105,49 @@ def generate_pdf(db: Session, document_id: str, institution_id: str) -> bytes:
         "firma_url": getattr(institution, "signature_url", None),
     }
 
-    pdf_bytes = render_pdf(template.template_html, document.document_data, institution_context)
+    pdf_bytes = render_pdf(
+        template.template_html, document.document_data, institution_context
+    )
 
     document.status = DocumentStatus.generated
     db.commit()
 
     return pdf_bytes
 
+
 def list_documents(db: Session, institution_id: str) -> list[Document]:
-    return db.execute(
-        select(Document).where(
-            Document.institution_id == institution_id,
-            Document.is_active == True
+    return (
+        db.execute(
+            select(Document).where(
+                Document.institution_id == institution_id, Document.is_active == True
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
+
 
 def cancel_document(db: Session, document_id: str, institution_id: str) -> Document:
     document = db.execute(
         select(Document).where(
-            Document.id == document_id,
-            Document.institution_id == institution_id
+            Document.id == document_id, Document.institution_id == institution_id
         )
     ).scalar_one_or_none()
     if not document:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
     if document.status == DocumentStatus.generated:
         raise HTTPException(
-            status_code=400,
-            detail="No se puede cancelar un documento ya generado."
+            status_code=400, detail="No se puede cancelar un documento ya generado."
         )
     document.status = DocumentStatus.cancelled
     db.commit()
     db.refresh(document)
     return document
 
-def update_template(db: Session, template_id: str, data: DocumentTemplateCreate) -> DocumentTemplate:
+
+def update_template(
+    db: Session, template_id: str, data: DocumentTemplateCreate
+) -> DocumentTemplate:
     template = db.execute(
         select(DocumentTemplate).where(DocumentTemplate.id == template_id)
     ).scalar_one_or_none()

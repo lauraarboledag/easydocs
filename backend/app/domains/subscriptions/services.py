@@ -18,8 +18,12 @@ from app.domains.subscriptions.schemas import (
     SubscriptionCreate,
     ConfirmTransaction,
 )
-from app.domains.subscriptions.invoicing import generate_invoice_number, render_invoice_pdf
+from app.domains.subscriptions.invoicing import (
+    generate_invoice_number,
+    render_invoice_pdf,
+)
 from app.domains.users.models import User, UserRole
+from app.domains.notifications.services import create_notification
 from app.domains.institutions.services import get_institution
 from app.core.email import send_invoice_email
 
@@ -57,7 +61,16 @@ def create_subscription(db: Session, data: SubscriptionCreate) -> Subscription:
     )
     db.add(transaction)
     db.commit()
-
+    superadmins = (
+        db.execute(select(User).where(User.role == UserRole.superadmin)).scalars().all()
+    )
+    for admin in superadmins:
+        create_notification(
+            db,
+            title="Nueva transacción pendiente",
+            message=f"${plan.price / 100:,.0f} COP — esperando confirmación.",
+            user_id=admin.id,
+        )
     return subscription
 
 
@@ -123,8 +136,24 @@ def _generate_and_send_invoice(
                 pdf_base64=pdf_base64,
             )
     except Exception as e:
-        print(f"[LAU-29] Error generando/enviando factura: {e}")
+        print(f"Error generando/enviando factura: {e}")
 
+    create_notification(
+        db,
+        title="¡Tu plan fue activado!",
+        message=f"Plan {plan.name.value} activo hasta {subscription.expires_at.strftime('%d/%m/%Y')}.",
+        institution_id=subscription.institution_id,
+    )
+    superadmins = (
+        db.execute(select(User).where(User.role == UserRole.superadmin)).scalars().all()
+    )
+    for admin in superadmins:
+        create_notification(
+            db,
+            title="Nueva venta confirmada",
+            message=f"{plan.name.value} — ${plan.price / 100:,.0f} COP vía {payment_method}.",
+            user_id=admin.id,
+        )
     return invoice
 
 
@@ -137,7 +166,9 @@ def confirm_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transacción no encontrada.")
     if transaction.status != TransactionStatus.pending:
-        raise HTTPException(status_code=400, detail="Esta transacción ya fue procesada.")
+        raise HTTPException(
+            status_code=400, detail="Esta transacción ya fue procesada."
+        )
 
     transaction.status = TransactionStatus.confirmed
     transaction.notes = data.notes
@@ -159,7 +190,9 @@ def confirm_transaction(
     db.commit()
     db.refresh(transaction)
 
-    _generate_and_send_invoice(db, subscription, plan, payment_method="transfer", transaction_id=transaction.id)
+    _generate_and_send_invoice(
+        db, subscription, plan, payment_method="transfer", transaction_id=transaction.id
+    )
 
     return transaction
 
@@ -203,6 +236,12 @@ def activate_subscription_with_invoice(
     db.commit()
     db.refresh(subscription)
 
-    invoice = _generate_and_send_invoice(db, subscription, plan, payment_method=payment_method, transaction_id=transaction_id)
+    invoice = _generate_and_send_invoice(
+        db,
+        subscription,
+        plan,
+        payment_method=payment_method,
+        transaction_id=transaction_id,
+    )
 
     return subscription, invoice

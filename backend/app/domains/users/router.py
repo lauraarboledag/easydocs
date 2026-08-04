@@ -34,6 +34,7 @@ from app.domains.users.services import (
 from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
 from app.domains.institutions.schemas import InstitutionCreate
 from app.domains.institutions.services import create_institution
+from app.domains.notifications.services import create_notification
 from app.core.email import send_password_reset_email, send_welcome_email
 from app.config import settings
 from google.oauth2 import id_token
@@ -65,6 +66,17 @@ def register_institution_and_representative(
         role=UserRole.representative,
         institution_id=institution.id,
     )
+    try:
+        superadmins = db.execute(select(User).where(User.role == UserRole.superadmin)).scalars().all()
+        for admin in superadmins:
+            create_notification(
+                db,
+                title="Nueva institución registrada",
+                message=f"{institution.name} se registró en EasyDocs.",
+                user_id=admin.id,
+            )
+    except Exception as e:
+        print(f"Error creando notificación de nuevo registro: {e}")
     user = create_user(db, user_data)
 
     try:

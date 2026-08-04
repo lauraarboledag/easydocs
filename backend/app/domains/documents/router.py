@@ -11,6 +11,7 @@ from app.core.features import require_superadmin
 from app.domains.users.models import User
 from app.domains.subscriptions.models import Subscription, Plan
 from app.domains.documents.models import DocumentTemplate, Document
+from app.domains.notifications.services import create_notification
 from datetime import datetime
 from app.domains.documents.schemas import (
     DocumentTemplateCreate,
@@ -161,7 +162,28 @@ def new_document(
                             "used": total_mes,
                         },
                     )
+                # Notificar cuando se alcanza el 80% del límite (una sola vez)
+                if limite and total_mes == int(limite * 0.8):
+                    try:
+                        create_notification(
+                            db,
+                            title="Cerca del límite de tu plan",
+                            message=f"Has usado {total_mes} de {limite} documentos este mes.",
+                            institution_id=current_user.institution_id,
+                        )
+                    except Exception as e:
+                        print(f"Error creando notificación de límite: {e}")
 
+                if total_mes >= limite:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "message": f"Alcanzaste el límite de {limite} documentos por mes de tu plan.",
+                            "limit_reached": True,
+                            "limit": limite,
+                            "used": total_mes,
+                        },
+                    )
     return create_document(db, data, current_user.institution_id, current_user.id)
 
 
