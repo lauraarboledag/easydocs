@@ -6,6 +6,7 @@ import Sidebar from "../components/layout/Sidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
+import NotificationBell from "../components/NotificationBell";
 import EduBot from "../components/EduBot";
 import {
   FileText,
@@ -13,7 +14,6 @@ import {
   TrendingUp,
   TrendingDown,
   Shield,
-  Bell,
   FilePen,
   Award,
   ClipboardList,
@@ -376,15 +376,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              className="relative p-2 transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <Bell size={20} />
-              {pendingDrafts > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"

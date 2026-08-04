@@ -6,10 +6,10 @@ import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import NotificationBell from "../components/NotificationBell";
 import {
   Building2,
   CreditCard,
-  Bell,
   TrendingUp,
   CheckCircle,
   Clock,
@@ -350,15 +350,7 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              className="relative p-2 transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <Bell size={20} />
-              {pendingTransactions.length > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
                 <Shield size={14} className="text-white" />

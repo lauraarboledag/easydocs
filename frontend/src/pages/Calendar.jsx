@@ -7,17 +7,18 @@ import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
 import EduBot from "../components/EduBot";
+import NotificationBell from "../components/NotificationBell";
 import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Bell,
   CheckCircle,
   Trash2,
   X,
   Calendar,
   Clock,
   AlignLeft,
+  ShieldAlert,
 } from "lucide-react";
 
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -198,7 +199,6 @@ export default function CalendarPage() {
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-  // Eventos próximos (hoy en adelante)
   const upcomingEvents = events
     .filter((e) => e.event_date >= todayStr && !e.is_done)
     .slice(0, 5);
@@ -213,7 +213,6 @@ export default function CalendarPage() {
       <Sidebar onLogout={() => setShowLogout(true)} />
 
       <main className="ml-56 flex-1 flex flex-col">
-        {/* Topbar */}
         <header
           className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
           style={{
@@ -243,9 +242,7 @@ export default function CalendarPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -266,9 +263,7 @@ export default function CalendarPage() {
         </header>
 
         <div className="flex-1 p-8 flex gap-6">
-          {/* Calendario */}
           <div className="flex-1">
-            {/* Navegación mes */}
             <div className="flex items-center justify-between mb-6">
               <h2
                 className="text-xl font-bold"
@@ -313,7 +308,6 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            {/* Grid del calendario */}
             <div
               className="rounded-xl border overflow-hidden"
               style={{
@@ -321,7 +315,6 @@ export default function CalendarPage() {
                 borderColor: "var(--border-color)",
               }}
             >
-              {/* Cabecera días */}
               <div
                 className="grid grid-cols-7 border-b"
                 style={{ borderColor: "var(--border-color)" }}
@@ -337,7 +330,6 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              {/* Celdas */}
               <div className="grid grid-cols-7">
                 {Array.from({ length: firstDay }).map((_, i) => (
                   <div
@@ -408,12 +400,18 @@ export default function CalendarPage() {
                           return (
                             <div
                               key={ev.id}
-                              className="text-xs px-1.5 py-0.5 rounded truncate"
+                              className="text-xs px-1.5 py-0.5 rounded truncate flex items-center gap-1"
                               style={{
                                 backgroundColor: col.bg,
                                 color: col.dot,
                               }}
                             >
+                              {ev.is_mandatory && (
+                                <ShieldAlert
+                                  size={9}
+                                  className="flex-shrink-0"
+                                />
+                              )}
                               {ev.is_done ? "✓ " : ""}
                               {ev.title}
                             </div>
@@ -435,9 +433,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Panel lateral */}
           <div className="w-72 flex-shrink-0 space-y-4">
-            {/* Eventos del día seleccionado */}
             {selectedDate && (
               <div
                 className="rounded-xl border p-5"
@@ -505,12 +501,20 @@ export default function CalendarPage() {
                             </div>
                           </button>
                           <div className="flex-1 min-w-0">
-                            <p
-                              className={`text-xs font-medium ${ev.is_done ? "line-through opacity-50" : ""}`}
-                              style={{ color: col.dot }}
-                            >
-                              {ev.title}
-                            </p>
+                            <div className="flex items-center gap-1">
+                              {ev.is_mandatory && (
+                                <ShieldAlert
+                                  size={11}
+                                  style={{ color: col.dot }}
+                                />
+                              )}
+                              <p
+                                className={`text-xs font-medium ${ev.is_done ? "line-through opacity-50" : ""}`}
+                                style={{ color: col.dot }}
+                              >
+                                {ev.title}
+                              </p>
+                            </div>
                             {ev.description && (
                               <p
                                 className="text-xs mt-0.5 opacity-70"
@@ -519,24 +523,34 @@ export default function CalendarPage() {
                                 {ev.description}
                               </p>
                             )}
+                            {ev.is_mandatory && (
+                              <p
+                                className="text-xs mt-1 font-medium opacity-80"
+                                style={{ color: col.dot }}
+                              >
+                                Evento obligatorio — EasyDocs
+                              </p>
+                            )}
                           </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => openEditEvent(ev)}
-                              className="opacity-50 hover:opacity-100 transition-opacity"
-                              style={{ color: col.dot }}
-                            >
-                              <AlignLeft size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(ev.id)}
-                              disabled={deleting === ev.id}
-                              className="opacity-50 hover:opacity-100 transition-opacity"
-                              style={{ color: col.dot }}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                          {!ev.is_mandatory && (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => openEditEvent(ev)}
+                                className="opacity-50 hover:opacity-100 transition-opacity"
+                                style={{ color: col.dot }}
+                              >
+                                <AlignLeft size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(ev.id)}
+                                disabled={deleting === ev.id}
+                                className="opacity-50 hover:opacity-100 transition-opacity"
+                                style={{ color: col.dot }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -545,7 +559,6 @@ export default function CalendarPage() {
               </div>
             )}
 
-            {/* Próximos eventos */}
             <div
               className="rounded-xl border p-5"
               style={{
@@ -593,9 +606,12 @@ export default function CalendarPage() {
                         />
                         <div>
                           <p
-                            className="text-xs font-medium"
+                            className="text-xs font-medium flex items-center gap-1"
                             style={{ color: "var(--text-primary)" }}
                           >
+                            {ev.is_mandatory && (
+                              <ShieldAlert size={10} className="text-red-500" />
+                            )}
                             {ev.title}
                           </p>
                           <p
@@ -615,7 +631,6 @@ export default function CalendarPage() {
               )}
             </div>
 
-            {/* Leyenda colores */}
             <div
               className="rounded-xl border p-5"
               style={{
@@ -652,7 +667,6 @@ export default function CalendarPage() {
 
       <EduBot />
 
-      {/* Modal crear/editar evento */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div

@@ -2,22 +2,23 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
-import Sidebar from "../components/layout/AdminSidebar";
+import AdminSidebar from "../components/layout/AdminSidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
-import EduBot from "../components/EduBot";
+import NotificationBell from "../components/NotificationBell";
 import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Bell,
   CheckCircle,
   Trash2,
   X,
   Calendar,
   Clock,
   AlignLeft,
+  ShieldAlert,
+  Bell as BellIcon,
 } from "lucide-react";
 
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -56,7 +57,193 @@ function getFirstDayOfMonth(year, month) {
   return new Date(year, month, 1).getDay();
 }
 
-export default function CalendarPage() {
+function MandatoryEventModal({ form, setForm, onSave, onClose, saving }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div
+        className="rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-red-50">
+              <ShieldAlert size={18} className="text-red-600" />
+            </div>
+            <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>
+              Evento obligatorio
+            </h3>
+          </div>
+          <button onClick={onClose} style={{ color: "var(--text-secondary)" }}>
+            <X size={18} />
+          </button>
+        </div>
+        <p className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>
+          Se creará automáticamente en el calendario de todas las instituciones
+          activas.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Título *
+            </label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, title: e.target.value }))
+              }
+              placeholder="Ej: Entrega de informe SIMAT"
+              className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Descripción
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, description: e.target.value }))
+              }
+              placeholder="Instrucciones o contexto para las instituciones..."
+              rows={2}
+              className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 resize-none"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Fecha límite *
+            </label>
+            <input
+              type="datetime-local"
+              value={form.event_date}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, event_date: e.target.value }))
+              }
+              className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Avisar con anticipación
+            </label>
+            <div className="relative">
+              <BellIcon
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-secondary)" }}
+              />
+              <input
+                type="number"
+                min={1}
+                value={form.reminder_days_before}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    reminder_days_before: e.target.value,
+                  }))
+                }
+                className="w-full border rounded-lg pl-9 pr-16 py-2.5 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                días antes
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Color
+            </label>
+            <div className="flex gap-2">
+              {COLOR_OPTIONS.map((col) => (
+                <button
+                  key={col.id}
+                  onClick={() => setForm((p) => ({ ...p, color: col.id }))}
+                  className="w-7 h-7 rounded-full border-2 transition-all"
+                  style={{
+                    backgroundColor: col.dot,
+                    borderColor:
+                      form.color === col.id
+                        ? "var(--text-primary)"
+                        : "transparent",
+                    transform:
+                      form.color === col.id ? "scale(1.2)" : "scale(1)",
+                  }}
+                  title={col.label}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 text-sm font-medium rounded-lg border"
+            style={{
+              borderColor: "var(--border-color)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving || !form.title.trim() || !form.event_date}
+            className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 transition-colors"
+          >
+            {saving ? "Creando..." : "Crear para todas"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminCalendar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
@@ -78,6 +265,15 @@ export default function CalendarPage() {
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+
+  const [showMandatoryModal, setShowMandatoryModal] = useState(false);
+  const [mandatoryForm, setMandatoryForm] = useState({
+    title: "",
+    description: "",
+    event_date: "",
+    reminder_days_before: 7,
+    color: "red",
+  });
 
   useInactivity({
     timeout: 30,
@@ -173,6 +369,32 @@ export default function CalendarPage() {
     }
   };
 
+  const handleSaveMandatory = async () => {
+    if (!mandatoryForm.title.trim() || !mandatoryForm.event_date) return;
+    setSaving(true);
+    try {
+      await api.post("/calendar/mandatory", {
+        title: mandatoryForm.title,
+        description: mandatoryForm.description || null,
+        event_date: new Date(mandatoryForm.event_date).toISOString(),
+        reminder_days_before: parseInt(mandatoryForm.reminder_days_before) || 7,
+        color: mandatoryForm.color,
+      });
+      setShowMandatoryModal(false);
+      setMandatoryForm({
+        title: "",
+        description: "",
+        event_date: "",
+        reminder_days_before: 7,
+        color: "red",
+      });
+    } catch {
+      // silencioso
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleToggleDone = async (event) => {
     try {
       await api.patch(`/calendar/${event.id}`, { is_done: !event.is_done });
@@ -198,7 +420,6 @@ export default function CalendarPage() {
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-  // Eventos próximos (hoy en adelante)
   const upcomingEvents = events
     .filter((e) => e.event_date >= todayStr && !e.is_done)
     .slice(0, 5);
@@ -210,10 +431,9 @@ export default function CalendarPage() {
       className="min-h-screen flex"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
-      <Sidebar onLogout={() => setShowLogout(true)} />
+      <AdminSidebar onLogout={() => setShowLogout(true)} />
 
       <main className="ml-56 flex-1 flex flex-col">
-        {/* Topbar */}
         <header
           className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
           style={{
@@ -223,7 +443,7 @@ export default function CalendarPage() {
         >
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/admin")}
               className="p-2 rounded-lg transition-colors"
               style={{ color: "var(--text-secondary)" }}
             >
@@ -242,10 +462,14 @@ export default function CalendarPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMandatoryModal(true)}
+              className="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl text-white transition-colors bg-red-600 hover:bg-red-700"
+            >
+              <ShieldAlert size={14} /> Evento obligatorio
             </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -266,9 +490,7 @@ export default function CalendarPage() {
         </header>
 
         <div className="flex-1 p-8 flex gap-6">
-          {/* Calendario */}
           <div className="flex-1">
-            {/* Navegación mes */}
             <div className="flex items-center justify-between mb-6">
               <h2
                 className="text-xl font-bold"
@@ -313,7 +535,6 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            {/* Grid del calendario */}
             <div
               className="rounded-xl border overflow-hidden"
               style={{
@@ -321,7 +542,6 @@ export default function CalendarPage() {
                 borderColor: "var(--border-color)",
               }}
             >
-              {/* Cabecera días */}
               <div
                 className="grid grid-cols-7 border-b"
                 style={{ borderColor: "var(--border-color)" }}
@@ -337,7 +557,6 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              {/* Celdas */}
               <div className="grid grid-cols-7">
                 {Array.from({ length: firstDay }).map((_, i) => (
                   <div
@@ -408,12 +627,18 @@ export default function CalendarPage() {
                           return (
                             <div
                               key={ev.id}
-                              className="text-xs px-1.5 py-0.5 rounded truncate"
+                              className="text-xs px-1.5 py-0.5 rounded truncate flex items-center gap-1"
                               style={{
                                 backgroundColor: col.bg,
                                 color: col.dot,
                               }}
                             >
+                              {ev.is_mandatory && (
+                                <ShieldAlert
+                                  size={9}
+                                  className="flex-shrink-0"
+                                />
+                              )}
                               {ev.is_done ? "✓ " : ""}
                               {ev.title}
                             </div>
@@ -435,9 +660,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Panel lateral */}
           <div className="w-72 flex-shrink-0 space-y-4">
-            {/* Eventos del día seleccionado */}
             {selectedDate && (
               <div
                 className="rounded-xl border p-5"
@@ -505,12 +728,20 @@ export default function CalendarPage() {
                             </div>
                           </button>
                           <div className="flex-1 min-w-0">
-                            <p
-                              className={`text-xs font-medium ${ev.is_done ? "line-through opacity-50" : ""}`}
-                              style={{ color: col.dot }}
-                            >
-                              {ev.title}
-                            </p>
+                            <div className="flex items-center gap-1">
+                              {ev.is_mandatory && (
+                                <ShieldAlert
+                                  size={11}
+                                  style={{ color: col.dot }}
+                                />
+                              )}
+                              <p
+                                className={`text-xs font-medium ${ev.is_done ? "line-through opacity-50" : ""}`}
+                                style={{ color: col.dot }}
+                              >
+                                {ev.title}
+                              </p>
+                            </div>
                             {ev.description && (
                               <p
                                 className="text-xs mt-0.5 opacity-70"
@@ -520,23 +751,25 @@ export default function CalendarPage() {
                               </p>
                             )}
                           </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => openEditEvent(ev)}
-                              className="opacity-50 hover:opacity-100 transition-opacity"
-                              style={{ color: col.dot }}
-                            >
-                              <AlignLeft size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(ev.id)}
-                              disabled={deleting === ev.id}
-                              className="opacity-50 hover:opacity-100 transition-opacity"
-                              style={{ color: col.dot }}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
+                          {!ev.is_mandatory && (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => openEditEvent(ev)}
+                                className="opacity-50 hover:opacity-100 transition-opacity"
+                                style={{ color: col.dot }}
+                              >
+                                <AlignLeft size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(ev.id)}
+                                disabled={deleting === ev.id}
+                                className="opacity-50 hover:opacity-100 transition-opacity"
+                                style={{ color: col.dot }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -545,7 +778,6 @@ export default function CalendarPage() {
               </div>
             )}
 
-            {/* Próximos eventos */}
             <div
               className="rounded-xl border p-5"
               style={{
@@ -593,9 +825,12 @@ export default function CalendarPage() {
                         />
                         <div>
                           <p
-                            className="text-xs font-medium"
+                            className="text-xs font-medium flex items-center gap-1"
                             style={{ color: "var(--text-primary)" }}
                           >
+                            {ev.is_mandatory && (
+                              <ShieldAlert size={10} className="text-red-500" />
+                            )}
                             {ev.title}
                           </p>
                           <p
@@ -615,7 +850,6 @@ export default function CalendarPage() {
               )}
             </div>
 
-            {/* Leyenda colores */}
             <div
               className="rounded-xl border p-5"
               style={{
@@ -650,9 +884,6 @@ export default function CalendarPage() {
         </div>
       </main>
 
-      <EduBot />
-
-      {/* Modal crear/editar evento */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div
@@ -798,6 +1029,16 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showMandatoryModal && (
+        <MandatoryEventModal
+          form={mandatoryForm}
+          setForm={setMandatoryForm}
+          onSave={handleSaveMandatory}
+          onClose={() => setShowMandatoryModal(false)}
+          saving={saving}
+        />
       )}
 
       {showLogout && (
