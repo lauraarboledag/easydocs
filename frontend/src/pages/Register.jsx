@@ -149,7 +149,7 @@ function GoogleButton({ onCredential }) {
     });
   }, [loaded, onCredential]);
 
-  return <div ref={btnRef} className="flex justify-center" />;
+  return <div ref={btnRef} className="flex justify-center overflow-x-auto" />;
 }
 
 export default function Register() {
@@ -367,38 +367,41 @@ export default function Register() {
   const strengthLabels = ["Muy débil", "Débil", "Regular", "Fuerte"];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f7f8fb" }}>
+    <div
+      className="min-h-screen overflow-x-hidden"
+      style={{ backgroundColor: "#f7f8fb" }}
+    >
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 lg:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-3"
+          className="flex items-center gap-2 sm:gap-3"
         >
-          <div className="w-9 h-9 rounded-lg bg-[#1a2b4a] flex items-center justify-center">
-            <FileText size={18} className="text-white" />
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#1a2b4a] flex items-center justify-center flex-shrink-0">
+            <FileText size={16} className="text-white" />
           </div>
-          <span className="text-lg font-bold text-[#1a2b4a] hidden sm:block">
+          <span className="text-base sm:text-lg font-bold text-[#1a2b4a] hidden sm:block">
             EasyDocs
           </span>
         </button>
         {step < 5 && (
-          <span className="text-xs font-medium text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full">
+          <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2.5 sm:px-3 py-1.5 rounded-full whitespace-nowrap">
             Paso {step} de 4
           </span>
         )}
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         {/* Stepper */}
         {step < 5 && (
-          <div className="flex items-center justify-center mb-12">
+          <div className="flex items-center justify-center mb-8 sm:mb-12 overflow-x-auto">
             {STEP_LABELS.map((label, i) => {
               const StepIcon = STEP_ICONS[i];
               return (
-                <div key={i} className="flex items-center">
+                <div key={i} className="flex items-center flex-shrink-0">
                   <div className="flex flex-col items-center">
                     <div
-                      className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all"
+                      className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center transition-all"
                       style={{
                         backgroundColor:
                           step > i + 1
@@ -413,10 +416,10 @@ export default function Register() {
                       }}
                     >
                       {step > i + 1 ? (
-                        <CheckCircle size={18} className="text-white" />
+                        <CheckCircle size={16} className="text-white" />
                       ) : (
                         <StepIcon
-                          size={18}
+                          size={16}
                           className={
                             step === i + 1 ? "text-white" : "text-gray-400"
                           }
@@ -424,14 +427,14 @@ export default function Register() {
                       )}
                     </div>
                     <span
-                      className={`text-xs mt-2 font-medium ${step === i + 1 ? "text-[#2952cc]" : "text-gray-400"}`}
+                      className={`text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-medium whitespace-nowrap ${step === i + 1 ? "text-[#2952cc]" : "text-gray-400"}`}
                     >
                       {label}
                     </span>
                   </div>
                   {i < 3 && (
                     <div
-                      className="w-12 lg:w-20 h-0.5 mx-2 mb-5 transition-colors"
+                      className="w-8 sm:w-12 lg:w-20 h-0.5 mx-1.5 sm:mx-2 mb-5 transition-colors"
                       style={{
                         backgroundColor: step > i + 1 ? "#16a34a" : "#e5e7eb",
                       }}
@@ -454,22 +457,22 @@ export default function Register() {
         {/* Paso 1 — Datos institucionales */}
         {step === 1 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-8 pt-8 pb-6 border-b border-gray-50 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
-                <Building2 size={22} className="text-[#2952cc]" />
+            <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-gray-50 flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
+                <Building2 size={20} className="text-[#2952cc]" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   Información Institucional
                 </h2>
-                <p className="text-gray-400 text-sm mt-0.5">
+                <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
                   Identificación y ubicación de tu institución
                 </p>
               </div>
             </div>
 
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="p-5 sm:p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                     Nombre de la institución *
@@ -621,7 +624,7 @@ export default function Register() {
               <div className="flex justify-end mt-8">
                 <button
                   onClick={handleNext}
-                  className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-8 rounded-xl flex items-center gap-2 transition-colors"
+                  className="w-full sm:w-auto bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   Guardar y continuar <ArrowRight size={16} />
                 </button>
@@ -633,25 +636,25 @@ export default function Register() {
         {/* Paso 2 — Representante */}
         {step === 2 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-8 pt-8 pb-6 border-b border-gray-50 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
-                <User size={22} className="text-[#2952cc]" />
+            <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-gray-50 flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
+                <User size={20} className="text-[#2952cc]" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   Datos del Representante
                 </h2>
-                <p className="text-gray-400 text-sm mt-0.5">
+                <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
                   Información oficial del representante legal
                 </p>
               </div>
             </div>
 
-            <div className="p-8">
+            <div className="p-5 sm:p-8">
               {/* Google */}
               <div className="mb-6">
                 {googleLinked ? (
-                  <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+                  <div className="flex items-start sm:items-center gap-3 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
                     <CheckCircle
                       size={18}
                       className="text-green-600 flex-shrink-0"
@@ -671,7 +674,7 @@ export default function Register() {
                     )}
                     <div className="flex items-center gap-3 my-6">
                       <div className="flex-1 h-px bg-gray-100" />
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 text-center">
                         o completa manualmente
                       </span>
                       <div className="flex-1 h-px bg-gray-100" />
@@ -680,7 +683,7 @@ export default function Register() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                     Nombre completo *
@@ -713,7 +716,7 @@ export default function Register() {
                 <input
                   type="checkbox"
                   id="certifico"
-                  className="mt-0.5 accent-[#2952cc]"
+                  className="mt-0.5 accent-[#2952cc] flex-shrink-0"
                 />
                 <label htmlFor="certifico" className="text-xs text-gray-600">
                   Certifico bajo la gravedad de juramento que poseo la
@@ -722,16 +725,16 @@ export default function Register() {
                 </label>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 mt-8">
                 <button
                   onClick={() => setStep(1)}
-                  className="text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 transition-colors"
+                  className="text-gray-500 hover:text-gray-700 font-medium flex items-center justify-center gap-2 transition-colors"
                 >
                   <ChevronLeft size={16} /> Regresar
                 </button>
                 <button
                   onClick={handleNext}
-                  className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-8 rounded-xl flex items-center gap-2 transition-colors"
+                  className="w-full sm:w-auto bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   Continuar <ArrowRight size={16} />
                 </button>
@@ -743,21 +746,21 @@ export default function Register() {
         {/* Paso 3 — Contraseña */}
         {step === 3 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-8 pt-8 pb-6 border-b border-gray-50 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
-                <Lock size={22} className="text-[#2952cc]" />
+            <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-gray-50 flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
+                <Lock size={20} className="text-[#2952cc]" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   Crea tu contraseña
                 </h2>
-                <p className="text-gray-400 text-sm mt-0.5">
+                <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
                   Protege el acceso administrativo de tu institución
                 </p>
               </div>
             </div>
 
-            <div className="p-8">
+            <div className="p-5 sm:p-8">
               <div className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
@@ -802,7 +805,7 @@ export default function Register() {
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center gap-2">
                         <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${passwordStrength[key] ? "bg-green-500 border-green-500" : "border-gray-300"}`}
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${passwordStrength[key] ? "bg-green-500 border-green-500" : "border-gray-300"}`}
                         >
                           {passwordStrength[key] && (
                             <CheckCircle size={10} className="text-white" />
@@ -833,16 +836,16 @@ export default function Register() {
                 </div>
               </div>
 
-              <div className="flex justify-between mt-8">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 mt-8">
                 <button
                   onClick={() => setStep(2)}
-                  className="text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 transition-colors"
+                  className="text-gray-500 hover:text-gray-700 font-medium flex items-center justify-center gap-2 transition-colors"
                 >
                   <ChevronLeft size={16} /> Regresar
                 </button>
                 <button
                   onClick={handleNext}
-                  className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-8 rounded-xl flex items-center gap-2 transition-colors"
+                  className="w-full sm:w-auto bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   Continuar <ArrowRight size={16} />
                 </button>
@@ -854,29 +857,29 @@ export default function Register() {
         {/* Paso 4 — Elegir plan */}
         {step === 4 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-8 pt-8 pb-6 border-b border-gray-50 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
-                <CreditCard size={22} className="text-[#2952cc]" />
+            <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-gray-50 flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#eef2ff] flex items-center justify-center flex-shrink-0">
+                <CreditCard size={20} className="text-[#2952cc]" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   Elige tu plan
                 </h2>
-                <p className="text-gray-400 text-sm mt-0.5">
+                <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
                   Puedes comenzar gratis y cambiar en cualquier momento
                 </p>
               </div>
             </div>
 
-            <div className="p-8">
-              <div className="flex justify-center mb-8">
+            <div className="p-5 sm:p-8">
+              <div className="flex justify-center mb-6 sm:mb-8">
                 <div className="flex items-center bg-gray-100 rounded-xl p-1">
                   <button
                     onClick={() => {
                       setBillingCycle("monthly");
                       setSelectedPlanId(null);
                     }}
-                    className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${billingCycle === "monthly" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                    className={`px-4 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors ${billingCycle === "monthly" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
                   >
                     Mensual
                   </button>
@@ -885,7 +888,7 @@ export default function Register() {
                       setBillingCycle("annual");
                       setSelectedPlanId(null);
                     }}
-                    className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${billingCycle === "annual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                    className={`px-4 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${billingCycle === "annual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
                   >
                     Anual
                     <span className="text-xs bg-green-100 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">
@@ -927,7 +930,7 @@ export default function Register() {
                       )}
                       <div className="flex items-center gap-2 mb-3 mt-2">
                         <div
-                          className={`w-9 h-9 ${meta.bg} rounded-xl flex items-center justify-center`}
+                          className={`w-9 h-9 ${meta.bg} rounded-xl flex items-center justify-center flex-shrink-0`}
                         >
                           <PlanIcon size={18} className={meta.color} />
                         </div>
@@ -980,7 +983,7 @@ export default function Register() {
                   id="terms"
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5 accent-[#2952cc]"
+                  className="mt-0.5 accent-[#2952cc] flex-shrink-0"
                 />
                 <label
                   htmlFor="terms"
@@ -1000,17 +1003,17 @@ export default function Register() {
                 </label>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                 <button
                   onClick={() => setStep(3)}
-                  className="text-gray-500 hover:text-gray-700 font-medium flex items-center gap-2 transition-colors"
+                  className="text-gray-500 hover:text-gray-700 font-medium flex items-center justify-center gap-2 transition-colors"
                 >
                   <ChevronLeft size={16} /> Regresar
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={loading || !selectedPlanId || !acceptedTerms}
-                  className="bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-xl flex items-center gap-2 transition-colors"
+                  className="w-full sm:w-auto bg-[#2952cc] hover:bg-[#1e3fa8] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   {loading ? (
                     "Registrando..."
@@ -1027,25 +1030,25 @@ export default function Register() {
 
         {/* Paso 5 — Confirmación */}
         {step === 5 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-            <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <CheckCircle size={40} className="text-green-500" />
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-12 text-center">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6">
+              <CheckCircle size={36} className="text-green-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
               ¡Bienvenido a bordo!
             </h2>
-            <p className="text-gray-500 mb-2">
+            <p className="text-gray-500 mb-2 text-sm sm:text-base">
               Tu institución ha sido registrada exitosamente en EasyDocs.
             </p>
             {selectedPlanName && (
-              <div className="inline-flex items-center gap-2 bg-blue-50 text-[#2952cc] text-sm font-semibold px-4 py-2 rounded-full mb-8">
+              <div className="inline-flex items-center gap-2 bg-blue-50 text-[#2952cc] text-sm font-semibold px-4 py-2 rounded-full mb-6 sm:mb-8">
                 <CheckCircle size={15} />
                 Plan {PLAN_META[selectedPlanName]?.label ||
                   selectedPlanName}{" "}
                 activado
               </div>
             )}
-            <div className="grid grid-cols-3 gap-4 mb-10 text-left">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-10 text-left">
               {[
                 {
                   icon: "👥",
@@ -1074,7 +1077,7 @@ export default function Register() {
             </div>
             <button
               onClick={() => navigate("/login")}
-              className="bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-10 rounded-xl flex items-center gap-2 mx-auto transition-colors"
+              className="w-full sm:w-auto bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 px-10 rounded-xl flex items-center justify-center gap-2 mx-auto transition-colors"
             >
               Ir al inicio de sesión <ArrowRight size={16} />
             </button>

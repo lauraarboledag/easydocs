@@ -22,8 +22,17 @@ function HCaptchaWidget({ onVerify, resetKey }) {
       setLoaded(true);
       return;
     }
+
+    const existingScript = document.querySelector(
+      'script[src*="hcaptcha.com/1/api.js"]',
+    );
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setLoaded(true));
+      return;
+    }
+
     const script = document.createElement("script");
-    script.src = "https://js.hcaptcha.com/1/api.js";
+    script.src = "https://js.hcaptcha.com/1/api.js?render=explicit";
     script.async = true;
     script.defer = true;
     script.onload = () => setLoaded(true);
@@ -45,7 +54,12 @@ function HCaptchaWidget({ onVerify, resetKey }) {
     });
   }, [loaded, resetKey, onVerify]);
 
-  return <div ref={containerRef} className="flex justify-center my-4" />;
+  return (
+    <div
+      ref={containerRef}
+      className="flex justify-center my-4 overflow-x-auto"
+    />
+  );
 }
 
 function VerifyCodeForm({ userId, email, onBack }) {
@@ -140,21 +154,21 @@ function VerifyCodeForm({ userId, email, onBack }) {
     <div>
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-8 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 sm:mb-8 transition-colors"
       >
         <ChevronLeft size={16} /> Volver
       </button>
 
-      <div className="mb-8">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-[#f0f4ff]">
-          <Mail size={24} className="text-[#2952cc]" />
+      <div className="mb-6 sm:mb-8">
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-4 bg-[#f0f4ff]">
+          <Mail size={22} className="text-[#2952cc]" />
         </div>
-        <h2 className="text-3xl font-bold text-[#1a2b4a] mb-2">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[#1a2b4a] mb-2">
           Verifica tu identidad
         </h2>
         <p className="text-gray-500 text-sm">
           {"Enviamos un código de 6 dígitos a "}
-          <span className="font-medium text-gray-700">{email}</span>
+          <span className="font-medium text-gray-700 break-all">{email}</span>
         </p>
       </div>
 
@@ -165,7 +179,10 @@ function VerifyCodeForm({ userId, email, onBack }) {
         </div>
       )}
 
-      <div className="flex gap-2 justify-center mb-6" onPaste={handlePaste}>
+      <div
+        className="flex gap-1.5 sm:gap-2 justify-center mb-6"
+        onPaste={handlePaste}
+      >
         {digits.map((digit, i) => (
           <input
             key={i}
@@ -177,7 +194,7 @@ function VerifyCodeForm({ userId, email, onBack }) {
             onChange={(e) => handleDigitChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
             disabled={loading}
-            className="w-12 h-14 text-center text-xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#2952cc] disabled:bg-gray-50 transition-colors"
+            className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#2952cc] disabled:bg-gray-50 transition-colors"
           />
         ))}
       </div>
@@ -298,8 +315,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 text-white overflow-hidden">
+    <div className="min-h-screen flex overflow-x-hidden">
+      {/* Panel izquierdo — video + info */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-10 xl:p-12 text-white overflow-hidden">
         <video
           autoPlay
           muted
@@ -315,7 +333,7 @@ export default function Login() {
           <img
             src="/logo_easydocs_blanco.png"
             alt="EasyDocs"
-            className="h-16 w-auto object-contain"
+            className="h-14 xl:h-16 w-auto object-contain"
           />
         </div>
 
@@ -326,10 +344,10 @@ export default function Login() {
               {"Plataforma oficial para instituciones ETDH"}
             </span>
           </div>
-          <h1 className="text-4xl font-bold leading-tight mb-4">
+          <h1 className="text-3xl xl:text-4xl font-bold leading-tight mb-4">
             Bienvenido de nuevo
           </h1>
-          <p className="text-blue-200 text-lg leading-relaxed mb-8">
+          <p className="text-blue-200 text-base xl:text-lg leading-relaxed mb-8">
             {
               "Accede a tu plataforma de gestión documental y continúa con el trabajo administrativo de tu institución."
             }
@@ -361,7 +379,8 @@ export default function Login() {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-16 py-12 bg-white">
+      {/* Panel derecho */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center px-5 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-12 bg-white min-h-screen">
         <div className="max-w-md mx-auto w-full">
           {pending2FA ? (
             <VerifyCodeForm
@@ -371,23 +390,23 @@ export default function Login() {
             />
           ) : (
             <>
-              <div className="mb-10 lg:hidden">
+              <div className="mb-8 sm:mb-10 lg:hidden">
                 <img
-                  src="/logo_easydocs_blanco.png"
+                  src="/logo_easydocs_azul.png"
                   alt="EasyDocs"
-                  className="h-14 w-auto object-contain"
+                  className="h-12 sm:h-14 w-auto object-contain"
                 />
               </div>
 
               <button
                 onClick={() => navigate("/")}
-                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-8 transition-colors"
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-6 sm:mb-8 transition-colors"
               >
                 <ChevronLeft size={16} /> Volver al inicio
               </button>
 
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-[#1a2b4a] mb-2">
+              <div className="mb-6 sm:mb-8">
+                <h2 className="text-2xl sm:text-3xl font-bold text-[#1a2b4a] mb-2">
                   Iniciar sesión
                 </h2>
                 <p className="text-gray-500 text-sm">
@@ -415,7 +434,7 @@ export default function Login() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
                     Correo institucional
@@ -432,13 +451,13 @@ export default function Login() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
                       {"Contraseña"}
                     </label>
                     <Link
                       to="/forgot-password"
-                      className="text-xs text-[#2952cc] hover:underline"
+                      className="text-xs text-[#2952cc] hover:underline whitespace-nowrap"
                     >
                       {"¿Olvidaste tu contraseña?"}
                     </Link>
