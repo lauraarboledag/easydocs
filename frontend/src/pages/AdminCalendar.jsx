@@ -404,10 +404,14 @@ export default function AdminCalendar() {
     }
   };
 
-  const handleDelete = async (eventId) => {
-    setDeleting(eventId);
+  const handleDelete = async (event) => {
+    setDeleting(event.id);
     try {
-      await api.delete(`/calendar/${eventId}`);
+      if (event.is_mandatory) {
+        await api.delete(`/calendar/mandatory/${event.id}`);
+      } else {
+        await api.delete(`/calendar/${event.id}`);
+      }
       await fetchEvents();
     } catch {
       // silencioso
@@ -751,25 +755,31 @@ export default function AdminCalendar() {
                               </p>
                             )}
                           </div>
-                          {!ev.is_mandatory && (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => openEditEvent(ev)}
-                                className="opacity-50 hover:opacity-100 transition-opacity"
-                                style={{ color: col.dot }}
-                              >
-                                <AlignLeft size={12} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(ev.id)}
-                                disabled={deleting === ev.id}
-                                className="opacity-50 hover:opacity-100 transition-opacity"
-                                style={{ color: col.dot }}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          )}
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() =>
+                                !ev.is_mandatory && openEditEvent(ev)
+                              }
+                              disabled={ev.is_mandatory}
+                              className="opacity-50 hover:opacity-100 transition-opacity disabled:opacity-20 disabled:cursor-not-allowed"
+                              style={{ color: col.dot }}
+                              title={
+                                ev.is_mandatory
+                                  ? "Edición de eventos obligatorios próximamente"
+                                  : "Editar"
+                              }
+                            >
+                              <AlignLeft size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(ev)}
+                              disabled={deleting === ev.id}
+                              className="opacity-50 hover:opacity-100 transition-opacity"
+                              style={{ color: col.dot }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
