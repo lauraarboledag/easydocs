@@ -16,16 +16,24 @@ import {
 
 const STATS = [
   { value: "14+", label: "Tipos de documentos", icon: FileText },
-  { value: "100%", label: "Cumplimiento Decreto 1075", icon: Shield },
-  { value: "40%", label: "Reducción de tiempos", icon: Clock },
-  { value: "ETDH", label: "Sector especializado", icon: Building2 },
+  {
+    value: "100%",
+    label: "Cumplimiento de Normatividad Educativa y de Archivo",
+    icon: Shield,
+  },
+  { value: "60%", label: "Reducción de tiempos", icon: Clock },
+  {
+    value: "Establecimientos Educativos",
+    label: "Sector especializado",
+    icon: Building2,
+  },
 ];
 
 const FEATURES = [
   {
     icon: FileText,
     title: "Documentos reglamentarios",
-    desc: "Generación automática de LR001–LR009 y certificados del Capítulo II con validez legal.",
+    desc: "Generación automática de libros y registros reglamentarios.",
   },
   {
     icon: Users,
@@ -35,7 +43,7 @@ const FEATURES = [
   {
     icon: Shield,
     title: "Cumplimiento normativo",
-    desc: "Actualizado con el Decreto 1075 de 2015 y las directrices de la Secretaría de Educación.",
+    desc: "Actualizado con la ley de archivo y la normativa vigente en Educación",
   },
   {
     icon: BarChart3,
@@ -50,30 +58,7 @@ const FEATURES = [
   {
     icon: Award,
     title: "Asistente normativo IA",
-    desc: "EduBot resuelve dudas sobre normativa ETDH con base en la Guía de la Secretaría de Medellín.",
-  },
-];
-
-const PLANS = [
-  { name: "Free", price: "Gratis", docs: "10 docs/mes", users: "1 usuario" },
-  {
-    name: "Básico",
-    price: "Desde $50.000",
-    docs: "50 docs/mes",
-    users: "3 usuarios",
-  },
-  {
-    name: "Profesional",
-    price: "Desde $150.000",
-    docs: "200 docs/mes",
-    users: "10 usuarios",
-    popular: true,
-  },
-  {
-    name: "Empresarial",
-    price: "A medida",
-    docs: "Ilimitado",
-    users: "Ilimitado",
+    desc: "EduBot resuelve todas tus dudas sobre la gestión de libros y registros reglamentarios en Colombia",
   },
 ];
 
@@ -145,47 +130,22 @@ export default function Landing() {
             <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-3 sm:px-4 py-1.5 mb-5 sm:mb-6">
               <Shield size={14} className="text-blue-300 flex-shrink-0" />
               <span className="text-blue-200 text-xs font-medium">
-                Plataforma oficial para instituciones ETDH en Colombia
+                Plataforma para gestión de libros reglamentarios de
+                establecimientos educativos
               </span>
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight mb-5 sm:mb-6">
-              Gestión documental para instituciones{" "}
-              <span className="text-blue-300">ETDH</span> sin complicaciones
+              Gestión documental para{" "}
+              <span className="text-blue-300">
+                Establecimientos Educativos en Colombia
+              </span>{" "}
+              sin complicaciones
             </h1>
             <p className="text-blue-100 text-base sm:text-lg mb-7 sm:mb-8 leading-relaxed">
-              Genera, gestiona y descarga tus documentos reglamentarios del
-              Decreto 1075 de 2015 en minutos. Automatiza el trabajo
-              administrativo y enfócate en lo que importa: la educación.
+              Genera, gestiona y descarga tus documentos reglamentarios
+              cumpliendo con toda la normatividad en minutos. Automatiza el
+              trabajo administrativo y enfócate en lo que importa: La Educación.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 mb-8 sm:mb-10">
-              <button
-                onClick={() => navigate("/registro")}
-                className="flex items-center justify-center gap-2 bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold px-6 py-3.5 rounded-lg transition-colors"
-              >
-                Comenzar gratis <ArrowRight size={18} />
-              </button>
-              <button
-                onClick={() => navigate("/login")}
-                className="flex items-center justify-center gap-2 border border-white/30 hover:border-white/60 text-white font-medium px-6 py-3.5 rounded-lg transition-colors"
-              >
-                Ya tengo cuenta
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-              {[
-                "Sin tarjeta de crédito",
-                "Plan gratuito disponible",
-                "Soporte en español",
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-1.5">
-                  <CheckCircle
-                    size={14}
-                    className="text-green-400 flex-shrink-0"
-                  />
-                  <span className="text-blue-200 text-xs">{item}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Card de acceso rápido */}
@@ -209,10 +169,10 @@ export default function Landing() {
             </div>
             <div className="border-t border-white/10 pt-6 space-y-3">
               {[
-                "LR001 – LR009 incluidos",
-                "Certificados Capítulo II",
-                "EduBot asistente normativo",
-                "Matrículas y programas",
+                "Libros y registros reglamentarios institucionales",
+                "Asistente virtual EduBot",
+                "Calendario institucional automatizado ",
+                "Registro de matrículas y programas",
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2">
                   <CheckCircle
@@ -253,8 +213,9 @@ export default function Landing() {
               Todo lo que necesita tu institución
             </h2>
             <p className="text-gray-500 max-w-2xl mx-auto text-sm sm:text-base">
-              Diseñado específicamente para las necesidades administrativas y
-              normativas de las instituciones ETDH en Colombia.
+              Diseñado específicamente para gestión y administración de libros y
+              registros reglamentarios de los establecimientos educativos en
+              Colombia
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
@@ -275,66 +236,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
-      {/* Planes */}
-      <section className="py-14 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10 sm:mb-14">
-            <span className="text-[#2952cc] text-sm font-semibold uppercase tracking-wide">
-              Planes
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#1a2b4a] mt-2 mb-4">
-              Elige el plan adecuado para tu institución
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-            {PLANS.map(({ name, price, docs, users, popular }) => (
-              <div
-                key={name}
-                className={`rounded-xl border-2 p-5 sm:p-6 flex flex-col ${
-                  popular
-                    ? "border-[#2952cc] bg-[#2952cc] text-white"
-                    : "border-gray-100 bg-white"
-                }`}
-              >
-                {popular && (
-                  <span className="text-xs font-bold bg-white/20 text-white px-3 py-1 rounded-full self-start mb-4">
-                    Más popular
-                  </span>
-                )}
-                <h3
-                  className={`font-bold text-lg mb-1 ${popular ? "text-white" : "text-[#1a2b4a]"}`}
-                >
-                  {name}
-                </h3>
-                <p
-                  className={`text-xl sm:text-2xl font-bold mb-4 ${popular ? "text-white" : "text-[#2952cc]"}`}
-                >
-                  {price}
-                </p>
-                <div
-                  className={`space-y-2 mb-6 flex-1 text-sm ${popular ? "text-blue-100" : "text-gray-500"}`}
-                >
-                  <p>✓ {docs}</p>
-                  <p>✓ {users}</p>
-                  <p>✓ Documentos LR001–LR009</p>
-                </div>
-                <button
-                  onClick={() => navigate("/registro")}
-                  className={`w-full py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-                    popular
-                      ? "bg-white text-[#2952cc] hover:bg-blue-50"
-                      : "bg-[#2952cc] text-white hover:bg-[#1e3fa8]"
-                  }`}
-                >
-                  Comenzar
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Decreto banner */}
       <section className="py-12 sm:py-16 bg-gray-50 border-y border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-8">
@@ -348,8 +249,8 @@ export default function Landing() {
               </h3>
               <p className="text-gray-500 text-sm max-w-xl">
                 EasyDocs está alineado con todos los requerimientos normativos
-                del Decreto 1075 de 2015 para instituciones de Educación para el
-                Trabajo y el Desarrollo Humano en Colombia.
+                de la ley de archivo y la reglamentación de Educación en todas
+                las modalidades en Colombia.
               </p>
             </div>
           </div>
