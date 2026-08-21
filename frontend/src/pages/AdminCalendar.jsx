@@ -388,6 +388,7 @@ export default function AdminCalendar() {
         reminder_days_before: 7,
         color: "red",
       });
+      await fetchEvents();
     } catch {
       // silencioso
     } finally {
@@ -404,6 +405,7 @@ export default function AdminCalendar() {
     }
   };
 
+  // ⚠️ CLAVE: recibe el evento completo, no solo el id, para saber si es obligatorio
   const handleDelete = async (event) => {
     setDeleting(event.id);
     try {
@@ -752,6 +754,14 @@ export default function AdminCalendar() {
                                 style={{ color: col.dot }}
                               >
                                 {ev.description}
+                              </p>
+                            )}
+                            {ev.is_mandatory && (
+                              <p
+                                className="text-xs mt-1 font-medium opacity-80"
+                                style={{ color: col.dot }}
+                              >
+                                Evento obligatorio — EasyDocs
                               </p>
                             )}
                           </div>
