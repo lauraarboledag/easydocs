@@ -30,7 +30,9 @@ class CalendarEventResponse(BaseModel):
     type: EventType
     color: EventColor
     is_done: bool
+    is_mandatory: bool
+    source_event_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-
+    
     model_config = {"from_attributes": True}
