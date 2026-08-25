@@ -5,6 +5,7 @@ from app.domains.calendar.schemas import CalendarEventCreate, CalendarEventUpdat
 from datetime import datetime
 from app.domains.institutions.models import Institution
 from app.domains.calendar.models import EventType, EventColor
+from app.domains.notifications.models import Notification
 
 def list_events(
     db: Session,
@@ -105,10 +106,7 @@ def create_mandatory_event(
     color: str,
     superadmin_id: str,
 ) -> CalendarEvent:
-    """
-    Crea un evento maestro (sin institución) y lo clona en el calendario
-    de todas las instituciones activas.
-    """
+
     # Evento maestro — referencia central, no aparece en ningún calendario institucional
     master_event = CalendarEvent(
         institution_id=None,
@@ -156,10 +154,8 @@ def list_mandatory_events(db: Session) -> list[CalendarEvent]:
         .where(CalendarEvent.is_mandatory == True, CalendarEvent.institution_id.is_(None))
         .order_by(CalendarEvent.event_date.desc())
     ).scalars().all()
-
-
+    
 def delete_mandatory_event(db: Session, master_event_id: str) -> bool:
-    """Elimina un evento maestro y todas sus copias institucionales."""
     master = db.execute(
         select(CalendarEvent).where(CalendarEvent.id == master_event_id)
     ).scalar_one_or_none()
@@ -169,6 +165,15 @@ def delete_mandatory_event(db: Session, master_event_id: str) -> bool:
     clones = db.execute(
         select(CalendarEvent).where(CalendarEvent.source_event_id == master_event_id)
     ).scalars().all()
+
+    # IDs de todos los eventos involucrados (maestro + clones)
+    all_event_ids = [master_event_id] + [clone.id for clone in clones]
+    notifications = db.execute(
+        select(Notification).where(Notification.calendar_event_id.in_(all_event_ids))
+    ).scalars().all()
+    for notif in notifications:
+        db.delete(notif)
+
     for clone in clones:
         db.delete(clone)
 
