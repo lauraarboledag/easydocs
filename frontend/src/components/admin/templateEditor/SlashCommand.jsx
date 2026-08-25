@@ -48,7 +48,6 @@ function getItems({ query, variables }) {
   return baseItems.filter((item) =>
     item.title.toLowerCase().includes(query.toLowerCase()),
   );
-}
 
 export function createSlashCommand(variables) {
   return Extension.create({
