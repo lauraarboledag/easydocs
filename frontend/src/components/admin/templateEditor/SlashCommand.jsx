@@ -12,8 +12,6 @@ function getItems({ query, variables }) {
       title: "Variable",
       description: "Insertar un campo como {{ nombre_estudiante }}",
       command: ({ editor, range }) => {
-        // Por ahora inserta la primera variable de la lista como demostración.
-        // En el Paso 4.4 esto se reemplaza por un submenú de variables reales.
         const variable = variables[0];
         editor
           .chain()
@@ -26,7 +24,25 @@ function getItems({ query, variables }) {
           .run();
       },
     },
+    {
+      title: "Encabezado de sección",
+      description: "Título de sección, ej: '1. Identificación'",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .setNode("heading", { level: 2 })
+          .run();
+      },
+    },
   ];
+
+  if (!query) return baseItems;
+  return baseItems.filter((item) =>
+    item.title.toLowerCase().includes(query.toLowerCase()),
+  );
+}
 
   if (!query) return baseItems;
   return baseItems.filter((item) =>
