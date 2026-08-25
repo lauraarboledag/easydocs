@@ -1,3 +1,4 @@
+import TemplateBlockEditor from "../components/admin/templateEditor/TemplateBlockEditor";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -311,6 +312,9 @@ export default function AdminTemplates() {
               >
                 <Plus size={14} /> Nueva
               </button>
+              <div className="mt-4">
+                <TemplateBlockEditor />
+              </div>
             </div>
 
             {success && (
