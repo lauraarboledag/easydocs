@@ -1,16 +1,19 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { VariableNode } from "./VariableNode";
+import { useState } from "react";
 
-// Convierte "{{ nombre_estudiante }}" -> "nombre_estudiante"
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
 }
 
 export default function TemplateBlockEditor({ variables = [] }) {
+  const [html, setHtml] = useState("");
+
   const editor = useEditor({
     extensions: [StarterKit, VariableNode],
     content: "<p>Escribe aquí el contenido de la plantilla...</p>",
+    onUpdate: ({ editor }) => setHtml(editor.getHTML()),
   });
 
   if (!editor) return null;
@@ -65,7 +68,7 @@ export default function TemplateBlockEditor({ variables = [] }) {
       </div>
 
       <div className="mt-3 p-3 bg-gray-900 text-green-400 text-xs font-mono rounded-lg overflow-x-auto max-h-32">
-        {editor.getHTML()}
+        {html}
       </div>
     </div>
   );
