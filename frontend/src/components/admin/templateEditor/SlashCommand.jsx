@@ -44,11 +44,6 @@ function getItems({ query, variables }) {
   );
 }
 
-  if (!query) return baseItems;
-  return baseItems.filter((item) =>
-    item.title.toLowerCase().includes(query.toLowerCase()),
-  );
-
 export function createSlashCommand(variables) {
   return Extension.create({
     name: "slashCommand",
