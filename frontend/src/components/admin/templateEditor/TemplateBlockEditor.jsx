@@ -2,14 +2,12 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { VariableNode } from "./VariableNode";
 
-// Lista temporal de variables de prueba — en el Paso 2.4 la conectamos
-// con el arreglo VARIABLES que ya existe en AdminTemplates.jsx
-const TEST_VARIABLES = [
-  { label: "Nombre del estudiante", jinjaKey: "nombre_estudiante" },
-  { label: "Nombre institución", jinjaKey: "institucion.nombre" },
-];
+// Convierte "{{ nombre_estudiante }}" -> "nombre_estudiante"
+function extractJinjaKey(rawValue) {
+  return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
+}
 
-export default function TemplateBlockEditor() {
+export default function TemplateBlockEditor({ variables = [] }) {
   const editor = useEditor({
     extensions: [StarterKit, VariableNode],
     content: "<p>Escribe aquí el contenido de la plantilla...</p>",
@@ -17,38 +15,56 @@ export default function TemplateBlockEditor() {
 
   if (!editor) return null;
 
-  const insertVariable = (variable) => {
+  const insertVariable = (label, rawValue) => {
     editor
       .chain()
       .focus()
       .insertContent({
         type: "variableChip",
-        attrs: { jinjaKey: variable.jinjaKey, label: variable.label },
+        attrs: { jinjaKey: extractJinjaKey(rawValue), label },
       })
       .run();
   };
 
   return (
     <div>
-      {/* Barra de herramientas mínima, solo para esta prueba */}
-      <div className="flex gap-2 mb-3 p-2 border rounded-lg bg-gray-50">
-        {TEST_VARIABLES.map((v) => (
-          <button
-            key={v.jinjaKey}
-            onClick={() => insertVariable(v)}
-            className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-medium"
-          >
-            + {v.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-gray-500">
+          Editor visual (borrador — Fase 2)
+        </span>
+        <select
+          onChange={(e) => {
+            const variable = variables.find((v) => v.value === e.target.value);
+            if (variable) insertVariable(variable.label, variable.value);
+            e.target.value = "";
+          }}
+          className="text-xs border px-2 py-1 rounded font-medium"
+          style={{
+            borderColor: "var(--color-primary)",
+            backgroundColor: "var(--color-primary-light)",
+            color: "var(--color-primary)",
+          }}
+          defaultValue=""
+        >
+          <option value="" disabled>
+            + Insertar variable
+          </option>
+          {variables.map((v) => (
+            <option key={v.value} value={v.value}>
+              {v.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="border rounded-lg p-4 min-h-[200px]">
+      <div
+        className="border rounded-lg p-4 min-h-[250px]"
+        style={{ borderColor: "var(--border-color)" }}
+      >
         <EditorContent editor={editor} />
       </div>
 
-      {/* Solo para que veamos el HTML resultante mientras probamos */}
-      <div className="mt-3 p-3 bg-gray-900 text-green-400 text-xs font-mono rounded-lg overflow-x-auto">
+      <div className="mt-3 p-3 bg-gray-900 text-green-400 text-xs font-mono rounded-lg overflow-x-auto max-h-32">
         {editor.getHTML()}
       </div>
     </div>

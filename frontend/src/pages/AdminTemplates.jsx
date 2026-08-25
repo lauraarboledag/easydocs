@@ -1,3 +1,4 @@
+import TemplateBlockEditor from "../components/admin/templateEditor/TemplateBlockEditor";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -719,34 +720,6 @@ export default function AdminTemplates() {
                           </button>
                         </div>
                       )}
-
-                      {/* Controles en modo edición */}
-                      {isEditing && (
-                        <select
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              insertVariable(e.target.value);
-                              e.target.value = "";
-                            }
-                          }}
-                          className="text-xs border px-2 py-1 rounded font-medium"
-                          style={{
-                            borderColor: "var(--color-primary)",
-                            backgroundColor: "var(--color-primary-light)",
-                            color: "var(--color-primary)",
-                          }}
-                          defaultValue=""
-                        >
-                          <option value="" disabled>
-                            + Insertar variable
-                          </option>
-                          {VARIABLES.map((v) => (
-                            <option key={v.value} value={v.value}>
-                              {v.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
                     </div>
 
                     {/* Vista previa renderizada */}
@@ -787,22 +760,11 @@ export default function AdminTemplates() {
                     )}
 
                     {/* HTML fuente en modo view */}
-                    {mode === "view" && viewTab === "html" && (
-                      <textarea
-                        readOnly
-                        value={form.template_html}
-                        rows={16}
-                        className="w-full border rounded-lg px-4 py-3 text-xs font-mono resize-none"
-                        style={{
-                          borderColor: "var(--border-color)",
-                          backgroundColor: "var(--bg-primary)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
+                    {mode === "create" && (
+                      <TemplateBlockEditor variables={VARIABLES} />
                     )}
-
                     {/* Editor en modo edición */}
-                    {isEditing && (
+                    {mode === "edit" && (
                       <>
                         <div
                           className="border rounded-xl overflow-hidden"
