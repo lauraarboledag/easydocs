@@ -311,10 +311,10 @@ export default function AdminTemplates() {
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <Plus size={14} /> Nueva
+                <div className="mt-4">
+                  <TemplateBlockEditor />
+                </div>
               </button>
-              <div className="mt-4">
-                <TemplateBlockEditor />
-              </div>
             </div>
 
             {success && (
