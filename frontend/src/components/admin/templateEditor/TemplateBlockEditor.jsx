@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { VariableNode } from "./VariableNode";
-import { useState } from "react";
+import { createSlashCommand } from "./SlashCommand";
 
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
@@ -10,59 +11,49 @@ function extractJinjaKey(rawValue) {
 export default function TemplateBlockEditor({ variables = [] }) {
   const [html, setHtml] = useState("");
 
+  // El menú "/" necesita las variables en formato { jinjaKey, label },
+  // no en el formato { label, value: "{{ ... }}" } que usa AdminTemplates.jsx
+  const normalizedVariables = variables.map((v) => ({
+    label: v.label,
+    jinjaKey: extractJinjaKey(v.value),
+  }));
+
   const editor = useEditor({
-    extensions: [StarterKit, VariableNode],
-    content: "<p>Escribe aquí el contenido de la plantilla...</p>",
+    extensions: [
+      StarterKit,
+      VariableNode,
+      createSlashCommand(normalizedVariables),
+    ],
+    content: "<p>Escribe / para insertar algo, o empieza a escribir...</p>",
     onUpdate: ({ editor }) => setHtml(editor.getHTML()),
   });
 
   if (!editor) return null;
 
-  const insertVariable = (label, rawValue) => {
-    editor
-      .chain()
-      .focus()
-      .insertContent({
-        type: "variableChip",
-        attrs: { jinjaKey: extractJinjaKey(rawValue), label },
-      })
-      .run();
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-500">
-          Editor visual (borrador — Fase 2)
+          Editor visual (borrador — Fase 4)
         </span>
-        <select
-          onChange={(e) => {
-            const variable = variables.find((v) => v.value === e.target.value);
-            if (variable) insertVariable(variable.label, variable.value);
-            e.target.value = "";
-          }}
-          className="text-xs border px-2 py-1 rounded font-medium"
+        <span
+          className="text-xs px-2 py-1 rounded"
           style={{
-            borderColor: "var(--color-primary)",
             backgroundColor: "var(--color-primary-light)",
             color: "var(--color-primary)",
           }}
-          defaultValue=""
         >
-          <option value="" disabled>
-            + Insertar variable
-          </option>
-          {variables.map((v) => (
-            <option key={v.value} value={v.value}>
-              {v.label}
-            </option>
-          ))}
-        </select>
+          Escribe <strong>/</strong> para insertar
+        </span>
       </div>
 
       <div
-        className="border rounded-lg p-4 min-h-[250px]"
-        style={{ borderColor: "var(--border-color)" }}
+        className="border rounded-lg p-4 min-h-[250px] [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[220px]"
+        style={{
+          borderColor: "var(--border-color)",
+          color: "var(--text-primary)",
+          backgroundColor: "var(--bg-primary)",
+        }}
       >
         <EditorContent editor={editor} />
       </div>
