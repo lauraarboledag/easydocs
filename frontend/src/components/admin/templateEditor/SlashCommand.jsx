@@ -32,7 +32,7 @@ function getItems({ query, variables }) {
           .chain()
           .focus()
           .deleteRange(range)
-          .setNode("heading", { level: 2 })
+          .toggleNode("heading", "paragraph", { level: 3 })
           .run();
       },
     },
