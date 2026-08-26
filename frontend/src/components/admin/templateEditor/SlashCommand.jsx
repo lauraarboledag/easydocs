@@ -11,11 +11,8 @@ function getItems({ query, variables }) {
       title: "Encabezado de sección",
       description: "Título de sección, ej: '1. Identificación'",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .insertContentAt(range, { type: "heading", attrs: { level: 2 } })
-          .run();
+        editor.chain().focus().deleteRange(range).run();
+        editor.chain().focus().setNode("heading", { level: 2 }).run();
       },
     },
 
