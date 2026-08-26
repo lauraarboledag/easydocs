@@ -6,6 +6,20 @@ import SlashMenu from "./SlashMenu";
 
 function getItems({ query, variables }) {
   const baseItems = [
+
+    {
+      title: "Encabezado de sección",
+      description: "Título de sección, ej: '1. Identificación'",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .toggleNode("heading", "paragraph", { level: 2 })
+          .run();
+      },
+    },
+
     {
       title: "Variable",
       description: "Insertar un campo como {{ nombre_estudiante }}",
@@ -22,18 +36,6 @@ function getItems({ query, variables }) {
           .run();
       },
     },
-    {
-      title: "Encabezado de sección",
-      description: "Título de sección, ej: '1. Identificación'",
-      command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .toggleNode("heading", "paragraph", { level: 2 })
-          .run();
-      },
-    },
   ];
 
   if (!query) return baseItems;
@@ -45,6 +47,7 @@ function getItems({ query, variables }) {
 export function createSlashCommand(variables) {
   return Extension.create({
     name: "slashCommand",
+    priority: 1000,
 
     addOptions() {
       return {
