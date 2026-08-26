@@ -480,15 +480,16 @@ export default function AdminTemplates() {
                   </div>
                 </div>
 
-                <div className="p-5 space-y-5 flex-1 overflow-y-auto">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                      <AlertCircle size={15} /> {error}
-                    </div>
-                  )}
+                {/* Cuerpo: dos columnas — metadatos angostos + editor a pantalla completa */}
+                <div className="p-5 flex-1 overflow-y-auto flex gap-5">
+                  {/* Columna izquierda — información de la plantilla, compacta */}
+                  <div className="w-64 flex-shrink-0 space-y-4">
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs flex items-center gap-2">
+                        <AlertCircle size={14} /> {error}
+                      </div>
+                    )}
 
-                  {/* Metadatos */}
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label
                         className="block text-xs font-semibold uppercase tracking-wide mb-1"
@@ -532,6 +533,7 @@ export default function AdminTemplates() {
                         </select>
                       )}
                     </div>
+
                     <div>
                       <label
                         className="block text-xs font-semibold uppercase tracking-wide mb-1"
@@ -566,37 +568,179 @@ export default function AdminTemplates() {
                         />
                       )}
                     </div>
+
+                    <div>
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Descripción
+                      </label>
+                      {mode === "view" ? (
+                        <p
+                          className="text-sm px-3 py-2 rounded-lg"
+                          style={{
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {form.description || "—"}
+                        </p>
+                      ) : (
+                        <textarea
+                          value={form.description}
+                          onChange={(e) =>
+                            setForm((p) => ({
+                              ...p,
+                              description: e.target.value,
+                            }))
+                          }
+                          placeholder="Descripción normativa..."
+                          rows={2}
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Campos requeridos
+                      </label>
+                      {mode === "view" ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {form.required_fields.map((f) => (
+                            <span
+                              key={f}
+                              className="text-xs px-2 py-1 rounded font-mono"
+                              style={{
+                                backgroundColor: "var(--color-primary-light)",
+                                color: "var(--color-primary)",
+                              }}
+                            >
+                              {f}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            value={fieldsInput}
+                            onChange={(e) => handleFieldsChange(e.target.value)}
+                            placeholder="nombre_estudiante, documento..."
+                            className="w-full border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2"
+                            style={{
+                              borderColor: "var(--border-color)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
+                          />
+                          <p
+                            className="text-xs mt-1"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            Separados por coma.
+                          </p>
+                          {form.required_fields.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {form.required_fields.map((f) => (
+                                <span
+                                  key={f}
+                                  className="text-xs px-2 py-1 rounded font-mono"
+                                  style={{
+                                    backgroundColor:
+                                      "var(--color-primary-light)",
+                                    color: "var(--color-primary)",
+                                  }}
+                                >
+                                  {f}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
+                  {/* Columna derecha — el editor, a pantalla completa */}
+                  <div className="flex-1 min-w-0">
                     <label
-                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                      className="block text-xs font-semibold uppercase tracking-wide mb-2"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Descripción
+                      {isEditing ? "Contenido" : "Vista previa"}
                     </label>
-                    {mode === "view" ? (
-                      <p
-                        className="text-sm px-3 py-2 rounded-lg"
-                        style={{
-                          backgroundColor: "var(--bg-primary)",
-                          color: "var(--text-primary)",
-                        }}
+
+                    {mode === "view" && (
+                      <div
+                        className="flex gap-1 p-0.5 rounded-lg mb-2 w-fit"
+                        style={{ backgroundColor: "var(--bg-primary)" }}
                       >
-                        {form.description || "—"}
-                      </p>
-                    ) : (
-                      <input
-                        type="text"
-                        value={form.description}
-                        onChange={(e) =>
-                          setForm((p) => ({
-                            ...p,
-                            description: e.target.value,
-                          }))
-                        }
-                        placeholder="Descripción normativa..."
-                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                        <button
+                          onClick={() => setViewTab("preview")}
+                          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                          style={{
+                            backgroundColor:
+                              viewTab === "preview"
+                                ? "var(--bg-secondary)"
+                                : "transparent",
+                            color:
+                              viewTab === "preview"
+                                ? "var(--text-primary)"
+                                : "var(--text-secondary)",
+                          }}
+                        >
+                          <Eye size={12} /> Vista previa
+                        </button>
+                        <button
+                          onClick={() => setViewTab("html")}
+                          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                          style={{
+                            backgroundColor:
+                              viewTab === "html"
+                                ? "var(--bg-secondary)"
+                                : "transparent",
+                            color:
+                              viewTab === "html"
+                                ? "var(--text-primary)"
+                                : "var(--text-secondary)",
+                          }}
+                        >
+                          <Code size={12} /> HTML
+                        </button>
+                      </div>
+                    )}
+
+                    {mode === "view" && viewTab === "preview" && (
+                      <div
+                        className="border rounded-xl overflow-hidden"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <iframe
+                          srcDoc={renderPreview(form.template_html)}
+                          className="w-full bg-white"
+                          style={{ height: "650px", border: "none" }}
+                          title="Vista previa plantilla"
+                          sandbox="allow-same-origin"
+                        />
+                      </div>
+                    )}
+
+                    {mode === "view" && viewTab === "html" && (
+                      <textarea
+                        readOnly
+                        value={form.template_html}
+                        rows={28}
+                        className="w-full border rounded-lg px-4 py-3 text-xs font-mono resize-none"
                         style={{
                           borderColor: "var(--border-color)",
                           backgroundColor: "var(--bg-primary)",
@@ -604,166 +748,11 @@ export default function AdminTemplates() {
                         }}
                       />
                     )}
-                  </div>
 
-                  {/* Campos requeridos */}
-                  <div>
-                    <label
-                      className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Campos requeridos
-                    </label>
-                    {mode === "view" ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {form.required_fields.map((f) => (
-                          <span
-                            key={f}
-                            className="text-xs px-2 py-1 rounded font-mono"
-                            style={{
-                              backgroundColor: "var(--color-primary-light)",
-                              color: "var(--color-primary)",
-                            }}
-                          >
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <>
-                        <input
-                          type="text"
-                          value={fieldsInput}
-                          onChange={(e) => handleFieldsChange(e.target.value)}
-                          placeholder="nombre_estudiante, documento_estudiante, fecha..."
-                          className="w-full border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2"
-                          style={{
-                            borderColor: "var(--border-color)",
-                            backgroundColor: "var(--bg-primary)",
-                            color: "var(--text-primary)",
-                          }}
-                        />
-                        <p
-                          className="text-xs mt-1"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          Separados por coma. Deben coincidir exactamente con
-                          las variables usadas en el HTML.
-                        </p>
-                        {form.required_fields.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {form.required_fields.map((f) => (
-                              <span
-                                key={f}
-                                className="text-xs px-2 py-1 rounded font-mono"
-                                style={{
-                                  backgroundColor: "var(--color-primary-light)",
-                                  color: "var(--color-primary)",
-                                }}
-                              >
-                                {f}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Contenido HTML / Vista previa */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {isEditing ? "Contenido HTML *" : "Vista previa"}
-                      </label>
-
-                      {/* Tabs vista previa / HTML en modo view */}
-                      {mode === "view" && form.template_html && (
-                        <div
-                          className="flex gap-1 p-0.5 rounded-lg"
-                          style={{ backgroundColor: "var(--bg-primary)" }}
-                        >
-                          <button
-                            onClick={() => setViewTab("preview")}
-                            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
-                            style={{
-                              backgroundColor:
-                                viewTab === "preview"
-                                  ? "var(--bg-secondary)"
-                                  : "transparent",
-                              color:
-                                viewTab === "preview"
-                                  ? "var(--text-primary)"
-                                  : "var(--text-secondary)",
-                            }}
-                          >
-                            <Eye size={12} /> Vista previa
-                          </button>
-                          <button
-                            onClick={() => setViewTab("html")}
-                            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
-                            style={{
-                              backgroundColor:
-                                viewTab === "html"
-                                  ? "var(--bg-secondary)"
-                                  : "transparent",
-                              color:
-                                viewTab === "html"
-                                  ? "var(--text-primary)"
-                                  : "var(--text-secondary)",
-                            }}
-                          >
-                            <Code size={12} /> HTML
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Vista previa renderizada */}
-                    {mode === "view" && viewTab === "preview" && (
-                      <div
-                        className="border rounded-xl overflow-hidden"
-                        style={{ borderColor: "var(--border-color)" }}
-                      >
-                        <div
-                          className="px-3 py-2 border-b flex items-center justify-between"
-                          style={{
-                            backgroundColor: "var(--color-primary-light)",
-                            borderColor: "var(--border-color)",
-                          }}
-                        >
-                          <span
-                            className="text-xs font-medium"
-                            style={{ color: "var(--color-primary)" }}
-                          >
-                            Vista previa con datos de ejemplo
-                          </span>
-                          <span
-                            className="text-xs"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            Las variables reales se completan al generar el
-                            documento
-                          </span>
-                        </div>
-                        <iframe
-                          srcDoc={renderPreview(form.template_html)}
-                          className="w-full bg-white"
-                          style={{ height: "500px", border: "none" }}
-                          title="Vista previa plantilla"
-                          sandbox="allow-same-origin"
-                        />
-                      </div>
-                    )}
-
-                    {/* HTML fuente en modo view */}
                     {mode === "create" && (
                       <TemplateBlockEditor variables={VARIABLES} />
                     )}
-                    {/* Editor en modo edición */}
+
                     {mode === "edit" && (
                       <>
                         <div
@@ -799,7 +788,7 @@ export default function AdminTemplates() {
                                 template_html: e.target.value,
                               }))
                             }
-                            rows={16}
+                            rows={20}
                             placeholder="<!DOCTYPE html><html>..."
                             className="w-full px-4 py-3 text-xs font-mono focus:outline-none resize-none"
                             style={{
@@ -809,7 +798,6 @@ export default function AdminTemplates() {
                           />
                         </div>
 
-                        {/* Vista previa en tiempo real durante edición */}
                         {form.template_html && (
                           <div
                             className="mt-4 border rounded-xl overflow-hidden"
