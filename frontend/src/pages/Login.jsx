@@ -352,24 +352,6 @@ export default function Login() {
               "Accede a tu plataforma de gestión documental y continúa con el trabajo administrativo de tu institución."
             }
           </p>
-
-          <div className="space-y-3">
-            {[
-              {
-                icon: FileText,
-                text: "LR001 – LR009 y certificados Capítulo II",
-              },
-              { icon: Shield, text: "Cumplimiento Decreto 1075 de 2015" },
-            ].map(({ icon: Icon, text }) => (
-              <div
-                key={text}
-                className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3"
-              >
-                <Icon size={16} className="text-blue-300 flex-shrink-0" />
-                <span className="text-blue-100 text-sm">{text}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="relative z-10">
@@ -416,11 +398,10 @@ export default function Login() {
 
               {error && (
                 <div
-                  className={`border px-4 py-3 rounded-lg text-sm flex items-start gap-2 mb-6 ${
-                    blockedUntil
-                      ? "bg-red-50 border-red-200 text-red-700"
-                      : "bg-yellow-50 border-yellow-200 text-yellow-700"
-                  }`}
+                  className={`border px-4 py-3 rounded-lg text-sm flex items-start gap-2 mb-6 ${blockedUntil
+                    ? "bg-red-50 border-red-200 text-red-700"
+                    : "bg-yellow-50 border-yellow-200 text-yellow-700"
+                    }`}
                 >
                   <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                   <div>

@@ -4,8 +4,6 @@ import { ReactRenderer } from "@tiptap/react";
 import tippy from "tippy.js";
 import SlashMenu from "./SlashMenu";
 
-// Por ahora, una sola opción: "Variable". Más adelante en esta misma Fase 4
-// se le van a sumar "Tabla dinámica", "Firma", "Encabezado", etc.
 function getItems({ query, variables }) {
   const baseItems = [
     {
