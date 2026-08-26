@@ -14,8 +14,7 @@ function getItems({ query, variables }) {
         editor
           .chain()
           .focus()
-          .deleteRange(range)
-          .toggleNode("heading", "paragraph", { level: 2 })
+          .insertContentAt(range, { type: "heading", attrs: { level: 2 } })
           .run();
       },
     },
