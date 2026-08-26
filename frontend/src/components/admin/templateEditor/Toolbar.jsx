@@ -6,6 +6,8 @@ import {
     AlignCenter,
     AlignRight,
     AlignJustify,
+    List,
+    ListOrdered,
 } from "lucide-react";
 
 
@@ -89,6 +91,25 @@ export default function Toolbar({ editor }) {
                 onClick={() => editor.chain().focus().setTextAlign("justify").run()}
             >
                 <AlignJustify size={14} />
+            </ToolbarButton>
+            <div
+                className="w-px h-5 mx-1"
+                style={{ backgroundColor: "var(--border-color)" }}
+            />
+
+            <ToolbarButton
+                title="Lista con viñetas"
+                active={editor.isActive("bulletList")}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+            >
+                <List size={14} />
+            </ToolbarButton>
+            <ToolbarButton
+                title="Lista numerada"
+                active={editor.isActive("orderedList")}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            >
+                <ListOrdered size={14} />
             </ToolbarButton>
         </div>
     );

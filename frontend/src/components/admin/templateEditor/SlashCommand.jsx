@@ -52,6 +52,21 @@ function getItems({ query, variables }) {
           .run();
       },
     },
+
+    {
+      title: "Lista con viñetas",
+      description: "Lista simple de puntos",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleBulletList().run();
+      },
+    },
+    {
+      title: "Lista numerada",
+      description: "Lista ordenada con números",
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+      },
+    },
   ];
 
   if (!query) return baseItems;
