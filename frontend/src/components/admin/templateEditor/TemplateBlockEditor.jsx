@@ -7,6 +7,7 @@ import { SectionHeadingNode } from "./SectionHeadingNode";
 import { createSlashCommand } from "./SlashCommand";
 import Underline from "@tiptap/extension-underline";
 import Toolbar from "./Toolbar";
+import TextAlign from "@tiptap/extension-text-align";
 
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
@@ -14,9 +15,6 @@ function extractJinjaKey(rawValue) {
 
 export default function TemplateBlockEditor({ variables = [] }) {
   const [html, setHtml] = useState("");
-
-  // El menú "/" necesita las variables en formato { jinjaKey, label },
-  // no en el formato { label, value: "{{ ... }}" } que usa AdminTemplates.jsx
 
   const normalizedVariables = variables.map((v) => ({
     label: v.label,
@@ -27,6 +25,9 @@ export default function TemplateBlockEditor({ variables = [] }) {
     extensions: [
       StarterKit.configure({ heading: false }),
       Underline,
+      TextAlign.configure({
+        types: ["paragraph"],
+      }),
       VariableNode.configure({ variables: normalizedVariables }),
       DynamicTableNode,
       SectionHeadingNode,

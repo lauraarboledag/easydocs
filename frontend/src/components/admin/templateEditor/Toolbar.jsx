@@ -1,4 +1,13 @@
-import { Bold, Italic, Underline as UnderlineIcon } from "lucide-react";
+import {
+    Bold,
+    Italic,
+    Underline as UnderlineIcon,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    AlignJustify,
+} from "lucide-react";
+
 
 function ToolbarButton({ active, onClick, children, title }) {
     return (
@@ -47,6 +56,39 @@ export default function Toolbar({ editor }) {
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
             >
                 <UnderlineIcon size={14} />
+            </ToolbarButton>
+            <div
+                className="w-px h-5 mx-1"
+                style={{ backgroundColor: "var(--border-color)" }}
+            />
+
+            <ToolbarButton
+                title="Alinear a la izquierda"
+                active={editor.isActive({ textAlign: "left" })}
+                onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            >
+                <AlignLeft size={14} />
+            </ToolbarButton>
+            <ToolbarButton
+                title="Centrar"
+                active={editor.isActive({ textAlign: "center" })}
+                onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            >
+                <AlignCenter size={14} />
+            </ToolbarButton>
+            <ToolbarButton
+                title="Alinear a la derecha"
+                active={editor.isActive({ textAlign: "right" })}
+                onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            >
+                <AlignRight size={14} />
+            </ToolbarButton>
+            <ToolbarButton
+                title="Justificar"
+                active={editor.isActive({ textAlign: "justify" })}
+                onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+            >
+                <AlignJustify size={14} />
             </ToolbarButton>
         </div>
     );
