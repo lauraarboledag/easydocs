@@ -23,8 +23,8 @@ export default function TemplateBlockEditor({ variables = [] }) {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      VariableNode,
+      StarterKit.configure({ heading: false }),
+      VariableNode.configure({ variables: normalizedVariables }),
       DynamicTableNode,
       SectionHeadingNode,
       createSlashCommand(normalizedVariables),

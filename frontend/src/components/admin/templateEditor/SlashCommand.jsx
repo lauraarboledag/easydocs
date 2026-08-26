@@ -5,23 +5,25 @@ import tippy from "tippy.js";
 import SlashMenu from "./SlashMenu";
 
 function getItems({ query, variables }) {
-  const variableItems = variables.map((v) => ({
-    title: v.label,
-    description: `Insertar {{ ${v.jinjaKey} }}`,
-    isVariable: true,
-    command: ({ editor, range }) => {
-      editor
-        .chain()
-        .focus()
-        .insertContentAt(range, {
-          type: "variableChip",
-          attrs: { jinjaKey: v.jinjaKey, label: v.label },
-        })
-        .run();
+  const baseItems = [
+    {
+      title: "Variable",
+      description: "Insertar un campo, elegible después con el desplegable",
+      command: ({ editor, range }) => {
+        const defaultVariable = variables[0];
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, {
+            type: "variableChip",
+            attrs: {
+              jinjaKey: defaultVariable.jinjaKey,
+              label: defaultVariable.label,
+            },
+          })
+          .run();
+      },
     },
-  }));
-
-  const structureItems = [
     {
       title: "Encabezado de sección",
       description: "Título de sección, ej: '1. Identificación'",
@@ -51,8 +53,6 @@ function getItems({ query, variables }) {
       },
     },
   ];
-
-  const baseItems = [...structureItems, ...variableItems];
 
   if (!query) return baseItems;
   return baseItems.filter((item) =>
