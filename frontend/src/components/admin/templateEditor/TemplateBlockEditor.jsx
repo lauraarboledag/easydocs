@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { VariableNode } from "./VariableNode";
+import { DynamicTableNode } from "./TableNode";
 import { createSlashCommand } from "./SlashCommand";
 
 function extractJinjaKey(rawValue) {
@@ -13,6 +14,7 @@ export default function TemplateBlockEditor({ variables = [] }) {
 
   // El menú "/" necesita las variables en formato { jinjaKey, label },
   // no en el formato { label, value: "{{ ... }}" } que usa AdminTemplates.jsx
+
   const normalizedVariables = variables.map((v) => ({
     label: v.label,
     jinjaKey: extractJinjaKey(v.value),
@@ -22,11 +24,13 @@ export default function TemplateBlockEditor({ variables = [] }) {
     extensions: [
       StarterKit,
       VariableNode,
+      DynamicTableNode,
       createSlashCommand(normalizedVariables),
     ],
     content: "<p>Escribe / para insertar algo, o empieza a escribir...</p>",
     onUpdate: ({ editor }) => setHtml(editor.getHTML()),
   });
+
 
   if (!editor) return null;
 

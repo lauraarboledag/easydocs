@@ -17,6 +17,21 @@ function getItems({ query, variables }) {
     },
 
     {
+      title: "Tabla dinámica",
+      description: "Tabla con columnas configurables, filas automáticas",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, {
+            type: "dynamicTable",
+            attrs: { columns: ["Columna 1", "Columna 2"] },
+          })
+          .run();
+      },
+    },
+
+    {
       title: "Variable",
       description: "Insertar un campo como {{ nombre_estudiante }}",
       command: ({ editor, range }) => {
