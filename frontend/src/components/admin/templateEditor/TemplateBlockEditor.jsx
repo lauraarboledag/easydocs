@@ -5,6 +5,8 @@ import { VariableNode } from "./VariableNode";
 import { DynamicTableNode } from "./TableNode";
 import { SectionHeadingNode } from "./SectionHeadingNode";
 import { createSlashCommand } from "./SlashCommand";
+import Underline from "@tiptap/extension-underline";
+import Toolbar from "./Toolbar";
 
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
@@ -24,6 +26,7 @@ export default function TemplateBlockEditor({ variables = [] }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
+      Underline,
       VariableNode.configure({ variables: normalizedVariables }),
       DynamicTableNode,
       SectionHeadingNode,
@@ -52,6 +55,8 @@ export default function TemplateBlockEditor({ variables = [] }) {
           Escribe <strong>/</strong> para insertar
         </span>
       </div>
+
+      <Toolbar editor={editor} />
 
       <div
         className="border rounded-lg p-4 min-h-[250px] [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[220px]"
