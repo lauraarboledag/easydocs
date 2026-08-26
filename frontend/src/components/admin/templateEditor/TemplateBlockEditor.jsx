@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { VariableNode } from "./VariableNode";
 import { DynamicTableNode } from "./TableNode";
+import { SectionHeadingNode } from "./SectionHeadingNode";
 import { createSlashCommand } from "./SlashCommand";
 
 function extractJinjaKey(rawValue) {
@@ -25,6 +26,7 @@ export default function TemplateBlockEditor({ variables = [] }) {
       StarterKit,
       VariableNode,
       DynamicTableNode,
+      SectionHeadingNode,
       createSlashCommand(normalizedVariables),
     ],
     content: "<p>Escribe / para insertar algo, o empieza a escribir...</p>",
