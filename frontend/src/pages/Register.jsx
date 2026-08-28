@@ -15,6 +15,7 @@ import {
   CreditCard,
   FileText,
   Sparkles,
+  Phone,
 } from "lucide-react";
 
 const DEPARTAMENTOS = [
@@ -44,10 +45,12 @@ const DEPARTAMENTOS = [
   "Valle del Cauca",
 ];
 
-const NIVELES_EDUCATIVOS = [
+const TIPOS_INSTITUCION = [
   "Educación para el Trabajo y el Desarrollo Humano",
-  "Educación Informal",
-  "Educación Básica y Media",
+  "Educación formal: Preescolar",
+  "Educación formal: Básica y Media",
+  "Educación de adultos",
+  "Educación formal: Otros niveles",
 ];
 
 const PLAN_META = {
@@ -180,6 +183,7 @@ export default function Register() {
   const [representative, setRepresentative] = useState({
     full_name: "",
     email: "",
+    phone: "",
     password: "",
     confirm_password: "",
   });
@@ -242,18 +246,18 @@ export default function Register() {
   };
 
   const validateStep1 = () => {
-    const required = [
-      "name",
-      "dane_code",
-      "department",
-      "municipality",
-      "education_level",
-    ];
+    const required = ["name", "department", "municipality", "education_level"];
     for (const field of required) {
       if (!institution[field]) {
         setError("Por favor completa todos los campos obligatorios.");
         return false;
       }
+    }
+    if (!institution.dane_code?.trim() && !institution.license_number?.trim()) {
+      setError(
+        "Debes proporcionar el Código DANE o la Licencia de Funcionamiento.",
+      );
+      return false;
     }
     return true;
   };
@@ -318,7 +322,7 @@ export default function Register() {
       const registerRes = await api.post("/auth/register", {
         institution: {
           name: institution.name,
-          dane_code: institution.dane_code,
+          dane_code: institution.dane_code || null,
           department: institution.department,
           municipality: institution.municipality,
           address: institution.address || null,
@@ -329,6 +333,7 @@ export default function Register() {
         },
         representative_name: representative.full_name,
         representative_email: representative.email,
+        representative_phone: representative.phone || null,
         representative_password: representative.password,
       });
 
@@ -485,18 +490,41 @@ export default function Register() {
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    Código DANE *
-                  </label>
-                  <input
-                    name="dane_code"
-                    value={institution.dane_code}
-                    onChange={handleInstitution}
-                    placeholder="12 dígitos numéricos"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all"
-                  />
+
+                {/* DANE y Licencia — alternativos entre sí */}
+                <div className="md:col-span-2 bg-[#f7f8fb] border border-gray-100 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Identificación institucional — completa al menos uno de los
+                    dos *
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                        Código DANE
+                      </label>
+                      <input
+                        name="dane_code"
+                        value={institution.dane_code}
+                        onChange={handleInstitution}
+                        placeholder="12 dígitos numéricos"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                        Licencia de funcionamiento
+                      </label>
+                      <input
+                        name="license_number"
+                        value={institution.license_number}
+                        onChange={handleInstitution}
+                        placeholder="Ej: RES-2024-0456"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all bg-white"
+                      />
+                    </div>
+                  </div>
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                     Tipo de institución
@@ -555,7 +583,7 @@ export default function Register() {
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    Nivel educativo *
+                    Tipo de institución *
                   </label>
                   <select
                     name="education_level"
@@ -564,24 +592,12 @@ export default function Register() {
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] bg-white transition-all"
                   >
                     <option value="">Seleccione...</option>
-                    {NIVELES_EDUCATIVOS.map((n) => (
+                    {TIPOS_INSTITUCION.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    Resolución de funcionamiento
-                  </label>
-                  <input
-                    name="license_number"
-                    value={institution.license_number}
-                    onChange={handleInstitution}
-                    placeholder="Número de resolución y fecha"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all"
-                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
@@ -642,10 +658,10 @@ export default function Register() {
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  Datos del Representante
+                  Datos de representante legal o directivo
                 </h2>
                 <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
-                  Información oficial del representante legal
+                  Información oficial de quien representa a la institución
                 </p>
               </div>
             </div>
@@ -709,6 +725,28 @@ export default function Register() {
                     placeholder="representante@institucion.edu.co"
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-500"
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Número de contacto{" "}
+                    <span className="normal-case font-normal text-gray-400">
+                      (opcional, útil si te registras desde el celular)
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <Phone
+                      size={16}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      name="phone"
+                      type="tel"
+                      value={representative.phone}
+                      onChange={handleRepresentative}
+                      placeholder="+57 300 000 0000"
+                      className="w-full border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2952cc] focus:border-transparent transition-all"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1092,8 +1130,9 @@ export default function Register() {
               className="text-gray-400 flex-shrink-0 mt-0.5"
             />
             <p className="text-xs text-gray-400">
-              Esta plataforma cumple con el Decreto 1075 de 2015 para la gestión
-              de instituciones ETDH en territorio colombiano.
+              Esta plataforma cumple con todos los requerimientos normativos de
+              la ley de archivo y la reglamentación de Educación en todas las
+              modalidades en Colombia.
             </p>
           </div>
         )}

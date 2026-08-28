@@ -4,7 +4,7 @@ from slowapi.util import get_remote_address
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Optional
 from app.database import get_db
 from app.core.auth import (
     hash_password,
@@ -49,6 +49,7 @@ class RegisterInstitutionRequest(BaseModel):
     institution: InstitutionCreate
     representative_name: str
     representative_email: EmailStr
+    representative_phone: Optional[str] = None
     representative_password: str
 
 
@@ -63,11 +64,16 @@ def register_institution_and_representative(
         email=data.representative_email,
         password=data.representative_password,
         full_name=data.representative_name,
+        phone=data.representative_phone,
         role=UserRole.representative,
         institution_id=institution.id,
     )
     try:
-        superadmins = db.execute(select(User).where(User.role == UserRole.superadmin)).scalars().all()
+        superadmins = (
+            db.execute(select(User).where(User.role == UserRole.superadmin))
+            .scalars()
+            .all()
+        )
         for admin in superadmins:
             create_notification(
                 db,
@@ -163,6 +169,7 @@ class CreateSuperadminRequest(BaseModel):
     full_name: str
     email: EmailStr
     password: str
+
 
 class RequestEmailChangeRequest(BaseModel):
     new_email: EmailStr
@@ -390,10 +397,12 @@ def refresh_access_token(
         "token_type": "bearer",
     }
 
+
 @router.post("/auth/logout")
 def logout(data: RefreshRequest, db: Session = Depends(get_db)):
     revoke_refresh_token(db, data.refresh_token)
     return {"message": "Sesión cerrada correctamente."}
+
 
 @router.post("/auth/verify-2fa", response_model=TokenResponse)
 @limiter.limit("10/minute")

@@ -24,6 +24,7 @@ def create_user(db: Session, data: UserCreate) -> User:
         email=data.email,
         password_hash=hash_password(data.password),
         full_name=data.full_name,
+        phone=data.phone,
         role=data.role,
         institution_id=data.institution_id,
     )

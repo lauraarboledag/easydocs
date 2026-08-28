@@ -6,15 +6,31 @@ from fastapi import HTTPException
 
 
 def create_institution(db: Session, data: InstitutionCreate) -> Institution:
-    existing = db.execute(
-        select(Institution).where(Institution.dane_code == data.dane_code)
-    ).scalar_one_or_none()
-
-    if existing:
+    if not data.dane_code and not data.license_number:
         raise HTTPException(
             status_code=400,
-            detail="Ya existe una institución registrada con ese código DANE.",
+            detail="Debes proporcionar el código DANE o la licencia de funcionamiento.",
         )
+
+    if data.dane_code:
+        existing_dane = db.execute(
+            select(Institution).where(Institution.dane_code == data.dane_code)
+        ).scalar_one_or_none()
+        if existing_dane:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe una institución registrada con ese código DANE.",
+            )
+
+    if data.license_number:
+        existing_license = db.execute(
+            select(Institution).where(Institution.license_number == data.license_number)
+        ).scalar_one_or_none()
+        if existing_license:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe una institución registrada con esa licencia de funcionamiento.",
+            )
 
     institution = Institution(**data.model_dump())
     db.add(institution)
@@ -50,10 +66,16 @@ def update_institution(
     db.refresh(institution)
     return institution
 
+
 def delete_institution(db: Session, institution_id: str) -> None:
     """Elimina una institución y todos sus datos relacionados en cascada."""
     from app.domains.users.models import (
-        User, RefreshToken, PasswordResetToken, TwoFactorCode, KnownDevice, LoginAttempt
+        User,
+        RefreshToken,
+        PasswordResetToken,
+        TwoFactorCode,
+        KnownDevice,
+        LoginAttempt,
     )
     from app.domains.documents.models import Document
     from app.domains.students.models import Program, Student, Enrollment
@@ -64,13 +86,17 @@ def delete_institution(db: Session, institution_id: str) -> None:
     institution = get_institution(db, institution_id)
 
     # Usuarios de la institución — limpiar sus dependencias primero
-    users = db.execute(
-        select(User).where(User.institution_id == institution_id)
-    ).scalars().all()
+    users = (
+        db.execute(select(User).where(User.institution_id == institution_id))
+        .scalars()
+        .all()
+    )
 
     for user in users:
         db.execute(delete(RefreshToken).where(RefreshToken.user_id == user.id))
-        db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
+        db.execute(
+            delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        )
         db.execute(delete(TwoFactorCode).where(TwoFactorCode.user_id == user.id))
         db.execute(delete(KnownDevice).where(KnownDevice.user_id == user.id))
         db.execute(delete(LoginAttempt).where(LoginAttempt.email == user.email))
@@ -81,14 +107,22 @@ def delete_institution(db: Session, institution_id: str) -> None:
     db.execute(delete(Enrollment).where(Enrollment.institution_id == institution_id))
     db.execute(delete(Student).where(Student.institution_id == institution_id))
     db.execute(delete(Program).where(Program.institution_id == institution_id))
-    db.execute(delete(CalendarEvent).where(CalendarEvent.institution_id == institution_id))
+    db.execute(
+        delete(CalendarEvent).where(CalendarEvent.institution_id == institution_id)
+    )
 
-    sub_ids = db.execute(
-        select(Subscription.id).where(Subscription.institution_id == institution_id)
-    ).scalars().all()
+    sub_ids = (
+        db.execute(
+            select(Subscription.id).where(Subscription.institution_id == institution_id)
+        )
+        .scalars()
+        .all()
+    )
     if sub_ids:
         db.execute(delete(Transaction).where(Transaction.subscription_id.in_(sub_ids)))
-    db.execute(delete(Subscription).where(Subscription.institution_id == institution_id))
+    db.execute(
+        delete(Subscription).where(Subscription.institution_id == institution_id)
+    )
 
     # Usuarios y por último la institución
     db.execute(delete(User).where(User.institution_id == institution_id))
