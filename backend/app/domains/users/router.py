@@ -4,7 +4,8 @@ from slowapi.util import get_remote_address
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from pydantic import BaseModel, EmailStr, Optional
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 from app.database import get_db
 from app.core.auth import (
     hash_password,
