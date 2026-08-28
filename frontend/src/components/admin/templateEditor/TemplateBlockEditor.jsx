@@ -8,6 +8,7 @@ import { createSlashCommand } from "./SlashCommand";
 import Underline from "@tiptap/extension-underline";
 import Toolbar from "./Toolbar";
 import TextAlign from "@tiptap/extension-text-align";
+import { ParagraphWithLineHeight } from "./LineHeightExtension";
 
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
@@ -23,11 +24,10 @@ export default function TemplateBlockEditor({ variables = [] }) {
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: false }),
+      StarterKit.configure({ heading: false, paragraph: false }),
+      ParagraphWithLineHeight,
       Underline,
-      TextAlign.configure({
-        types: ["paragraph"],
-      }),
+      TextAlign.configure({ types: ["paragraph"] }),
       VariableNode.configure({ variables: normalizedVariables }),
       DynamicTableNode,
       SectionHeadingNode,

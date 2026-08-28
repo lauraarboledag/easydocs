@@ -8,6 +8,7 @@ import {
     AlignJustify,
     List,
     ListOrdered,
+    AlignVerticalSpaceAround,
 } from "lucide-react";
 
 
@@ -111,6 +112,30 @@ export default function Toolbar({ editor }) {
             >
                 <ListOrdered size={14} />
             </ToolbarButton>
+            <div
+                className="w-px h-5 mx-1"
+                style={{ backgroundColor: "var(--border-color)" }}
+            />
+
+            <div className="flex items-center gap-1 px-1">
+                <AlignVerticalSpaceAround size={14} style={{ color: "var(--text-secondary)" }} />
+                <select
+                    value={editor.getAttributes("paragraph").lineHeight || "normal"}
+                    onChange={(e) =>
+                        editor
+                            .chain()
+                            .focus()
+                            .updateAttributes("paragraph", { lineHeight: e.target.value })
+                            .run()
+                    }
+                    className="text-xs border-0 outline-none bg-transparent"
+                    style={{ color: "var(--text-secondary)" }}
+                >
+                    <option value="compact">Compacto</option>
+                    <option value="normal">Normal</option>
+                    <option value="relaxed">Amplio</option>
+                </select>
+            </div>
         </div>
     );
 }
