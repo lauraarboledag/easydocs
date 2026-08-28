@@ -25,7 +25,7 @@ class InstitutionCreate(BaseModel):
 class InstitutionResponse(BaseModel):
     id: str
     name: str
-    dane_code: str
+    dane_code: Optional[str] = None
     department: str
     municipality: str
     address: Optional[str] = None
