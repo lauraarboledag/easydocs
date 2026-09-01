@@ -7,6 +7,7 @@ import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+const templateEditorRef = useRef;
 import {
   FileText,
   Bell,
@@ -210,17 +211,38 @@ export default function AdminTemplates() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.document_type || !form.template_html) {
-      setError("Nombre, tipo de documento y contenido HTML son obligatorios.");
+    if (!form.name || !form.document_type) {
+      setError("Nombre y tipo de documento son obligatorios.");
       return;
     }
+
+    let payload = { ...form };
+
+    if (mode === "create") {
+      const compiled = templateEditorRef.current?.getCompiled();
+      if (!compiled?.template_html || compiled.required_fields.length === 0) {
+        setError(
+          "La plantilla está vacía o no tiene ningún campo. Agrega contenido antes de guardar.",
+        );
+        return;
+      }
+      payload = {
+        ...payload,
+        template_html: compiled.template_html,
+        required_fields: compiled.required_fields,
+      };
+    } else if (!form.template_html) {
+      setError("El contenido HTML es obligatorio.");
+      return;
+    }
+
     setSaving(true);
     try {
       if (mode === "create") {
-        await api.post("/templates/", form);
+        await api.post("/templates/", payload);
         setSuccess("Plantilla creada exitosamente.");
       } else {
-        await api.put(`/templates/${selected.id}`, form);
+        await api.put(`/templates/${selected.id}`, payload);
         setSuccess("Plantilla actualizada exitosamente.");
       }
       await fetchTemplates();
@@ -750,7 +772,7 @@ export default function AdminTemplates() {
                     )}
 
                     {mode === "create" && (
-                      <TemplateBlockEditor variables={VARIABLES} />
+                      <TemplateBlockEditor ref={templateEditorRef} variables={VARIABLES} />
                     )}
 
                     {mode === "edit" && (

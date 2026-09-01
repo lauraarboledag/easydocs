@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { VariableNode } from "./VariableNode";
@@ -9,12 +9,16 @@ import Underline from "@tiptap/extension-underline";
 import Toolbar from "./Toolbar";
 import TextAlign from "@tiptap/extension-text-align";
 import { ParagraphWithLineHeight } from "./LineHeightExtension";
+import { compileTemplate } from "./compiler";
 
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
 }
 
-export default function TemplateBlockEditor({ variables = [] }) {
+const TemplateBlockEditor = forwardRef(function TemplateBlockEditor(
+  { variables = [] },
+  ref,
+) {
   const [html, setHtml] = useState("");
 
   const normalizedVariables = variables.map((v) => ({
@@ -39,6 +43,13 @@ export default function TemplateBlockEditor({ variables = [] }) {
 
 
   if (!editor) return null;
+
+  useImperativeHandle(ref, () => ({
+    getCompiled: () => {
+      if (!editor) return { template_html: "", required_fields: [] };
+      return compileTemplate(editor.getJSON());
+    },
+  }));
 
   return (
     <div>
@@ -75,4 +86,6 @@ export default function TemplateBlockEditor({ variables = [] }) {
       </div>
     </div>
   );
-}
+});
+
+export default TemplateBlockEditor;
