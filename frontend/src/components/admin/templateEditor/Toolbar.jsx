@@ -33,7 +33,7 @@ export default function Toolbar({ editor }) {
 
     return (
         <div
-            className="flex items-center gap-0.5 mb-2 p-1 rounded-lg border w-fit"
+            className="flex items-center flex-wrap gap-0.5 mb-2 p-1 rounded-lg border"
             style={{
                 borderColor: "var(--border-color)",
                 backgroundColor: "var(--bg-secondary)",

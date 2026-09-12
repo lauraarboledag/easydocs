@@ -1,36 +1,35 @@
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { useState, useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import TextAlign from "@tiptap/extension-text-align";
 import { VariableNode } from "./VariableNode";
 import { DynamicTableNode } from "./TableNode";
 import { SectionHeadingNode } from "./SectionHeadingNode";
-import { createSlashCommand } from "./SlashCommand";
-import Underline from "@tiptap/extension-underline";
-import Toolbar from "./Toolbar";
-import TextAlign from "@tiptap/extension-text-align";
 import { ParagraphWithLineHeight } from "./LineHeightExtension";
+import { createSlashCommand } from "./SlashCommand";
 import { compileTemplate } from "./compiler";
+import Toolbar from "./Toolbar";
 
+// Convierte "{{ nombre_estudiante }}" -> "nombre_estudiante"
 function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
 }
 
-const TemplateBlockEditor = forwardRef(function TemplateBlockEditor(
-  { variables = [] },
-  ref,
-) {
+export default function TemplateBlockEditor({ variables = [], onReady }) {
   const [html, setHtml] = useState("");
 
+  // El editor necesita las variables en formato { jinjaKey, label },
+  // no en el formato { label, value: "{{ ... }}" } que usa AdminTemplates.jsx
   const normalizedVariables = variables.map((v) => ({
     label: v.label,
     jinjaKey: extractJinjaKey(v.value),
   }));
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({ heading: false, paragraph: false }),
       ParagraphWithLineHeight,
-      Underline,
       TextAlign.configure({ types: ["paragraph"] }),
       VariableNode.configure({ variables: normalizedVariables }),
       DynamicTableNode,
@@ -41,21 +40,21 @@ const TemplateBlockEditor = forwardRef(function TemplateBlockEditor(
     onUpdate: ({ editor }) => setHtml(editor.getHTML()),
   });
 
+  // En vez de exponer un ref con useImperativeHandle (conflictivo con
+  // StrictMode + React 19 dentro de Tiptap), avisamos al componente padre
+  // pasándole la función de compilación cada vez que el editor cambia.
+  useEffect(() => {
+    if (!editor) return;
+    onReady?.(() => compileTemplate(editor.getJSON()));
+  }, [editor]);
 
   if (!editor) return null;
-
-  useImperativeHandle(ref, () => ({
-    getCompiled: () => {
-      if (!editor) return { template_html: "", required_fields: [] };
-      return compileTemplate(editor.getJSON());
-    },
-  }));
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-500">
-          Editor visual (borrador — Fase 4)
+          Editor visual
         </span>
         <span
           className="text-xs px-2 py-1 rounded"
@@ -86,6 +85,4 @@ const TemplateBlockEditor = forwardRef(function TemplateBlockEditor(
       </div>
     </div>
   );
-});
-
-export default TemplateBlockEditor;
+}

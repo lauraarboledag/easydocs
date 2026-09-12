@@ -7,7 +7,6 @@ import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
-const templateEditorRef = useRef;
 import {
   FileText,
   Bell,
@@ -47,6 +46,7 @@ const DOCUMENT_TYPES = [
   },
   { value: "constancia_asistencia", label: "Constancia de Asistencia" },
   { value: "constancia_estudio", label: "Constancia o Certificado de Estudio" },
+  { value: "personalizado", label: "Personalizado" },
 ];
 
 const VARIABLES = [
@@ -78,6 +78,7 @@ const EMPTY_FORM = {
 // Reemplaza variables Jinja2 con valores de ejemplo para la vista previa
 function renderPreview(html) {
   return html
+    .replace(/\{% if institucion\.logo_url %\}[\s\S]*?\{% endif %\}/g, "")
     .replace(/\{\{\s*institucion\.nombre\s*\}\}/g, "Instituto Técnico Ejemplo")
     .replace(/\{\{\s*institucion\.municipio\s*\}\}/g, "Medellín")
     .replace(/\{\{\s*institucion\.departamento\s*\}\}/g, "Antioquia")
@@ -109,6 +110,13 @@ export default function AdminTemplates() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const textareaRef = useRef(null);
+
+  // Guarda la función de compilación que TemplateBlockEditor expone
+  // vía el callback onReady (en vez de un ref con useImperativeHandle).
+  const compileTemplateRef = useRef(() => ({
+    template_html: "",
+    required_fields: [],
+  }));
 
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +227,7 @@ export default function AdminTemplates() {
     let payload = { ...form };
 
     if (mode === "create") {
-      const compiled = templateEditorRef.current?.getCompiled();
+      const compiled = compileTemplateRef.current();
       if (!compiled?.template_html || compiled.required_fields.length === 0) {
         setError(
           "La plantilla está vacía o no tiene ningún campo. Agrega contenido antes de guardar.",
@@ -250,7 +258,14 @@ export default function AdminTemplates() {
       setSelected(null);
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      setError(err.response?.data?.detail || "Error al guardar.");
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // Errores de validación de Pydantic (422): un array de objetos
+        // {loc, msg, ...} — los convertimos a un texto legible.
+        setError(detail.map((e) => `${e.loc?.join(".")}: ${e.msg}`).join(" | "));
+      } else {
+        setError(detail || "Error al guardar.");
+      }
     } finally {
       setSaving(false);
     }
@@ -629,68 +644,87 @@ export default function AdminTemplates() {
                       )}
                     </div>
 
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Campos requeridos
-                      </label>
-                      {mode === "view" ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {form.required_fields.map((f) => (
-                            <span
-                              key={f}
-                              className="text-xs px-2 py-1 rounded font-mono"
+                    {/* Campos requeridos — solo se muestran/editan en modo 'edit' o 'view';
+                        en modo 'create' los calcula el compilador automáticamente. */}
+                    {mode !== "create" && (
+                      <div>
+                        <label
+                          className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          Campos requeridos
+                        </label>
+                        {mode === "view" ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {form.required_fields.map((f) => (
+                              <span
+                                key={f}
+                                className="text-xs px-2 py-1 rounded font-mono"
+                                style={{
+                                  backgroundColor: "var(--color-primary-light)",
+                                  color: "var(--color-primary)",
+                                }}
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              value={fieldsInput}
+                              onChange={(e) =>
+                                handleFieldsChange(e.target.value)
+                              }
+                              placeholder="nombre_estudiante, documento..."
+                              className="w-full border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2"
                               style={{
-                                backgroundColor: "var(--color-primary-light)",
-                                color: "var(--color-primary)",
+                                borderColor: "var(--border-color)",
+                                backgroundColor: "var(--bg-primary)",
+                                color: "var(--text-primary)",
                               }}
+                            />
+                            <p
+                              className="text-xs mt-1"
+                              style={{ color: "var(--text-secondary)" }}
                             >
-                              {f}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <>
-                          <input
-                            type="text"
-                            value={fieldsInput}
-                            onChange={(e) => handleFieldsChange(e.target.value)}
-                            placeholder="nombre_estudiante, documento..."
-                            className="w-full border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2"
-                            style={{
-                              borderColor: "var(--border-color)",
-                              backgroundColor: "var(--bg-primary)",
-                              color: "var(--text-primary)",
-                            }}
-                          />
-                          <p
-                            className="text-xs mt-1"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            Separados por coma.
-                          </p>
-                          {form.required_fields.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {form.required_fields.map((f) => (
-                                <span
-                                  key={f}
-                                  className="text-xs px-2 py-1 rounded font-mono"
-                                  style={{
-                                    backgroundColor:
-                                      "var(--color-primary-light)",
-                                    color: "var(--color-primary)",
-                                  }}
-                                >
-                                  {f}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                              Separados por coma.
+                            </p>
+                            {form.required_fields.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {form.required_fields.map((f) => (
+                                  <span
+                                    key={f}
+                                    className="text-xs px-2 py-1 rounded font-mono"
+                                    style={{
+                                      backgroundColor:
+                                        "var(--color-primary-light)",
+                                      color: "var(--color-primary)",
+                                    }}
+                                  >
+                                    {f}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {mode === "create" && (
+                      <div
+                        className="text-xs rounded-lg p-3"
+                        style={{
+                          backgroundColor: "var(--color-primary-light)",
+                          color: "var(--color-primary)",
+                        }}
+                      >
+                        Los campos requeridos se calculan automáticamente a
+                        partir de las variables que insertes en el editor.
+                      </div>
+                    )}
                   </div>
 
                   {/* Columna derecha — el editor, a pantalla completa */}
@@ -772,7 +806,12 @@ export default function AdminTemplates() {
                     )}
 
                     {mode === "create" && (
-                      <TemplateBlockEditor ref={templateEditorRef} variables={VARIABLES} />
+                      <TemplateBlockEditor
+                        variables={VARIABLES}
+                        onReady={(fn) => {
+                          compileTemplateRef.current = fn;
+                        }}
+                      />
                     )}
 
                     {mode === "edit" && (

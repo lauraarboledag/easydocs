@@ -26,6 +26,7 @@ class DocumentType(str, enum.Enum):
     certificado_conocimientos = "certificado_conocimientos"
     constancia_asistencia = "constancia_asistencia"
     constancia_estudio = "constancia_estudio"
+    personalizado = "personalizado"
 
 class DocumentTemplate(Base):
     __tablename__ = "document_templates"
@@ -34,7 +35,7 @@ class DocumentTemplate(Base):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
     document_type: Mapped[DocumentType] = mapped_column(
-        Enum(DocumentType), nullable=False, unique=True
+        Enum(DocumentType), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=True)
