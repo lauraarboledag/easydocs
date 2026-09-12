@@ -20,6 +20,7 @@ import {
   Save,
   Code,
   Eye,
+  Trash2,
 } from "lucide-react";
 
 const DOCUMENT_TYPES = [
@@ -130,6 +131,8 @@ export default function AdminTemplates() {
   const [success, setSuccess] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useInactivity({
     timeout: 30,
@@ -268,6 +271,28 @@ export default function AdminTemplates() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await api.delete(`/templates/${selected.id}`);
+      if (res.data?.deactivated) {
+        setSuccess("La plantilla ya tenía documentos generados — se desactivó en vez de eliminarse.");
+      } else {
+        setSuccess("Plantilla eliminada exitosamente.");
+      }
+      await fetchTemplates();
+      setMode(null);
+      setSelected(null);
+      setConfirmDelete(false);
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Error al eliminar la plantilla.");
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -511,6 +536,16 @@ export default function AdminTemplates() {
                         >
                           <Save size={13} />{" "}
                           {saving ? "Guardando..." : "Guardar"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(true)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                          style={{
+                            backgroundColor: "#fef2f2",
+                            color: "#dc2626",
+                          }}
+                        >
+                          <Trash2 size={13} /> Eliminar
                         </button>
                       </>
                     )}
@@ -921,7 +956,47 @@ export default function AdminTemplates() {
           </div>
         </div>
       </main>
-
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div
+            className="rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-50 flex-shrink-0">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>
+                ¿Eliminar plantilla?
+              </h3>
+            </div>
+            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+              Si la plantilla <strong>{selected?.name}</strong> ya tiene documentos
+              generados, se desactivará en vez de eliminarse por completo, para
+              conservar el historial.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg border"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:opacity-40"
+              >
+                {deleting ? "Eliminando..." : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showLogout && (
         <LogoutModal
           onConfirm={() => {

@@ -27,6 +27,7 @@ from app.domains.documents.services import (
     list_documents,
     cancel_document,
     update_template,
+    delete_template,
 )
 
 router = APIRouter(tags=["Documentos"])
@@ -49,6 +50,15 @@ def edit_template(
     current_user: User = Depends(require_superadmin),
 ):
     return update_template(db, template_id, data)
+
+
+@router.delete("/templates/{template_id}")
+def remove_template(
+    template_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin),
+):
+    return delete_template(db, template_id)
 
 
 class PreviewRequest(BaseModel):

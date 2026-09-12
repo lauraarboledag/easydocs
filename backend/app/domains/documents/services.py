@@ -160,3 +160,27 @@ def update_template(
     db.commit()
     db.refresh(template)
     return template
+
+
+def delete_template(db: Session, template_id: str) -> dict:
+    template = db.execute(
+        select(DocumentTemplate).where(DocumentTemplate.id == template_id)
+    ).scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada.")
+
+    has_documents = db.execute(
+        select(Document).where(Document.template_id == template_id)
+    ).scalar_one_or_none()
+
+    if has_documents:
+        # Ya se usó para generar documentos reales — se conserva el
+        # historial y solo se desactiva, no se borra.
+        template.is_active = False
+        db.commit()
+        return {"deleted": False, "deactivated": True}
+
+    # Nunca se usó — se puede borrar de verdad sin perder nada.
+    db.delete(template)
+    db.commit()
+    return {"deleted": True, "deactivated": False}
