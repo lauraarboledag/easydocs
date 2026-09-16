@@ -102,6 +102,7 @@ def preview_template(
         template.template_html,
         data.document_data,
         institution_dict,
+        table_columns=template.table_columns,
     )
     return {"html": rendered_html}
 

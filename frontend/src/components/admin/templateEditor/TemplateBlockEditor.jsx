@@ -8,6 +8,9 @@ import { SectionHeadingNode } from "./SectionHeadingNode";
 import { ParagraphWithLineHeight } from "./LineHeightExtension";
 import { createSlashCommand } from "./SlashCommand";
 import { compileTemplate } from "./compiler";
+import { DataTableNode } from "./DataTableNode";
+import { SignatureBlockNode } from "./SignatureBlockNode";
+import { ConditionalSectionNode } from "./ConditionalSectionNode";
 import Toolbar from "./Toolbar";
 
 // Convierte "{{ nombre_estudiante }}" -> "nombre_estudiante"
@@ -15,7 +18,7 @@ function extractJinjaKey(rawValue) {
   return rawValue.replace(/^\{\{\s*/, "").replace(/\s*\}\}$/, "");
 }
 
-export default function TemplateBlockEditor({ variables = [], onReady }) {
+export default function TemplateBlockEditor({ variables = [], onReady, initialContent }) {
   const [html, setHtml] = useState("");
 
   // El editor necesita las variables en formato { jinjaKey, label },
@@ -33,10 +36,13 @@ export default function TemplateBlockEditor({ variables = [], onReady }) {
       TextAlign.configure({ types: ["paragraph"] }),
       VariableNode.configure({ variables: normalizedVariables }),
       DynamicTableNode,
+      DataTableNode.configure({ variables: normalizedVariables }),
       SectionHeadingNode,
+      SignatureBlockNode,
+      ConditionalSectionNode,
       createSlashCommand(normalizedVariables),
     ],
-    content: "<p>Escribe / para insertar algo, o empieza a escribir...</p>",
+    content: initialContent || "<p>Escribe / para insertar algo, o empieza a escribir...</p>",
     onUpdate: ({ editor }) => setHtml(editor.getHTML()),
   });
 

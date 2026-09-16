@@ -7,6 +7,7 @@ import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import { translateHtmlToBlocks } from "../components/admin/templateEditor/htmlTranslator";
 import {
   FileText,
   Bell,
@@ -21,6 +22,7 @@ import {
   Code,
   Eye,
   Trash2,
+  Maximize2,
 } from "lucide-react";
 
 const DOCUMENT_TYPES = [
@@ -124,6 +126,8 @@ export default function AdminTemplates() {
   const [selected, setSelected] = useState(null);
   const [mode, setMode] = useState(null); // 'view' | 'edit' | 'create'
   const [viewTab, setViewTab] = useState("preview"); // 'preview' | 'html'
+  const [editTab, setEditTab] = useState("visual"); // 'visual' | 'html'
+  const [translatedContent, setTranslatedContent] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [fieldsInput, setFieldsInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -133,6 +137,8 @@ export default function AdminTemplates() {
   const [showInactivity, setShowInactivity] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isFullScreen = mode === "create" || mode === "edit";
 
   useInactivity({
     timeout: 30,
@@ -194,6 +200,16 @@ export default function AdminTemplates() {
     setError("");
   };
 
+  // Entra en modo "editar": traduce el HTML existente a bloques para el
+  // editor visual, y deja el HTML crudo como pestaña de respaldo.
+  const handleEnterEdit = () => {
+    const result = translateHtmlToBlocks(form.template_html);
+    setTranslatedContent(result.doc);
+    setEditTab("visual");
+    setMode("edit");
+    setError("");
+  };
+
   const handleFieldsChange = (val) => {
     setFieldsInput(val);
     setForm((p) => ({
@@ -228,8 +244,10 @@ export default function AdminTemplates() {
     }
 
     let payload = { ...form };
+    const usingVisualEditor =
+      mode === "create" || (mode === "edit" && editTab === "visual");
 
-    if (mode === "create") {
+    if (usingVisualEditor) {
       const compiled = compileTemplateRef.current();
       if (!compiled?.template_html || compiled.required_fields.length === 0) {
         setError(
@@ -241,6 +259,7 @@ export default function AdminTemplates() {
         ...payload,
         template_html: compiled.template_html,
         required_fields: compiled.required_fields,
+        table_columns: compiled.table_columns,
       };
     } else if (!form.template_html) {
       setError("El contenido HTML es obligatorio.");
@@ -265,7 +284,9 @@ export default function AdminTemplates() {
       if (Array.isArray(detail)) {
         // Errores de validación de Pydantic (422): un array de objetos
         // {loc, msg, ...} — los convertimos a un texto legible.
-        setError(detail.map((e) => `${e.loc?.join(".")}: ${e.msg}`).join(" | "));
+        setError(
+          detail.map((e) => `${e.loc?.join(".")}: ${e.msg}`).join(" | "),
+        );
       } else {
         setError(detail || "Error al guardar.");
       }
@@ -279,7 +300,9 @@ export default function AdminTemplates() {
     try {
       const res = await api.delete(`/templates/${selected.id}`);
       if (res.data?.deactivated) {
-        setSuccess("La plantilla ya tenía documentos generados — se desactivó en vez de eliminarse.");
+        setSuccess(
+          "La plantilla ya tenía documentos generados — se desactivó en vez de eliminarse.",
+        );
       } else {
         setSuccess("Plantilla eliminada exitosamente.");
       }
@@ -302,11 +325,414 @@ export default function AdminTemplates() {
     setError("");
   };
 
-  const isEditing = mode === "edit" || mode === "create";
+  // --- Barra de metadatos (compartida entre el panel normal y el overlay) ---
+  function MetadataBar() {
+    return (
+      <div
+        className="px-5 py-3 border-b flex-shrink-0"
+        style={{ borderColor: "var(--border-color)" }}
+      >
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs flex items-center gap-2 mb-3">
+            <AlertCircle size={14} /> {error}
+          </div>
+        )}
+        <div className="grid grid-cols-12 gap-3 items-start">
+          <div className="col-span-3">
+            <label
+              className="block text-[10px] font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Tipo *
+            </label>
+            {mode === "view" ? (
+              <p
+                className="text-sm px-2.5 py-1.5 rounded-lg truncate"
+                style={{
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {form.document_type}
+              </p>
+            ) : (
+              <select
+                value={form.document_type}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, document_type: e.target.value }))
+                }
+                disabled={mode === "edit"}
+                className="w-full border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-secondary)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <option value="">Selecciona...</option>
+                {DOCUMENT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="col-span-3">
+            <label
+              className="block text-[10px] font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nombre *
+            </label>
+            {mode === "view" ? (
+              <p
+                className="text-sm px-2.5 py-1.5 rounded-lg truncate"
+                style={{
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {form.name}
+              </p>
+            ) : (
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                placeholder="Nombre de la plantilla"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            )}
+          </div>
+
+          <div className="col-span-4">
+            <label
+              className="block text-[10px] font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Descripción
+            </label>
+            {mode === "view" ? (
+              <p
+                className="text-sm px-2.5 py-1.5 rounded-lg truncate"
+                style={{
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {form.description || "—"}
+              </p>
+            ) : (
+              <input
+                type="text"
+                value={form.description}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, description: e.target.value }))
+                }
+                placeholder="Descripción normativa..."
+                className="w-full border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            )}
+          </div>
+
+          <div className="col-span-2">
+            <label
+              className="block text-[10px] font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Campos requeridos
+            </label>
+            {mode === "create" ? (
+              <p
+                className="text-xs px-2.5 py-1.5 rounded-lg"
+                style={{
+                  backgroundColor: "var(--color-primary-light)",
+                  color: "var(--color-primary)",
+                }}
+              >
+                Automático
+              </p>
+            ) : mode === "view" ? (
+              <div className="flex flex-wrap gap-1 max-h-8 overflow-y-auto">
+                {form.required_fields.map((f) => (
+                  <span
+                    key={f}
+                    className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                    style={{
+                      backgroundColor: "var(--color-primary-light)",
+                      color: "var(--color-primary)",
+                    }}
+                  >
+                    {f}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={fieldsInput}
+                onChange={(e) => handleFieldsChange(e.target.value)}
+                placeholder="campo1, campo2..."
+                disabled={editTab === "visual"}
+                className="w-full border rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 disabled:opacity-50"
+                style={{
+                  borderColor: "var(--border-color)",
+                  backgroundColor: "var(--bg-primary)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Zona de trabajo del editor (compartida entre panel normal y overlay) ---
+  function EditorWorkspace() {
+    return (
+      <div className="p-5 flex-1 min-h-0 overflow-y-auto flex flex-col">
+        {mode === "view" && (
+          <div
+            className="flex gap-1 p-0.5 rounded-lg mb-3 w-fit flex-shrink-0"
+            style={{ backgroundColor: "var(--bg-primary)" }}
+          >
+            <button
+              onClick={() => setViewTab("preview")}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+              style={{
+                backgroundColor:
+                  viewTab === "preview" ? "var(--bg-secondary)" : "transparent",
+                color:
+                  viewTab === "preview"
+                    ? "var(--text-primary)"
+                    : "var(--text-secondary)",
+              }}
+            >
+              <Eye size={12} /> Vista previa
+            </button>
+            <button
+              onClick={() => setViewTab("html")}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+              style={{
+                backgroundColor:
+                  viewTab === "html" ? "var(--bg-secondary)" : "transparent",
+                color:
+                  viewTab === "html"
+                    ? "var(--text-primary)"
+                    : "var(--text-secondary)",
+              }}
+            >
+              <Code size={12} /> HTML
+            </button>
+          </div>
+        )}
+
+        {mode === "view" && viewTab === "preview" && (
+          <div
+            className="border rounded-xl overflow-hidden flex-1"
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            <iframe
+              srcDoc={renderPreview(form.template_html)}
+              className="w-full h-full bg-white"
+              style={{ minHeight: "70vh", border: "none" }}
+              title="Vista previa plantilla"
+              sandbox="allow-same-origin"
+            />
+          </div>
+        )}
+
+        {mode === "view" && viewTab === "html" && (
+          <textarea
+            readOnly
+            value={form.template_html}
+            className="w-full flex-1 border rounded-lg px-4 py-3 text-xs font-mono resize-none"
+            style={{
+              minHeight: "70vh",
+              borderColor: "var(--border-color)",
+              backgroundColor: "var(--bg-primary)",
+              color: "var(--text-primary)",
+            }}
+          />
+        )}
+
+        {mode === "create" && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <TemplateBlockEditor
+              variables={VARIABLES}
+              onReady={(fn) => {
+                compileTemplateRef.current = fn;
+              }}
+            />
+          </div>
+        )}
+
+        {mode === "edit" && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div
+              className="flex gap-1 p-0.5 rounded-lg mb-3 w-fit flex-shrink-0"
+              style={{ backgroundColor: "var(--bg-primary)" }}
+            >
+              <button
+                onClick={() => setEditTab("visual")}
+                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                style={{
+                  backgroundColor:
+                    editTab === "visual" ? "var(--bg-secondary)" : "transparent",
+                  color:
+                    editTab === "visual"
+                      ? "var(--text-primary)"
+                      : "var(--text-secondary)",
+                }}
+              >
+                Editor visual
+              </button>
+              <button
+                onClick={() => setEditTab("html")}
+                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                style={{
+                  backgroundColor:
+                    editTab === "html" ? "var(--bg-secondary)" : "transparent",
+                  color:
+                    editTab === "html"
+                      ? "var(--text-primary)"
+                      : "var(--text-secondary)",
+                }}
+              >
+                HTML (respaldo)
+              </button>
+            </div>
+
+            {editTab === "visual" && (
+              <TemplateBlockEditor
+                variables={VARIABLES}
+                initialContent={translatedContent}
+                onReady={(fn) => {
+                  compileTemplateRef.current = fn;
+                }}
+              />
+            )}
+
+            {editTab === "html" && (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div
+                  className="border rounded-xl overflow-hidden flex-1 flex flex-col"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
+                  <div
+                    className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0"
+                    style={{
+                      backgroundColor: "var(--bg-primary)",
+                      borderColor: "var(--border-color)",
+                    }}
+                  >
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Editor HTML (respaldo)
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {form.template_html.length} caracteres
+                    </span>
+                  </div>
+                  <textarea
+                    ref={textareaRef}
+                    value={form.template_html}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, template_html: e.target.value }))
+                    }
+                    placeholder="<!DOCTYPE html><html>..."
+                    className="w-full flex-1 px-4 py-3 text-xs font-mono focus:outline-none resize-none"
+                    style={{
+                      minHeight: "50vh",
+                      backgroundColor: "var(--bg-secondary)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+
+                {form.template_html && (
+                  <div
+                    className="mt-4 border rounded-xl overflow-hidden flex-shrink-0"
+                    style={{ borderColor: "var(--border-color)" }}
+                  >
+                    <div
+                      className="px-3 py-2 border-b"
+                      style={{
+                        backgroundColor: "var(--color-primary-light)",
+                        borderColor: "var(--border-color)",
+                      }}
+                    >
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: "var(--color-primary)" }}
+                      >
+                        Vista previa en tiempo real
+                      </span>
+                    </div>
+                    <iframe
+                      srcDoc={renderPreview(form.template_html)}
+                      className="w-full bg-white"
+                      style={{ height: "300px", border: "none" }}
+                      title="Vista previa"
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                )}
+
+                <div
+                  className="mt-2 rounded-xl p-3 border flex-shrink-0"
+                  style={{
+                    backgroundColor: "var(--color-primary-light)",
+                    borderColor: "var(--color-primary)",
+                  }}
+                >
+                  <p
+                    className="text-xs font-medium mb-1"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    Variables institucionales disponibles automáticamente:
+                  </p>
+                  <p
+                    className="text-xs font-mono leading-5"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    {"{{ institucion.nombre }}"} ·{" "}
+                    {"{{ institucion.municipio }}"} ·{" "}
+                    {"{{ institucion.departamento }}"} ·{" "}
+                    {"{{ institucion.licencia }}"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
@@ -357,7 +783,7 @@ export default function AdminTemplates() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 flex gap-6">
+        <div className="flex-1 p-8 flex gap-6 min-h-0">
           {/* Lista plantillas */}
           <div className="w-72 flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
@@ -439,8 +865,9 @@ export default function AdminTemplates() {
             </div>
           </div>
 
-          {/* Panel editor */}
-          <div className="flex-1 min-w-0">
+          {/* Panel normal — solo para "ver" o el estado vacío. Crear/editar
+              se muestran en el overlay de pantalla completa, más abajo. */}
+          <div className="flex-1 min-w-0 flex flex-col">
             {!mode && !selected ? (
               <div
                 className="rounded-xl border h-full flex items-center justify-center"
@@ -480,484 +907,119 @@ export default function AdminTemplates() {
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : mode === "view" ? (
               <div
-                className="rounded-xl border flex flex-col"
+                className="rounded-xl border flex flex-col flex-1 min-h-0"
                 style={{
                   backgroundColor: "var(--bg-secondary)",
                   borderColor: "var(--border-color)",
                 }}
               >
-                {/* Header */}
                 <div
-                  className="flex items-center justify-between p-4 border-b"
+                  className="flex items-center justify-between p-4 border-b flex-shrink-0"
                   style={{ borderColor: "var(--border-color)" }}
                 >
                   <h3
                     className="font-bold text-sm"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {mode === "create"
-                      ? "Nueva plantilla"
-                      : mode === "edit"
-                        ? `Editando: ${selected?.name}`
-                        : selected?.name}
+                    {selected?.name}
                   </h3>
                   <div className="flex items-center gap-2">
-                    {mode === "view" && (
-                      <button
-                        onClick={() => setMode("edit")}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
-                        style={{
-                          backgroundColor: "var(--bg-primary)",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        <Edit2 size={13} /> Editar
-                      </button>
-                    )}
-                    {isEditing && (
-                      <>
-                        <button
-                          onClick={handleCancel}
-                          className="flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg font-medium transition-colors"
-                          style={{
-                            borderColor: "var(--border-color)",
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          <X size={13} /> Cancelar
-                        </button>
-                        <button
-                          onClick={handleSave}
-                          disabled={saving}
-                          className="flex items-center gap-1.5 text-xs text-white px-4 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
-                          style={{ backgroundColor: "var(--color-primary)" }}
-                        >
-                          <Save size={13} />{" "}
-                          {saving ? "Guardando..." : "Guardar"}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(true)}
-                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
-                          style={{
-                            backgroundColor: "#fef2f2",
-                            color: "#dc2626",
-                          }}
-                        >
-                          <Trash2 size={13} /> Eliminar
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Cuerpo: dos columnas — metadatos angostos + editor a pantalla completa */}
-                <div className="p-5 flex-1 overflow-y-auto flex gap-5">
-                  {/* Columna izquierda — información de la plantilla, compacta */}
-                  <div className="w-64 flex-shrink-0 space-y-4">
-                    {error && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs flex items-center gap-2">
-                        <AlertCircle size={14} /> {error}
-                      </div>
-                    )}
-
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Tipo *
-                      </label>
-                      {mode === "view" ? (
-                        <p
-                          className="text-sm px-3 py-2 rounded-lg"
-                          style={{
-                            backgroundColor: "var(--bg-primary)",
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          {form.document_type}
-                        </p>
-                      ) : (
-                        <select
-                          value={form.document_type}
-                          onChange={(e) =>
-                            setForm((p) => ({
-                              ...p,
-                              document_type: e.target.value,
-                            }))
-                          }
-                          disabled={mode === "edit"}
-                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
-                          style={{
-                            borderColor: "var(--border-color)",
-                            backgroundColor: "var(--bg-secondary)",
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          <option value="">Selecciona...</option>
-                          {DOCUMENT_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Nombre *
-                      </label>
-                      {mode === "view" ? (
-                        <p
-                          className="text-sm px-3 py-2 rounded-lg"
-                          style={{
-                            backgroundColor: "var(--bg-primary)",
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          {form.name}
-                        </p>
-                      ) : (
-                        <input
-                          type="text"
-                          value={form.name}
-                          onChange={(e) =>
-                            setForm((p) => ({ ...p, name: e.target.value }))
-                          }
-                          placeholder="Nombre de la plantilla"
-                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                          style={{
-                            borderColor: "var(--border-color)",
-                            backgroundColor: "var(--bg-primary)",
-                            color: "var(--text-primary)",
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label
-                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Descripción
-                      </label>
-                      {mode === "view" ? (
-                        <p
-                          className="text-sm px-3 py-2 rounded-lg"
-                          style={{
-                            backgroundColor: "var(--bg-primary)",
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          {form.description || "—"}
-                        </p>
-                      ) : (
-                        <textarea
-                          value={form.description}
-                          onChange={(e) =>
-                            setForm((p) => ({
-                              ...p,
-                              description: e.target.value,
-                            }))
-                          }
-                          placeholder="Descripción normativa..."
-                          rows={2}
-                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
-                          style={{
-                            borderColor: "var(--border-color)",
-                            backgroundColor: "var(--bg-primary)",
-                            color: "var(--text-primary)",
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Campos requeridos — solo se muestran/editan en modo 'edit' o 'view';
-                        en modo 'create' los calcula el compilador automáticamente. */}
-                    {mode !== "create" && (
-                      <div>
-                        <label
-                          className="block text-xs font-semibold uppercase tracking-wide mb-1"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          Campos requeridos
-                        </label>
-                        {mode === "view" ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {form.required_fields.map((f) => (
-                              <span
-                                key={f}
-                                className="text-xs px-2 py-1 rounded font-mono"
-                                style={{
-                                  backgroundColor: "var(--color-primary-light)",
-                                  color: "var(--color-primary)",
-                                }}
-                              >
-                                {f}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <>
-                            <input
-                              type="text"
-                              value={fieldsInput}
-                              onChange={(e) =>
-                                handleFieldsChange(e.target.value)
-                              }
-                              placeholder="nombre_estudiante, documento..."
-                              className="w-full border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2"
-                              style={{
-                                borderColor: "var(--border-color)",
-                                backgroundColor: "var(--bg-primary)",
-                                color: "var(--text-primary)",
-                              }}
-                            />
-                            <p
-                              className="text-xs mt-1"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              Separados por coma.
-                            </p>
-                            {form.required_fields.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {form.required_fields.map((f) => (
-                                  <span
-                                    key={f}
-                                    className="text-xs px-2 py-1 rounded font-mono"
-                                    style={{
-                                      backgroundColor:
-                                        "var(--color-primary-light)",
-                                      color: "var(--color-primary)",
-                                    }}
-                                  >
-                                    {f}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {mode === "create" && (
-                      <div
-                        className="text-xs rounded-lg p-3"
-                        style={{
-                          backgroundColor: "var(--color-primary-light)",
-                          color: "var(--color-primary)",
-                        }}
-                      >
-                        Los campos requeridos se calculan automáticamente a
-                        partir de las variables que insertes en el editor.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Columna derecha — el editor, a pantalla completa */}
-                  <div className="flex-1 min-w-0">
-                    <label
-                      className="block text-xs font-semibold uppercase tracking-wide mb-2"
-                      style={{ color: "var(--text-secondary)" }}
+                    <button
+                      onClick={handleEnterEdit}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                      style={{
+                        backgroundColor: "var(--bg-primary)",
+                        color: "var(--text-secondary)",
+                      }}
                     >
-                      {isEditing ? "Contenido" : "Vista previa"}
-                    </label>
-
-                    {mode === "view" && (
-                      <div
-                        className="flex gap-1 p-0.5 rounded-lg mb-2 w-fit"
-                        style={{ backgroundColor: "var(--bg-primary)" }}
-                      >
-                        <button
-                          onClick={() => setViewTab("preview")}
-                          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
-                          style={{
-                            backgroundColor:
-                              viewTab === "preview"
-                                ? "var(--bg-secondary)"
-                                : "transparent",
-                            color:
-                              viewTab === "preview"
-                                ? "var(--text-primary)"
-                                : "var(--text-secondary)",
-                          }}
-                        >
-                          <Eye size={12} /> Vista previa
-                        </button>
-                        <button
-                          onClick={() => setViewTab("html")}
-                          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
-                          style={{
-                            backgroundColor:
-                              viewTab === "html"
-                                ? "var(--bg-secondary)"
-                                : "transparent",
-                            color:
-                              viewTab === "html"
-                                ? "var(--text-primary)"
-                                : "var(--text-secondary)",
-                          }}
-                        >
-                          <Code size={12} /> HTML
-                        </button>
-                      </div>
-                    )}
-
-                    {mode === "view" && viewTab === "preview" && (
-                      <div
-                        className="border rounded-xl overflow-hidden"
-                        style={{ borderColor: "var(--border-color)" }}
-                      >
-                        <iframe
-                          srcDoc={renderPreview(form.template_html)}
-                          className="w-full bg-white"
-                          style={{ height: "650px", border: "none" }}
-                          title="Vista previa plantilla"
-                          sandbox="allow-same-origin"
-                        />
-                      </div>
-                    )}
-
-                    {mode === "view" && viewTab === "html" && (
-                      <textarea
-                        readOnly
-                        value={form.template_html}
-                        rows={28}
-                        className="w-full border rounded-lg px-4 py-3 text-xs font-mono resize-none"
-                        style={{
-                          borderColor: "var(--border-color)",
-                          backgroundColor: "var(--bg-primary)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                    )}
-
-                    {mode === "create" && (
-                      <TemplateBlockEditor
-                        variables={VARIABLES}
-                        onReady={(fn) => {
-                          compileTemplateRef.current = fn;
-                        }}
-                      />
-                    )}
-
-                    {mode === "edit" && (
-                      <>
-                        <div
-                          className="border rounded-xl overflow-hidden"
-                          style={{ borderColor: "var(--border-color)" }}
-                        >
-                          <div
-                            className="px-3 py-2 border-b flex items-center justify-between"
-                            style={{
-                              backgroundColor: "var(--bg-primary)",
-                              borderColor: "var(--border-color)",
-                            }}
-                          >
-                            <span
-                              className="text-xs font-medium"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              Editor HTML
-                            </span>
-                            <span
-                              className="text-xs"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              {form.template_html.length} caracteres
-                            </span>
-                          </div>
-                          <textarea
-                            ref={textareaRef}
-                            value={form.template_html}
-                            onChange={(e) =>
-                              setForm((p) => ({
-                                ...p,
-                                template_html: e.target.value,
-                              }))
-                            }
-                            rows={20}
-                            placeholder="<!DOCTYPE html><html>..."
-                            className="w-full px-4 py-3 text-xs font-mono focus:outline-none resize-none"
-                            style={{
-                              backgroundColor: "var(--bg-secondary)",
-                              color: "var(--text-primary)",
-                            }}
-                          />
-                        </div>
-
-                        {form.template_html && (
-                          <div
-                            className="mt-4 border rounded-xl overflow-hidden"
-                            style={{ borderColor: "var(--border-color)" }}
-                          >
-                            <div
-                              className="px-3 py-2 border-b"
-                              style={{
-                                backgroundColor: "var(--color-primary-light)",
-                                borderColor: "var(--border-color)",
-                              }}
-                            >
-                              <span
-                                className="text-xs font-medium"
-                                style={{ color: "var(--color-primary)" }}
-                              >
-                                Vista previa en tiempo real
-                              </span>
-                            </div>
-                            <iframe
-                              srcDoc={renderPreview(form.template_html)}
-                              className="w-full bg-white"
-                              style={{ height: "300px", border: "none" }}
-                              title="Vista previa"
-                              sandbox="allow-same-origin"
-                            />
-                          </div>
-                        )}
-
-                        <div
-                          className="mt-2 rounded-xl p-3 border"
-                          style={{
-                            backgroundColor: "var(--color-primary-light)",
-                            borderColor: "var(--color-primary)",
-                          }}
-                        >
-                          <p
-                            className="text-xs font-medium mb-1"
-                            style={{ color: "var(--color-primary)" }}
-                          >
-                            Variables institucionales disponibles
-                            automáticamente:
-                          </p>
-                          <p
-                            className="text-xs font-mono leading-5"
-                            style={{ color: "var(--color-primary)" }}
-                          >
-                            {"{{ institucion.nombre }}"} ·{" "}
-                            {"{{ institucion.municipio }}"} ·{" "}
-                            {"{{ institucion.departamento }}"} ·{" "}
-                            {"{{ institucion.licencia }}"}
-                          </p>
-                        </div>
-                      </>
-                    )}
+                      <Edit2 size={13} /> Editar
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                      style={{ backgroundColor: "#fef2f2", color: "#dc2626" }}
+                    >
+                      <Trash2 size={13} /> Eliminar
+                    </button>
                   </div>
                 </div>
+                <MetadataBar />
+                <EditorWorkspace />
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </main>
+
+      {/* Overlay de pantalla completa — crear / editar */}
+      {isFullScreen && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{ backgroundColor: "var(--bg-primary)" }}
+        >
+          <div
+            className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCancel}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: "var(--text-secondary)" }}
+                title="Salir"
+              >
+                <X size={18} />
+              </button>
+              <h3
+                className="font-bold text-sm"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {mode === "create" ? "Nueva plantilla" : `Editando: ${selected?.name}`}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancel}
+                className="flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg font-medium transition-colors"
+                style={{
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <X size={13} /> Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1.5 text-xs text-white px-4 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
+                <Save size={13} /> {saving ? "Guardando..." : "Guardar"}
+              </button>
+              {mode === "edit" && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                  style={{ backgroundColor: "#fef2f2", color: "#dc2626" }}
+                >
+                  <Trash2 size={13} /> Eliminar
+                </button>
+              )}
+            </div>
+          </div>
+
+          <MetadataBar />
+          <EditorWorkspace />
+        </div>
+      )}
+
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div
             className="rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4"
             style={{ backgroundColor: "var(--bg-secondary)" }}
@@ -971,9 +1033,9 @@ export default function AdminTemplates() {
               </h3>
             </div>
             <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-              Si la plantilla <strong>{selected?.name}</strong> ya tiene documentos
-              generados, se desactivará en vez de eliminarse por completo, para
-              conservar el historial.
+              Si la plantilla <strong>{selected?.name}</strong> ya tiene
+              documentos generados, se desactivará en vez de eliminarse por
+              completo, para conservar el historial.
             </p>
             <div className="flex gap-3">
               <button
@@ -997,6 +1059,7 @@ export default function AdminTemplates() {
           </div>
         </div>
       )}
+
       {showLogout && (
         <LogoutModal
           onConfirm={() => {

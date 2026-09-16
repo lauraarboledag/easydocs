@@ -21,6 +21,9 @@ import {
   Crown,
   Eye,
   ImageIcon,
+  Plus,
+  X,
+  Sparkles,
 } from "lucide-react";
 
 const FIELD_LABELS = {
@@ -141,6 +144,7 @@ const CHAPTER_GROUPS = {
     "constancia_asistencia",
     "constancia_estudio",
   ],
+  Personalizados: ["personalizado"],
 };
 
 const LOGO_POSITIONS = [
@@ -170,6 +174,10 @@ function RocketAnimation() {
       </div>
     </div>
   );
+}
+
+function isTableField(template, field) {
+  return !!(template?.table_columns && field in template.table_columns);
 }
 
 export default function DocumentNew() {
@@ -219,7 +227,7 @@ export default function DocumentNew() {
     setSelectedTemplate(template);
     const initial = {};
     template.required_fields.forEach((f) => {
-      initial[f] = "";
+      initial[f] = isTableField(template, f) ? [] : "";
     });
     setFormData(initial);
     setStep(2);
@@ -231,8 +239,38 @@ export default function DocumentNew() {
     setError("");
   };
 
+  const addTableRow = (field) => {
+    const columns = selectedTemplate.table_columns[field];
+    setFormData((prev) => ({
+      ...prev,
+      [field]: [...(prev[field] || []), columns.map(() => "")],
+    }));
+    setError("");
+  };
+
+  const removeTableRow = (field, rowIndex) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== rowIndex),
+    }));
+  };
+
+  const updateTableCell = (field, rowIndex, colIndex, value) => {
+    setFormData((prev) => {
+      const rows = [...(prev[field] || [])];
+      rows[rowIndex] = [...rows[rowIndex]];
+      rows[rowIndex][colIndex] = value;
+      return { ...prev, [field]: rows };
+    });
+  };
+
   const handleGoToPreview = async (position = logoPosition) => {
-    const empty = selectedTemplate.required_fields.filter((f) => !formData[f]);
+    const empty = selectedTemplate.required_fields.filter((f) => {
+      if (isTableField(selectedTemplate, f)) {
+        return !formData[f] || formData[f].length === 0;
+      }
+      return !formData[f];
+    });
     if (empty.length > 0) {
       setError(
         `Completa los campos obligatorios: ${empty.map((f) => FIELD_LABELS[f] || f).join(", ")}`,
@@ -464,37 +502,38 @@ export default function DocumentNew() {
                   borderColor: "var(--border-color)",
                 }}
               >
-                {Object.keys(CHAPTER_GROUPS).map((chapter) => (
-                  <button
-                    key={chapter}
-                    onClick={() => setActiveChapter(chapter)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium transition-colors"
-                    style={{
-                      backgroundColor:
-                        activeChapter === chapter
-                          ? "var(--color-primary)"
-                          : "transparent",
-                      color:
-                        activeChapter === chapter
-                          ? "#ffffff"
-                          : "var(--text-secondary)",
-                    }}
-                  >
-                    {chapter.includes("LR") ? (
-                      <BookOpen size={14} />
-                    ) : (
-                      <Award size={14} />
-                    )}
-                    <span className="hidden sm:block">
-                      {chapter.includes("LR")
-                        ? "Libros Reglamentarios"
-                        : "Certificados y Constancias"}
-                    </span>
-                    <span className="sm:hidden">
-                      {chapter.includes("LR") ? "Capítulo I" : "Capítulo II"}
-                    </span>
-                  </button>
-                ))}
+                {Object.keys(CHAPTER_GROUPS).map((chapter) => {
+                  const isLR = chapter.includes("LR");
+                  const isPersonalizados = chapter === "Personalizados";
+                  const Icon = isLR ? BookOpen : isPersonalizados ? Sparkles : Award;
+                  const fullLabel = isLR
+                    ? "Libros Reglamentarios"
+                    : isPersonalizados
+                      ? "Personalizados"
+                      : "Certificados y Constancias";
+                  const shortLabel = isLR
+                    ? "Capítulo I"
+                    : isPersonalizados
+                      ? "Personalizados"
+                      : "Capítulo II";
+                  return (
+                    <button
+                      key={chapter}
+                      onClick={() => setActiveChapter(chapter)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor:
+                          activeChapter === chapter ? "var(--color-primary)" : "transparent",
+                        color:
+                          activeChapter === chapter ? "#ffffff" : "var(--text-secondary)",
+                      }}
+                    >
+                      <Icon size={14} />
+                      <span className="hidden sm:block">{fullLabel}</span>
+                      <span className="sm:hidden">{shortLabel}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {getTemplatesByChapter(CHAPTER_GROUPS[activeChapter]).map(
@@ -619,13 +658,105 @@ export default function DocumentNew() {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {selectedTemplate.required_fields.map((field) => {
+                    if (isTableField(selectedTemplate, field)) {
+                      const columns = selectedTemplate.table_columns[field];
+                      const rows = formData[field] || [];
+                      return (
+                        <div key={field} className="md:col-span-2">
+                          <label
+                            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            Tabla de datos *
+                          </label>
+                          <div
+                            className="border rounded-lg overflow-hidden"
+                            style={{ borderColor: "var(--border-color)" }}
+                          >
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr style={{ backgroundColor: "var(--bg-primary)" }}>
+                                  {columns.map((col) => (
+                                    <th
+                                      key={col}
+                                      className="text-left px-3 py-2 text-xs font-semibold"
+                                      style={{ color: "var(--text-secondary)" }}
+                                    >
+                                      {col}
+                                    </th>
+                                  ))}
+                                  <th className="w-10" />
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((row, rowIndex) => (
+                                  <tr
+                                    key={rowIndex}
+                                    className="border-t"
+                                    style={{ borderColor: "var(--border-color)" }}
+                                  >
+                                    {columns.map((col, colIndex) => (
+                                      <td key={colIndex} className="p-1">
+                                        <input
+                                          type="text"
+                                          value={row[colIndex] || ""}
+                                          onChange={(e) =>
+                                            updateTableCell(
+                                              field,
+                                              rowIndex,
+                                              colIndex,
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full border-0 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1"
+                                          style={{
+                                            backgroundColor: "var(--bg-primary)",
+                                            color: "var(--text-primary)",
+                                          }}
+                                        />
+                                      </td>
+                                    ))}
+                                    <td className="p-1 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTableRow(field, rowIndex)}
+                                        style={{ color: "#dc2626" }}
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <button
+                              type="button"
+                              onClick={() => addTableRow(field)}
+                              className="w-full flex items-center justify-center gap-1 py-2 text-xs font-medium border-t"
+                              style={{
+                                color: "var(--color-primary)",
+                                borderColor: "var(--border-color)",
+                              }}
+                            >
+                              <Plus size={13} /> Agregar fila
+                            </button>
+                          </div>
+                          {rows.length === 0 && (
+                            <p
+                              className="text-xs mt-1"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              Agrega al menos una fila.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+
                     const isMultiline = MULTILINE_FIELDS.includes(field);
                     const label = FIELD_LABELS[field] || field;
                     return (
-                      <div
-                        key={field}
-                        className={isMultiline ? "md:col-span-2" : ""}
-                      >
+                      <div key={field} className={isMultiline ? "md:col-span-2" : ""}>
                         <label
                           className="block text-xs font-semibold uppercase tracking-wide mb-1"
                           style={{ color: "var(--text-secondary)" }}
@@ -635,9 +766,7 @@ export default function DocumentNew() {
                         {isMultiline ? (
                           <textarea
                             value={formData[field] || ""}
-                            onChange={(e) =>
-                              handleChange(field, e.target.value)
-                            }
+                            onChange={(e) => handleChange(field, e.target.value)}
                             rows={3}
                             placeholder={`Ingresa ${label.toLowerCase()}...`}
                             className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 resize-none"
@@ -651,9 +780,7 @@ export default function DocumentNew() {
                           <input
                             type="text"
                             value={formData[field] || ""}
-                            onChange={(e) =>
-                              handleChange(field, e.target.value)
-                            }
+                            onChange={(e) => handleChange(field, e.target.value)}
                             placeholder={`Ingresa ${label.toLowerCase()}...`}
                             className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2"
                             style={{

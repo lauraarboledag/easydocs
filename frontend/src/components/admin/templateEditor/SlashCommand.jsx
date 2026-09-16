@@ -54,6 +54,24 @@ function getItems({ query, variables }) {
     },
 
     {
+      title: "Tabla de datos",
+      description: "Pares de etiqueta + variable, ej: 'Documento: {{...}}'",
+      command: ({ editor, range }) => {
+        const defaultVariable = variables[0];
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, {
+            type: "dataTable",
+            attrs: {
+              rows: [{ label: "Etiqueta", jinjaKey: defaultVariable.jinjaKey }],
+            },
+          })
+          .run();
+      },
+    },
+
+    {
       title: "Lista con viñetas",
       description: "Lista simple de puntos",
       command: ({ editor, range }) => {
@@ -65,6 +83,37 @@ function getItems({ query, variables }) {
       description: "Lista ordenada con números",
       command: ({ editor, range }) => {
         editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+      },
+    },
+
+    {
+      title: "Bloque de firmas",
+      description: "Líneas de firma con etiqueta, cantidad configurable",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, {
+            type: "signatureBlock",
+            attrs: { labels: ["Estudiante", "Rector / Director"] },
+          })
+          .run();
+      },
+    },
+
+    {
+      title: "Sección condicional",
+      description: "Solo se muestra si una variable es verdadera",
+      command: ({ editor, range }) => {
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, {
+            type: "conditionalSection",
+            attrs: { conditionVar: "" },
+            content: [{ type: "paragraph" }],
+          })
+          .run();
       },
     },
   ];

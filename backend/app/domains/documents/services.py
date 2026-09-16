@@ -106,9 +106,11 @@ def generate_pdf(db: Session, document_id: str, institution_id: str) -> bytes:
     }
 
     pdf_bytes = render_pdf(
-        template.template_html, document.document_data, institution_context
+        template.template_html,
+        document.document_data,
+        institution_context,
+        table_columns=template.table_columns,
     )
-
     document.status = DocumentStatus.generated
     db.commit()
 

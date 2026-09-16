@@ -41,6 +41,7 @@ class DocumentTemplate(Base):
     description: Mapped[str] = mapped_column(String(500), nullable=True)
     template_html: Mapped[str] = mapped_column(String, nullable=False)
     required_fields: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    table_columns: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

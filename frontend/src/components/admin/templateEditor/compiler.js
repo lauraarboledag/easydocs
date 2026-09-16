@@ -82,7 +82,7 @@ function paragraphStyle(attrs = {}) {
 let tableCounter = 0;
 
 // Recorre los nodos de nivel de bloque (párrafos, encabezados, tablas, listas)
-function compileBlocks(nodes = [], requiredFields) {
+function compileBlocks(nodes = [], requiredFields, tableColumns) {
     return nodes
         .map((node) => {
             switch (node.type) {
@@ -107,7 +107,32 @@ function compileBlocks(nodes = [], requiredFields) {
                     const columns = node.attrs?.columns || [];
                     const headerRow = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
                     requiredFields.add(varName);
+                    tableColumns[varName] = columns;
                     return `<table><tr>${headerRow}</tr>{{ ${varName} }}</table>`;
+                }
+
+                case "dataTable": {
+                    const rows = node.attrs?.rows || [];
+                    const rowsHtml = rows
+                        .map((row) => {
+                            if (row.jinjaKey && !row.jinjaKey.startsWith("institucion.")) {
+                                requiredFields.add(row.jinjaKey);
+                            }
+                            return `<tr><th>${escapeHtml(row.label)}</th><td>{{ ${row.jinjaKey} }}</td></tr>`;
+                        })
+                        .join("");
+                    return `<table>${rowsHtml}</table>`;
+                }
+
+                case "signatureBlock": {
+                    const labels = node.attrs?.labels || [];
+                    const signaturesHtml = labels
+                        .map(
+                            (label) =>
+                                `<div class="firma"><div class="linea"></div><p><strong>${escapeHtml(label)}</strong></p></div>`,
+                        )
+                        .join("");
+                    return `<div class="firmas">${signaturesHtml}</div>`;
                 }
 
                 case "bulletList": {
@@ -118,6 +143,22 @@ function compileBlocks(nodes = [], requiredFields) {
                 case "orderedList": {
                     const items = compileListItems(node.content, requiredFields);
                     return `<ol>${items}</ol>`;
+                }
+
+                case "conditionalSection": {
+                    const condition = node.attrs?.conditionVar?.trim();
+                    // Si no se definió ninguna variable de condición, no tiene sentido
+                    // generar un {% if %} vacío o roto — se descarta el bloque entero.
+                    if (!condition) return "";
+
+                    requiredFields.add(condition);
+
+                    // Llamada recursiva: compila el contenido interno (párrafos, tablas,
+                    // encabezados, lo que sea que el superadmin haya puesto adentro) con
+                    // la misma función, antes de envolverlo en el {% if %}.
+                    const innerHtml = compileBlocks(node.content, requiredFields, tableColumns);
+
+                    return `{% if ${condition} %}\n<div class="section">${innerHtml}</div>\n{% endif %}`;
                 }
 
                 default:
@@ -145,15 +186,17 @@ function compileListItems(items = [], requiredFields) {
  * @returns {{ template_html: string, required_fields: string[] }}
  */
 export function compileTemplate(editorJSON) {
-    tableCounter = 0; // reinicia el contador en cada compilación
+    tableCounter = 0;
     const requiredFields = new Set();
+    const tableColumns = {};
 
-    const bodyHtml = compileBlocks(editorJSON?.content, requiredFields);
+    const bodyHtml = compileBlocks(editorJSON?.content, requiredFields, tableColumns);
 
     const template_html = `${HEADER_AND_STYLES}<div class="section">${bodyHtml}</div>${FOOTER}`;
 
     return {
         template_html,
         required_fields: Array.from(requiredFields),
+        table_columns: tableColumns,
     };
 }
