@@ -19,6 +19,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 
+const ACCENT_GRADIENT = "linear-gradient(90deg, #2952cc, #1a2b4a)";
+
 const STATUS_CONFIG = {
   pending: { label: "Pendiente", bg: "#fef3c7", color: "#b45309", icon: Clock },
   confirmed: {
@@ -102,42 +104,43 @@ export default function AdminTransactions() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
+            boxShadow: "0 1px 0 rgba(26,43,74,0.04)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/admin")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
-            <div>
+            <div className="min-w-0">
               <h1
-                className="text-lg font-semibold"
+                className="text-lg font-semibold truncate"
                 style={{ color: "var(--text-primary)" }}
               >
                 Transacciones
               </h1>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              <p className="text-xs hidden sm:block" style={{ color: "var(--text-secondary)" }}>
                 Gestión de pagos y suscripciones
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             <button
-              className="relative p-2 transition-colors"
+              className="relative p-2 rounded-full transition-colors"
               style={{ color: "var(--text-secondary)" }}
             >
               <Bell size={20} />
@@ -146,11 +149,14 @@ export default function AdminTransactions() {
               )}
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ boxShadow: "0 2px 8px rgba(234,179,8,0.4)" }}
+              >
                 <Shield size={14} className="text-white" />
               </div>
               <p
-                className="text-sm font-medium"
+                className="text-sm font-medium hidden sm:block"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -159,18 +165,29 @@ export default function AdminTransactions() {
           </div>
         </header>
 
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
-              <CheckCircle size={16} /> {success}
+            <div
+              className="border-l-4 px-4 py-3 rounded-r-xl mb-6 text-sm flex items-center gap-2"
+              style={{ backgroundColor: "#f0fdf4", borderColor: "#22c55e", color: "#15803d" }}
+            >
+              <CheckCircle size={16} className="flex-shrink-0" /> {success}
+            </div>
+          )}
+          {error && (
+            <div
+              className="border-l-4 px-4 py-3 rounded-r-xl mb-6 text-sm flex items-center gap-2"
+              style={{ backgroundColor: "#fef2f2", borderColor: "#dc2626", color: "#b91c1c" }}
+            >
+              <AlertCircle size={16} className="flex-shrink-0" /> {error}
             </div>
           )}
 
           {/* Alerta pendientes */}
           {pending.length > 0 && (
             <div
-              className="rounded-xl p-4 mb-6 flex items-center gap-3 border"
-              style={{ backgroundColor: "#fefce8", borderColor: "#fde68a" }}
+              className="rounded-xl p-4 mb-6 flex items-center gap-3 border-l-4"
+              style={{ backgroundColor: "#fefce8", borderColor: "#eab308" }}
             >
               <AlertCircle
                 size={18}
@@ -185,7 +202,7 @@ export default function AdminTransactions() {
           )}
 
           {/* Métricas */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[
               { label: "Pendientes", count: pending.length, key: "pending" },
               {
@@ -197,41 +214,44 @@ export default function AdminTransactions() {
             ].map(({ label, count, key }) => {
               const config = STATUS_CONFIG[key];
               const Icon = config.icon;
+              const active = filterStatus === key;
               return (
                 <button
                   key={key}
                   onClick={() =>
                     setFilterStatus(filterStatus === key ? "all" : key)
                   }
-                  className="rounded-xl border p-5 flex items-center gap-4 transition-all hover:shadow-sm text-left"
+                  className="rounded-2xl overflow-hidden border text-left transition-all"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
-                    borderColor:
-                      filterStatus === key
-                        ? config.color
-                        : "var(--border-color)",
-                    borderWidth: filterStatus === key ? "2px" : "1px",
+                    borderColor: active ? config.color : "var(--border-color)",
+                    boxShadow: active
+                      ? `0 4px 14px ${config.color}33`
+                      : "0 1px 3px rgba(26,43,74,0.06), 0 8px 24px rgba(26,43,74,0.05)",
                   }}
                 >
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: config.bg }}
-                  >
-                    <Icon size={18} style={{ color: config.color }} />
-                  </div>
-                  <div>
-                    <p
-                      className="text-2xl font-bold"
-                      style={{ color: "var(--text-primary)" }}
+                  <div className="h-1" style={{ backgroundColor: config.color }} />
+                  <div className="p-5 flex items-center gap-4">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: config.bg }}
                     >
-                      {count}
-                    </p>
-                    <p
-                      className="text-xs"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {label}
-                    </p>
+                      <Icon size={18} style={{ color: config.color }} />
+                    </div>
+                    <div>
+                      <p
+                        className="text-2xl font-bold"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {count}
+                      </p>
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {label}
+                      </p>
+                    </div>
                   </div>
                 </button>
               );
@@ -240,10 +260,11 @@ export default function AdminTransactions() {
 
           {/* Filtros */}
           <div
-            className="rounded-xl border p-4 mb-4 flex gap-3"
+            className="rounded-2xl border p-4 mb-4 flex flex-col sm:flex-row gap-3"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--border-color)",
+              boxShadow: "0 1px 3px rgba(26,43,74,0.06)",
             }}
           >
             <div className="relative flex-1">
@@ -266,11 +287,11 @@ export default function AdminTransactions() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Filter size={16} style={{ color: "var(--text-secondary)" }} />
+              <Filter size={16} style={{ color: "var(--text-secondary)" }} className="flex-shrink-0" />
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
+                className="w-full sm:w-auto text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
                 style={{
                   borderColor: "var(--border-color)",
                   backgroundColor: "var(--bg-secondary)",
@@ -287,12 +308,14 @@ export default function AdminTransactions() {
 
           {/* Lista */}
           <div
-            className="rounded-xl border"
+            className="rounded-2xl border overflow-hidden"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--border-color)",
+              boxShadow: "0 1px 3px rgba(26,43,74,0.06), 0 8px 24px rgba(26,43,74,0.05)",
             }}
           >
+            <div className="h-1" style={{ background: ACCENT_GRADIENT }} />
             {loading ? (
               <div
                 className="text-center py-16"
@@ -322,8 +345,9 @@ export default function AdminTransactions() {
               </div>
             ) : (
               <>
+                {/* Encabezado — solo escritorio */}
                 <div
-                  className="grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
+                  className="hidden md:grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
                   style={{
                     color: "var(--text-secondary)",
                     borderColor: "var(--border-color)",
@@ -339,76 +363,80 @@ export default function AdminTransactions() {
                   const config = STATUS_CONFIG[t.status];
                   const Icon = config.icon;
                   return (
-                    <div
-                      key={t.id}
-                      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
-                      style={{ borderColor: "var(--border-color)" }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          "var(--bg-primary)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor = "transparent")
-                      }
-                    >
-                      <div className="col-span-3">
-                        <p
-                          className="text-xs font-mono"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {t.id.split("-")[0]}...
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {new Date(t.created_at).toLocaleDateString("es-CO", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                      <div className="col-span-3">
-                        <p
-                          className="text-xs font-mono"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {t.subscription_id.split("-")[0]}...
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <p
-                          className="text-sm font-semibold"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          ${(t.amount / 100).toLocaleString("es-CO")}
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          COP
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <span
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
-                          style={{
-                            backgroundColor: config.bg,
-                            color: config.color,
-                          }}
-                        >
-                          <Icon size={11} />
-                          {config.label}
-                        </span>
-                      </div>
-                      <div className="col-span-2">
+                    <div key={t.id}>
+                      {/* Tarjeta — solo móvil */}
+                      <div
+                        className="md:hidden px-4 py-4 border-b last:border-0 space-y-3"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p
+                              className="text-xs font-mono"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {t.id.split("-")[0]}...
+                            </p>
+                            <p
+                              className="text-xs mt-0.5"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {new Date(t.created_at).toLocaleDateString("es-CO", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </p>
+                          </div>
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0"
+                            style={{
+                              backgroundColor: config.bg,
+                              color: config.color,
+                            }}
+                          >
+                            <Icon size={11} />
+                            {config.label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p
+                              className="text-[10px] uppercase tracking-wide"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              Suscripción
+                            </p>
+                            <p
+                              className="text-xs font-mono truncate"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {t.subscription_id.split("-")[0]}...
+                            </p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p
+                              className="text-[10px] uppercase tracking-wide"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              Monto
+                            </p>
+                            <p
+                              className="text-sm font-semibold"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              ${(t.amount / 100).toLocaleString("es-CO")}{" "}
+                              <span className="text-xs font-normal">COP</span>
+                            </p>
+                          </div>
+                        </div>
+
                         {t.status === "pending" && (
                           <button
                             onClick={() => handleConfirm(t.id)}
                             disabled={processing === t.id}
-                            className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
+                            className="w-full text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
                           >
                             {processing === t.id ? (
                               "Procesando..."
@@ -421,12 +449,103 @@ export default function AdminTransactions() {
                         )}
                         {t.status === "confirmed" && t.notes && (
                           <p
-                            className="text-xs italic truncate"
+                            className="text-xs italic"
                             style={{ color: "var(--text-secondary)" }}
                           >
                             {t.notes}
                           </p>
                         )}
+                      </div>
+
+                      {/* Fila — solo escritorio */}
+                      <div
+                        className="hidden md:grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
+                        style={{ borderColor: "var(--border-color)" }}
+                        onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor =
+                          "var(--bg-primary)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor = "transparent")
+                        }
+                      >
+                        <div className="col-span-3">
+                          <p
+                            className="text-xs font-mono"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {t.id.split("-")[0]}...
+                          </p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {new Date(t.created_at).toLocaleDateString("es-CO", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                        <div className="col-span-3">
+                          <p
+                            className="text-xs font-mono"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {t.subscription_id.split("-")[0]}...
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            ${(t.amount / 100).toLocaleString("es-CO")}
+                          </p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            COP
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                            style={{
+                              backgroundColor: config.bg,
+                              color: config.color,
+                            }}
+                          >
+                            <Icon size={11} />
+                            {config.label}
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          {t.status === "pending" && (
+                            <button
+                              onClick={() => handleConfirm(t.id)}
+                              disabled={processing === t.id}
+                              className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
+                            >
+                              {processing === t.id ? (
+                                "Procesando..."
+                              ) : (
+                                <>
+                                  <CheckCircle size={12} /> Confirmar
+                                </>
+                              )}
+                            </button>
+                          )}
+                          {t.status === "confirmed" && t.notes && (
+                            <p
+                              className="text-xs italic truncate"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {t.notes}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

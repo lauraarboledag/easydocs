@@ -26,7 +26,7 @@ import {
 function InstitutionRow({ inst, isSelected, onSelect, onDelete }) {
   return (
     <div
-      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors cursor-pointer"
+      className="border-b last:border-0 transition-colors cursor-pointer"
       style={{
         borderColor: "var(--border-color)",
         backgroundColor: isSelected
@@ -42,83 +42,134 @@ function InstitutionRow({ inst, isSelected, onSelect, onDelete }) {
       }}
       onClick={() => onSelect(inst)}
     >
-      <div className="col-span-4 flex items-center gap-3">
+      {/* Vista de tarjeta — solo en móvil */}
+      <div className="md:hidden flex items-start gap-3 px-4 py-3">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: "var(--color-primary-light)" }}
         >
           <Building2 size={18} style={{ color: "var(--color-icon)" }} />
         </div>
-        <div>
-          <p
-            className="text-sm font-semibold truncate max-w-48"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {inst.name}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p
+              className="text-sm font-semibold truncate"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {inst.name}
+            </p>
+            <span
+              className="flex-shrink-0 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+              style={{
+                backgroundColor: inst.is_active ? "#f0fdf4" : "#fee2e2",
+                color: inst.is_active ? "#16a34a" : "#dc2626",
+              }}
+            >
+              {inst.is_active ? "Activa" : "Inactiva"}
+            </span>
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+            {inst.municipality}, {inst.department}
           </p>
           <p
-            className="text-xs truncate max-w-48"
+            className="text-xs font-mono mt-0.5"
             style={{ color: "var(--text-secondary)" }}
           >
-            {inst.education_level?.split(" ").slice(0, 3).join(" ")}...
+            DANE: {inst.dane_code}
           </p>
         </div>
-      </div>
-      <div className="col-span-3">
-        <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-          {inst.municipality}
-        </p>
-        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          {inst.department}
-        </p>
-      </div>
-      <div className="col-span-2">
-        <p
-          className="text-xs font-mono"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          {inst.dane_code}
-        </p>
-      </div>
-      <div className="col-span-2">
-        <span
-          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
-          style={{
-            backgroundColor: inst.is_active ? "#f0fdf4" : "#fee2e2",
-            color: inst.is_active ? "#16a34a" : "#dc2626",
-          }}
-        >
-          {inst.is_active ? (
-            <>
-              <CheckCircle size={11} /> Activa
-            </>
-          ) : (
-            <>
-              <XCircle size={11} /> Inactiva
-            </>
-          )}
-        </span>
-      </div>
-      <div className="col-span-1 flex justify-end">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onDelete(inst);
           }}
-          className="p-2 rounded-lg transition-colors"
+          className="p-2 rounded-lg flex-shrink-0"
           style={{ color: "var(--text-secondary)" }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "#dc2626";
-            e.currentTarget.style.backgroundColor = "#fee2e2";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-secondary)";
-            e.currentTarget.style.backgroundColor = "transparent";
-          }}
-          title="Eliminar institución"
         >
           <Trash2 size={15} />
         </button>
+      </div>
+
+      {/* Vista de tabla — solo en desktop, sin cambios respecto a la original */}
+      <div className="hidden md:grid grid-cols-12 items-center px-6 py-4">
+        <div className="col-span-4 flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: "var(--color-primary-light)" }}
+          >
+            <Building2 size={18} style={{ color: "var(--color-icon)" }} />
+          </div>
+          <div>
+            <p
+              className="text-sm font-semibold truncate max-w-48"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {inst.name}
+            </p>
+            <p
+              className="text-xs truncate max-w-48"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {inst.education_level?.split(" ").slice(0, 3).join(" ")}...
+            </p>
+          </div>
+        </div>
+        <div className="col-span-3">
+          <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+            {inst.municipality}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            {inst.department}
+          </p>
+        </div>
+        <div className="col-span-2">
+          <p
+            className="text-xs font-mono"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {inst.dane_code}
+          </p>
+        </div>
+        <div className="col-span-2">
+          <span
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+            style={{
+              backgroundColor: inst.is_active ? "#f0fdf4" : "#fee2e2",
+              color: inst.is_active ? "#16a34a" : "#dc2626",
+            }}
+          >
+            {inst.is_active ? (
+              <>
+                <CheckCircle size={11} /> Activa
+              </>
+            ) : (
+              <>
+                <XCircle size={11} /> Inactiva
+              </>
+            )}
+          </span>
+        </div>
+        <div className="col-span-1 flex justify-end">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(inst);
+            }}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#dc2626";
+              e.currentTarget.style.backgroundColor = "#fee2e2";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-secondary)";
+              e.currentTarget.style.backgroundColor = "transparent";
+            }}
+            title="Eliminar institución"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -167,9 +218,9 @@ function InstitutionDetailPanel({ selected, onClose, onDelete }) {
   ];
 
   return (
-    <div className="w-80 flex-shrink-0">
+    <div className="w-full md:w-80 flex-shrink-0">
       <div
-        className="rounded-2xl border p-6 sticky top-24"
+        className="rounded-2xl border p-6 md:sticky md:top-24"
         style={{
           backgroundColor: "var(--bg-secondary)",
           borderColor: "var(--border-color)",
@@ -435,14 +486,14 @@ export default function AdminInstitutions() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 py-4 md:px-8 flex items-center justify-between sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
@@ -486,7 +537,7 @@ export default function AdminInstitutions() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 flex gap-6">
+        <div className="flex-1 p-4 md:p-8 flex flex-col md:flex-row gap-6">
           <div className="flex-1">
             <div className="relative mb-5">
               <Search
@@ -539,7 +590,7 @@ export default function AdminInstitutions() {
               ) : (
                 <>
                   <div
-                    className="grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
+                    className="hidden md:grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
                     style={{
                       color: "var(--text-secondary)",
                       borderColor: "var(--border-color)",

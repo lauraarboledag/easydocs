@@ -337,7 +337,7 @@ export default function AdminTemplates() {
             <AlertCircle size={14} /> {error}
           </div>
         )}
-        <div className="grid grid-cols-12 gap-3 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
           <div className="col-span-3">
             <label
               className="block text-[10px] font-semibold uppercase tracking-wide mb-1"
@@ -549,8 +549,8 @@ export default function AdminTemplates() {
           >
             <iframe
               srcDoc={renderPreview(form.template_html)}
-              className="w-full h-full bg-white"
-              style={{ minHeight: "70vh", border: "none" }}
+              className="w-full h-full bg-white min-h-[50vh] md:min-h-[70vh]"
+              style={{ border: "none" }}
               title="Vista previa plantilla"
               sandbox="allow-same-origin"
             />
@@ -561,9 +561,8 @@ export default function AdminTemplates() {
           <textarea
             readOnly
             value={form.template_html}
-            className="w-full flex-1 border rounded-lg px-4 py-3 text-xs font-mono resize-none"
+            className="w-full flex-1 border rounded-lg px-4 py-3 text-xs font-mono resize-none min-h-[50vh] md:min-h-[70vh]"
             style={{
-              minHeight: "70vh",
               borderColor: "var(--border-color)",
               backgroundColor: "var(--bg-primary)",
               color: "var(--text-primary)",
@@ -661,9 +660,8 @@ export default function AdminTemplates() {
                       setForm((p) => ({ ...p, template_html: e.target.value }))
                     }
                     placeholder="<!DOCTYPE html><html>..."
-                    className="w-full flex-1 px-4 py-3 text-xs font-mono focus:outline-none resize-none"
+                    className="w-full flex-1 px-4 py-3 text-xs font-mono focus:outline-none resize-none min-h-[40vh] md:min-h-[50vh]"
                     style={{
-                      minHeight: "50vh",
                       backgroundColor: "var(--bg-secondary)",
                       color: "var(--text-primary)",
                     }}
@@ -737,9 +735,9 @@ export default function AdminTemplates() {
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
@@ -783,9 +781,9 @@ export default function AdminTemplates() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 flex gap-6 min-h-0">
+        <div className="flex-1 p-4 md:p-8 flex flex-col md:flex-row gap-6 min-h-0">
           {/* Lista plantillas */}
-          <div className="w-72 flex-shrink-0">
+          <div className="w-full md:w-72 flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h2
                 className="font-semibold"
@@ -808,7 +806,10 @@ export default function AdminTemplates() {
               </div>
             )}
 
-            <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-220px)]">
+            <div
+              className="space-y-2 overflow-y-auto touch-pan-y overscroll-contain max-h-[50vh] md:max-h-[calc(100vh-220px)]"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               {loading ? (
                 <div
                   className="text-center py-8 text-sm"
@@ -916,7 +917,7 @@ export default function AdminTemplates() {
                 }}
               >
                 <div
-                  className="flex items-center justify-between p-4 border-b flex-shrink-0"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b flex-shrink-0"
                   style={{ borderColor: "var(--border-color)" }}
                 >
                   <h3
@@ -945,8 +946,8 @@ export default function AdminTemplates() {
                     </button>
                   </div>
                 </div>
-                <MetadataBar />
-                <EditorWorkspace />
+                {MetadataBar()}
+                {EditorWorkspace()}
               </div>
             ) : null}
           </div>
@@ -960,7 +961,7 @@ export default function AdminTemplates() {
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
           <div
-            className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b flex-shrink-0"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--border-color)",
@@ -982,7 +983,7 @@ export default function AdminTemplates() {
                 {mode === "create" ? "Nueva plantilla" : `Editando: ${selected?.name}`}
               </h3>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <button
                 onClick={handleCancel}
                 className="flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg font-medium transition-colors"
@@ -1012,9 +1013,8 @@ export default function AdminTemplates() {
               )}
             </div>
           </div>
-
-          <MetadataBar />
-          <EditorWorkspace />
+          {MetadataBar()}
+          {EditorWorkspace()}
         </div>
       )}
 

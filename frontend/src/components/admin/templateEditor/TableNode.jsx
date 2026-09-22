@@ -26,57 +26,59 @@ function DynamicTableView({ node, updateAttributes }) {
         className="border rounded-lg overflow-hidden"
         style={{ borderColor: "var(--border-color)" }}
       >
-        <table className="w-full text-xs">
-          <thead>
-            <tr style={{ backgroundColor: "var(--bg-secondary)" }}>
-              {columns.map((col, i) => (
-                <th
-                  key={i}
-                  className="p-0 border-r"
-                  style={{ borderColor: "var(--border-color)" }}
-                >
-                  <div className="flex items-center gap-1 px-2 py-1.5">
-                    <input
-                      value={col}
-                      onChange={(e) => updateColumn(i, e.target.value)}
-                      className="flex-1 min-w-0 bg-transparent text-xs font-semibold outline-none"
-                      style={{ color: "var(--text-primary)" }}
-                    />
-                    {columns.length > 1 && (
-                      <button
-                        onClick={() => removeColumn(i)}
-                        className="opacity-40 hover:opacity-100 flex-shrink-0"
-                      >
-                        <X size={11} />
-                      </button>
-                    )}
-                  </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr style={{ backgroundColor: "var(--bg-secondary)" }}>
+                {columns.map((col, i) => (
+                  <th
+                    key={i}
+                    className="p-0 border-r"
+                    style={{ borderColor: "var(--border-color)" }}
+                  >
+                    <div className="flex items-center gap-1 px-2 py-1.5">
+                      <input
+                        value={col}
+                        onChange={(e) => updateColumn(i, e.target.value)}
+                        className="flex-1 min-w-0 bg-transparent text-xs font-semibold outline-none"
+                        style={{ color: "var(--text-primary)" }}
+                      />
+                      {columns.length > 1 && (
+                        <button
+                          onClick={() => removeColumn(i)}
+                          className="opacity-40 hover:opacity-100 flex-shrink-0"
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                ))}
+                <th className="p-1 w-8">
+                  <button
+                    onClick={addColumn}
+                    className="w-full flex items-center justify-center py-1 rounded"
+                    style={{ color: "var(--color-primary)" }}
+                    title="Agregar columna"
+                  >
+                    <Plus size={13} />
+                  </button>
                 </th>
-              ))}
-              <th className="p-1 w-8">
-                <button
-                  onClick={addColumn}
-                  className="w-full flex items-center justify-center py-1 rounded"
-                  style={{ color: "var(--color-primary)" }}
-                  title="Agregar columna"
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td
+                  colSpan={columns.length + 1}
+                  className="text-center py-2 text-xs italic"
+                  style={{ color: "var(--text-secondary)" }}
                 >
-                  <Plus size={13} />
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td
-                colSpan={columns.length + 1}
-                className="text-center py-2 text-xs italic"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Las filas se completan automáticamente al generar el documento
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  Las filas se completan automáticamente al generar el documento
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </NodeViewWrapper>
   );

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 const SlashMenu = forwardRef(({ items, command }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -8,6 +8,12 @@ const SlashMenu = forwardRef(({ items, command }, ref) => {
     const item = items[index];
     if (item) command(item);
   };
+
+  const itemRefs = useRef([]);
+
+  useEffect(() => {
+    itemRefs.current[selectedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
 
   // Esto le permite al padre (la extensión de Tiptap, en el paso 4.3)
   // controlar este menú desde afuera con el teclado
@@ -46,7 +52,7 @@ const SlashMenu = forwardRef(({ items, command }, ref) => {
 
   return (
     <div
-      className="rounded-lg border shadow-lg py-1 min-w-[200px]"
+      className="rounded-lg border shadow-lg py-1 min-w-[200px] max-h-[280px] overflow-y-auto"
       style={{
         backgroundColor: "var(--bg-secondary)",
         borderColor: "var(--border-color)",
@@ -55,6 +61,7 @@ const SlashMenu = forwardRef(({ items, command }, ref) => {
       {items.map((item, index) => (
         <button
           key={item.title}
+          ref={(el) => (itemRefs.current[index] = el)}
           onClick={() => selectItem(index)}
           className="w-full text-left px-3 py-2 text-sm flex items-center gap-2"
           style={{

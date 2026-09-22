@@ -20,10 +20,13 @@ import {
   Shield,
   UserPlus,
   Mail,
+  Lock,
 } from "lucide-react";
 
+const ACCENT_GRADIENT = "linear-gradient(90deg, #2952cc, #1a2b4a)";
+
 const TABS = [
-  { id: "account", label: "Contraseña", icon: User },
+  { id: "account", label: "Contraseña", icon: Lock },
   { id: "email", label: "Correo", icon: Mail },
   { id: "appearance", label: "Apariencia", icon: Sun },
   { id: "team", label: "Equipo", icon: UserPlus },
@@ -35,6 +38,48 @@ const PASSWORD_RULES = [
   { key: "number", label: "Incluye números" },
   { key: "special", label: "Carácter especial (!@#$%^&*)" },
 ];
+
+// --- Envoltorio compartido: da la elevación real (sombra + barra de acento)
+// que reemplaza el borde plano que tenían todas las tarjetas antes.
+function SettingsCard({ icon: Icon, iconTint, title, subtitle, children }) {
+  return (
+    <div
+      className="rounded-2xl overflow-hidden border"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-color)",
+        boxShadow: "0 1px 3px rgba(26,43,74,0.06), 0 8px 24px rgba(26,43,74,0.05)",
+      }}
+    >
+      <div className="h-1" style={{ background: ACCENT_GRADIENT }} />
+      <div className="p-5 md:p-6">
+        {(title || Icon) && (
+          <div className="flex items-start gap-3 mb-5">
+            {Icon && (
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: iconTint || "var(--color-primary-light)" }}
+              >
+                <Icon size={16} style={{ color: "var(--color-primary)" }} />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
+                {title}
+              </h2>
+              {subtitle && (
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function PasswordField({ label, field, value, show, onChange, onToggle }) {
   return (
@@ -72,11 +117,14 @@ function PasswordField({ label, field, value, show, onChange, onToggle }) {
 
 function PasswordStrengthIndicator({ strength }) {
   return (
-    <div className="space-y-2">
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl p-3"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
       {PASSWORD_RULES.map(({ key, label }) => (
         <div key={key} className="flex items-center gap-2">
           <div
-            className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+            className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
             style={{
               backgroundColor: strength[key] ? "#22c55e" : "transparent",
               borderColor: strength[key] ? "#22c55e" : "var(--border-color)",
@@ -98,37 +146,41 @@ function PasswordStrengthIndicator({ strength }) {
 
 function AppearanceTab({ theme, setTheme, themes }) {
   return (
-    <div
-      className="rounded-2xl border p-6"
-      style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+    <SettingsCard
+      icon={Sun}
+      title="Apariencia"
+      subtitle="Elige el tema visual de tu panel de administración."
     >
-      <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>Apariencia</h2>
-      <p className="text-xs mb-6" style={{ color: "var(--text-secondary)" }}>
-        Elige el tema visual de tu panel de administración.
-      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {themes.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTheme(t.id)}
-            className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
-            style={{
-              borderColor: theme === t.id ? "var(--color-primary)" : "var(--border-color)",
-              backgroundColor: theme === t.id ? "var(--color-primary-light)" : "transparent",
-            }}
-          >
-            <div className="w-12 h-12 rounded-xl flex-shrink-0 shadow-inner" style={{ backgroundColor: t.color }} />
-            <div className="flex-1">
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{t.label}</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.description}</p>
-            </div>
-            {theme === t.id && (
-              <CheckCircle size={18} style={{ color: "var(--color-primary)" }} className="flex-shrink-0" />
-            )}
-          </button>
-        ))}
+        {themes.map((t) => {
+          const active = theme === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+              style={{
+                borderColor: active ? "var(--color-primary)" : "var(--border-color)",
+                backgroundColor: active ? "var(--color-primary-light)" : "transparent",
+                boxShadow: active ? "0 4px 14px rgba(41,82,204,0.18)" : "none",
+              }}
+            >
+              <div
+                className="w-12 h-12 rounded-xl flex-shrink-0"
+                style={{ backgroundColor: t.color, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)" }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{t.label}</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{t.description}</p>
+              </div>
+              {active && (
+                <CheckCircle size={18} style={{ color: "var(--color-primary)" }} className="flex-shrink-0" />
+              )}
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -175,15 +227,11 @@ function EmailChangeTab({ currentEmail, onSuccess, onError }) {
   };
 
   return (
-    <div
-      className="rounded-2xl border p-6"
-      style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+    <SettingsCard
+      icon={Mail}
+      title="Cambiar correo"
+      subtitle={<>Correo actual: <span className="font-medium">{currentEmail}</span></>}
     >
-      <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>Cambiar correo</h2>
-      <p className="text-xs mb-6" style={{ color: "var(--text-secondary)" }}>
-        Correo actual: <span className="font-medium">{currentEmail}</span>
-      </p>
-
       {step === "form" ? (
         <form onSubmit={handleRequest} className="space-y-4 max-w-md">
           <div>
@@ -228,8 +276,8 @@ function EmailChangeTab({ currentEmail, onSuccess, onError }) {
           <button
             type="submit"
             disabled={loading}
-            className="font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
-            style={{ backgroundColor: "var(--color-primary)" }}
+            className="font-semibold px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm text-white disabled:opacity-40 w-full sm:w-auto"
+            style={{ backgroundColor: "var(--color-primary)", boxShadow: "0 4px 14px rgba(41,82,204,0.28)" }}
           >
             <Mail size={16} />
             {loading ? "Enviando..." : "Enviar código de verificación"}
@@ -264,7 +312,7 @@ function EmailChangeTab({ currentEmail, onSuccess, onError }) {
             />
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
               onClick={() => setStep("form")}
@@ -277,14 +325,14 @@ function EmailChangeTab({ currentEmail, onSuccess, onError }) {
               type="submit"
               disabled={loading || code.length !== 6}
               className="flex-1 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
-              style={{ backgroundColor: "var(--color-primary)" }}
+              style={{ backgroundColor: "var(--color-primary)", boxShadow: "0 4px 14px rgba(41,82,204,0.28)" }}
             >
               {loading ? "Confirmando..." : "Confirmar cambio"}
             </button>
           </div>
         </form>
       )}
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -326,25 +374,12 @@ function TeamTab({ onSuccess, onError }) {
   };
 
   return (
-    <div
-      className="rounded-2xl border p-6"
-      style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+    <SettingsCard
+      icon={Shield}
+      iconTint="#fef9c3"
+      title="Crear superadministrador"
+      subtitle="Solo los superadmins pueden crear otros superadmins. Usa esta función con cuidado."
     >
-      <div className="flex items-center gap-3 mb-1">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: "#fef9c3" }}
-        >
-          <Shield size={16} className="text-yellow-600" />
-        </div>
-        <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
-          Crear superadministrador
-        </h2>
-      </div>
-      <p className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>
-        Solo los superadmins pueden crear otros superadmins. Usa esta función con cuidado.
-      </p>
-
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <div>
           <label
@@ -427,14 +462,14 @@ function TeamTab({ onSuccess, onError }) {
         <button
           type="submit"
           disabled={saving}
-          className="font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
-          style={{ backgroundColor: "var(--color-primary)" }}
+          className="font-semibold px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm text-white disabled:opacity-40 w-full sm:w-auto"
+          style={{ backgroundColor: "var(--color-primary)", boxShadow: "0 4px 14px rgba(41,82,204,0.28)" }}
         >
           <UserPlus size={16} />
           {saving ? "Creando..." : "Crear superadmin"}
         </button>
       </form>
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -505,75 +540,97 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: "var(--bg-primary)" }}>
+    <div className="min-h-screen flex overflow-x-hidden" style={{ backgroundColor: "var(--bg-primary)" }}>
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
-          style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--border-color)",
+            boxShadow: "0 1px 0 rgba(26,43,74,0.04)",
+          }}
         >
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/admin")} className="p-2 rounded-lg transition-colors" style={{ color: "var(--text-secondary)" }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/admin")} className="p-2 rounded-lg transition-colors flex-shrink-0" style={{ color: "var(--text-secondary)" }}>
               <ChevronLeft size={18} />
             </button>
-            <div>
-              <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>Configuración</h1>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Tu cuenta de superadministrador</p>
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold truncate" style={{ color: "var(--text-primary)" }}>Configuración</h1>
+              <p className="text-xs hidden sm:block" style={{ color: "var(--text-secondary)" }}>Tu cuenta de superadministrador</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}><Bell size={20} /></button>
+          <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
+            <button
+              className="p-2 rounded-full transition-colors"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <Bell size={20} />
+            </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+              <div
+                className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ boxShadow: "0 2px 8px rgba(234,179,8,0.4)" }}
+              >
                 <Shield size={14} className="text-white" />
               </div>
-              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{user?.full_name}</p>
+              <p className="text-sm font-medium hidden sm:block" style={{ color: "var(--text-primary)" }}>{user?.full_name}</p>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-3xl mx-auto w-full">
+        <div className="flex-1 p-4 md:p-8 max-w-3xl mx-auto w-full">
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
-              <CheckCircle size={16} /> {success}
+            <div
+              className="border-l-4 px-4 py-3 rounded-r-xl mb-6 text-sm flex items-center gap-2"
+              style={{ backgroundColor: "#f0fdf4", borderColor: "#22c55e", color: "#15803d" }}
+            >
+              <CheckCircle size={16} className="flex-shrink-0" /> {success}
             </div>
           )}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
-              <AlertCircle size={16} /> {error}
+            <div
+              className="border-l-4 px-4 py-3 rounded-r-xl mb-6 text-sm flex items-center gap-2"
+              style={{ backgroundColor: "#fef2f2", borderColor: "#dc2626", color: "#b91c1c" }}
+            >
+              <AlertCircle size={16} className="flex-shrink-0" /> {error}
             </div>
           )}
 
           <div
-            className="flex gap-1 rounded-2xl p-1 mb-6 border"
-            style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+            className="grid grid-cols-2 sm:flex gap-1 rounded-2xl p-1 mb-6"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              boxShadow: "0 1px 3px rgba(26,43,74,0.06), 0 4px 12px rgba(26,43,74,0.04)",
+            }}
           >
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => { setActiveTab(id); setError(""); setSuccess(""); }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                style={{
-                  backgroundColor: activeTab === id ? "var(--color-primary)" : "transparent",
-                  color: activeTab === id ? "#ffffff" : "var(--text-secondary)",
-                }}
-              >
-                <Icon size={16} />
-                {label}
-              </button>
-            ))}
+            {TABS.map(({ id, label, icon: Icon }) => {
+              const active = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => { setActiveTab(id); setError(""); setSuccess(""); }}
+                  className="sm:flex-1 flex items-center justify-center gap-2 py-2.5 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap"
+                  style={{
+                    backgroundColor: active ? "var(--color-primary)" : "transparent",
+                    color: active ? "#ffffff" : "var(--text-secondary)",
+                    boxShadow: active ? "0 4px 14px rgba(41,82,204,0.3)" : "none",
+                  }}
+                >
+                  <Icon size={16} />
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           {activeTab === "account" && (
-            <div
-              className="rounded-2xl border p-6"
-              style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+            <SettingsCard
+              icon={Lock}
+              title="Cambiar contraseña"
+              subtitle="Usa una contraseña segura que no uses en otros sitios."
             >
-              <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>Cambiar contraseña</h2>
-              <p className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>
-                Usa una contraseña segura que no uses en otros sitios.
-              </p>
               <form onSubmit={handleSavePassword} className="space-y-4 max-w-md">
                 {["current", "new", "confirm"].map((field) => (
                   <PasswordField
@@ -590,14 +647,14 @@ export default function AdminSettings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
-                  style={{ backgroundColor: "var(--color-primary)" }}
+                  className="font-semibold px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm text-white disabled:opacity-40 w-full sm:w-auto"
+                  style={{ backgroundColor: "var(--color-primary)", boxShadow: "0 4px 14px rgba(41,82,204,0.28)" }}
                 >
                   <Save size={16} />
                   {saving ? "Guardando..." : "Cambiar contraseña"}
                 </button>
               </form>
-            </div>
+            </SettingsCard>
           )}
 
           {activeTab === "email" && (

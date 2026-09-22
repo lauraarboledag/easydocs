@@ -58,7 +58,7 @@ export default function TemplateBlockEditor({ variables = [], onReady, initialCo
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
         <span className="text-xs font-medium text-gray-500">
           Editor visual
         </span>
@@ -76,7 +76,7 @@ export default function TemplateBlockEditor({ variables = [], onReady, initialCo
       <Toolbar editor={editor} />
 
       <div
-        className="border rounded-lg p-4 min-h-[250px] [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[220px]"
+        className="border rounded-lg p-4 min-h-[250px] [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-55"
         style={{
           borderColor: "var(--border-color)",
           color: "var(--text-primary)",

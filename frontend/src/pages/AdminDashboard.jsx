@@ -325,14 +325,14 @@ export default function AdminDashboard() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-20"
+          className="border-b pl-16 pr-4 py-4 md:px-8 flex items-center justify-between sticky top-0 z-20"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
@@ -370,7 +370,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           {error && (
             <div className="mb-6 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm flex items-center gap-2">
               <AlertCircle size={16} />
@@ -386,7 +386,7 @@ export default function AdminDashboard() {
 
           {/* Banner */}
           <div
-            className="rounded-2xl p-8 mb-8 relative overflow-hidden border"
+            className="rounded-2xl p-5 md:p-8 mb-8 relative overflow-hidden border"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "#f59e0b",
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
             />
 
             {/* Fila superior — saludo + reloj */}
-            <div className="relative z-10 flex items-start justify-between mb-8">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold text-white shadow-sm bg-yellow-500">
                   <Shield size={28} className="text-white" />
@@ -734,8 +734,8 @@ export default function AdminDashboard() {
                     color: "var(--text-secondary)",
                   }}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      "var(--bg-primary)")
+                  (e.currentTarget.style.backgroundColor =
+                    "var(--bg-primary)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.backgroundColor = "transparent")

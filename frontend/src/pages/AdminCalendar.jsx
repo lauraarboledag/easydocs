@@ -434,14 +434,14 @@ export default function AdminCalendar() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 py-3 md:px-8 md:py-4 flex items-center justify-between sticky top-0 z-10 gap-2"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
@@ -471,9 +471,10 @@ export default function AdminCalendar() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowMandatoryModal(true)}
-              className="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl text-white transition-colors bg-red-600 hover:bg-red-700"
+              className="flex items-center gap-2 text-xs font-semibold px-3 md:px-4 py-2.5 rounded-xl text-white transition-colors bg-red-600 hover:bg-red-700 flex-shrink-0"
             >
-              <ShieldAlert size={14} /> Evento obligatorio
+              <ShieldAlert size={14} />
+              <span className="hidden sm:inline">Evento obligatorio</span>
             </button>
             <NotificationBell />
             <div className="flex items-center gap-2">
@@ -486,7 +487,7 @@ export default function AdminCalendar() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden sm:block text-sm font-medium"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -495,9 +496,9 @@ export default function AdminCalendar() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 flex gap-6">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
+        <div className="flex-1 p-4 md:p-8 flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <h2
                 className="text-xl font-bold"
                 style={{ color: "var(--text-primary)" }}
@@ -567,7 +568,7 @@ export default function AdminCalendar() {
                 {Array.from({ length: firstDay }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="h-24 border-r border-b"
+                    className="h-16 sm:h-24 border-r border-b"
                     style={{
                       borderColor: "var(--border-color)",
                       backgroundColor: "var(--bg-primary)",
@@ -585,7 +586,7 @@ export default function AdminCalendar() {
                     <div
                       key={day}
                       onClick={() => setSelectedDate(isSelected ? null : day)}
-                      className="h-24 border-r border-b p-2 cursor-pointer transition-colors relative"
+                      className="h-16 sm:h-24 border-r border-b p-1.5 sm:p-2 cursor-pointer transition-colors relative"
                       style={{
                         borderColor: "var(--border-color)",
                         backgroundColor: isSelected
@@ -666,7 +667,7 @@ export default function AdminCalendar() {
             </div>
           </div>
 
-          <div className="w-72 flex-shrink-0 space-y-4">
+          <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
             {selectedDate && (
               <div
                 className="rounded-xl border p-5"

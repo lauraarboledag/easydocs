@@ -10,7 +10,7 @@ function ConditionalSectionView({ node, updateAttributes }) {
     >
       <div
         contentEditable={false}
-        className="flex items-center gap-2 mb-3 text-xs"
+        className="flex items-center flex-wrap gap-2 mb-3 text-xs"
         style={{ color: "var(--color-primary)" }}
       >
         <GitBranch size={13} />
@@ -19,7 +19,7 @@ function ConditionalSectionView({ node, updateAttributes }) {
           value={node.attrs.conditionVar}
           onChange={(e) => updateAttributes({ conditionVar: e.target.value })}
           placeholder="ej: es_menor_edad"
-          className="flex-1 min-w-0 px-2 py-1 rounded border font-mono text-xs"
+          className="flex-1 min-w-[120px] px-2 py-1 rounded border font-mono text-xs"
           style={{
             borderColor: "var(--color-primary)",
             backgroundColor: "var(--bg-primary)",
