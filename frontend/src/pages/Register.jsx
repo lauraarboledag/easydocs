@@ -199,7 +199,7 @@ export default function Register() {
     api
       .get("/plans/")
       .then((res) => setPlans(res.data))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleInstitution = (e) => {
@@ -391,7 +391,7 @@ export default function Register() {
         </button>
         {step < 5 && (
           <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2.5 sm:px-3 py-1.5 rounded-full whitespace-nowrap">
-            Paso {step} de 4
+            Paso {step} de 4 <span className="hidden sm:inline">— {STEP_LABELS[step - 1]}</span>
           </span>
         )}
       </div>
@@ -399,14 +399,14 @@ export default function Register() {
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         {/* Stepper */}
         {step < 5 && (
-          <div className="flex items-center justify-center mb-8 sm:mb-12 overflow-x-auto">
+          <div className="flex items-center justify-center mb-8 sm:mb-12">
             {STEP_LABELS.map((label, i) => {
               const StepIcon = STEP_ICONS[i];
               return (
                 <div key={i} className="flex items-center flex-shrink-0">
                   <div className="flex flex-col items-center">
                     <div
-                      className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center transition-all"
+                      className="w-8 h-8 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center transition-all"
                       style={{
                         backgroundColor:
                           step > i + 1
@@ -421,10 +421,10 @@ export default function Register() {
                       }}
                     >
                       {step > i + 1 ? (
-                        <CheckCircle size={16} className="text-white" />
+                        <CheckCircle size={15} className="text-white" />
                       ) : (
                         <StepIcon
-                          size={16}
+                          size={15}
                           className={
                             step === i + 1 ? "text-white" : "text-gray-400"
                           }
@@ -432,14 +432,14 @@ export default function Register() {
                       )}
                     </div>
                     <span
-                      className={`text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-medium whitespace-nowrap ${step === i + 1 ? "text-[#2952cc]" : "text-gray-400"}`}
+                      className={`hidden sm:block text-xs mt-2 font-medium whitespace-nowrap ${step === i + 1 ? "text-[#2952cc]" : "text-gray-400"}`}
                     >
                       {label}
                     </span>
                   </div>
                   {i < 3 && (
                     <div
-                      className="w-8 sm:w-12 lg:w-20 h-0.5 mx-1.5 sm:mx-2 mb-5 transition-colors"
+                      className="w-6 sm:w-12 lg:w-20 h-0.5 mx-1 sm:mx-2 sm:mb-5 transition-colors"
                       style={{
                         backgroundColor: step > i + 1 ? "#16a34a" : "#e5e7eb",
                       }}
@@ -540,11 +540,10 @@ export default function Register() {
                             institution_type: tipo,
                           })
                         }
-                        className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors ${
-                          institution.institution_type === tipo
-                            ? "bg-[#2952cc] text-white border-[#2952cc]"
-                            : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                        }`}
+                        className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors ${institution.institution_type === tipo
+                          ? "bg-[#2952cc] text-white border-[#2952cc]"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                          }`}
                       >
                         {tipo}
                       </button>
