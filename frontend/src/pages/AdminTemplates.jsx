@@ -735,7 +735,7 @@ export default function AdminTemplates() {
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="md:ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
           className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
@@ -781,7 +781,7 @@ export default function AdminTemplates() {
           </div>
         </header>
 
-        <div className="flex-1 p-4 md:p-8 flex flex-col md:flex-row gap-6 min-h-0">
+        <div className="flex-1 p-4 md:p-8 flex flex-col md:flex-row gap-6 min-h-0 min-w-0">
           {/* Lista plantillas */}
           <div className="w-full md:w-72 flex-shrink-0">
             <div className="flex items-center justify-between gap-2 mb-4">
