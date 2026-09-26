@@ -338,7 +338,7 @@ export default function AdminDashboard() {
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <h1
               className="text-lg font-semibold truncate"
               style={{ color: "var(--text-primary)" }}
