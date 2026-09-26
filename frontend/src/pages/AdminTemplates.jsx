@@ -784,16 +784,16 @@ export default function AdminTemplates() {
         <div className="flex-1 p-4 md:p-8 flex flex-col md:flex-row gap-6 min-h-0">
           {/* Lista plantillas */}
           <div className="w-full md:w-72 flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between gap-2 mb-4">
               <h2
-                className="font-semibold"
+                className="font-semibold min-w-0 truncate"
                 style={{ color: "var(--text-primary)" }}
               >
                 {templates.length} plantillas
               </h2>
               <button
                 onClick={handleCreate}
-                className="text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors flex-shrink-0"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <Plus size={14} /> Nueva
