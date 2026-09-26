@@ -737,42 +737,42 @@ export default function AdminTemplates() {
 
       <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => navigate("/admin")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
-            <div>
+            <div className="min-w-0">
               <h1
-                className="text-lg font-semibold"
+                className="text-lg font-semibold truncate"
                 style={{ color: "var(--text-primary)" }}
               >
                 Plantillas
               </h1>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              <p className="text-xs truncate hidden sm:block" style={{ color: "var(--text-secondary)" }}>
                 Editor de plantillas reglamentarias
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-yellow-500 rounded-full items-center justify-center flex-shrink-0 hidden xs:flex">
                 <Shield size={14} className="text-white" />
               </div>
               <p
-                className="text-sm font-medium"
+                className="text-sm font-medium truncate hidden sm:block"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
