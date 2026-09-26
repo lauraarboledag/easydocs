@@ -352,7 +352,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             <NotificationBell />
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-yellow-500 rounded-full items-center justify-center flex-shrink-0 hidden xs:flex">
                 <Shield size={14} className="text-white" />
               </div>
               <div className="min-w-0 hidden sm:block">
