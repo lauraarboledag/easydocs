@@ -23,8 +23,8 @@ const STATS = [
   },
   { value: "60%", label: "Reducción de tiempos", icon: Clock },
   {
-    value: "Establecimientos Educativos",
-    label: "Sector especializado",
+    value: "ETDH",
+    label: "Establecimientos educativos — sector especializado",
     icon: Building2,
   },
 ];
@@ -76,9 +76,8 @@ export default function Landing() {
     <div className="min-h-screen bg-white font-sans overflow-x-hidden">
       {/* Navbar */}
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? "bg-white shadow-md" : "bg-transparent"
-        }`}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white shadow-md" : "bg-transparent"
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <img
@@ -94,11 +93,10 @@ export default function Landing() {
           <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => navigate("/login")}
-              className={`text-xs sm:text-sm font-medium px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors ${
-                scrolled
+              className={`text-xs sm:text-sm font-medium px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors ${scrolled
                   ? "text-[#1a2b4a] hover:bg-gray-100"
                   : "text-white hover:bg-white/10"
-              }`}
+                }`}
             >
               Iniciar sesión
             </button>
