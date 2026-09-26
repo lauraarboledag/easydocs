@@ -56,7 +56,7 @@ export default function AdminSidebar({ onLogout }) {
       )}
 
       <aside
-        className={`w-56 flex flex-col fixed h-full z-50 transition-transform duration-200 ${isOpen ? "translate-x-0" : "-translate-x-full"
+        className={`w-56 flex flex-col fixed top-0 left-0 h-full overflow-y-auto z-50 transition-transform duration-200 ${isOpen ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0`}
         style={{ backgroundColor: "var(--color-sidebar)" }}
       >
