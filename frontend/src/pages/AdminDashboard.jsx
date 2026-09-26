@@ -161,7 +161,7 @@ function AdminBannerClock() {
           cy="60"
           r="54"
           fill="var(--bg-primary)"
-          stroke="#f59e0b"
+          stroke="var(--color-primary)"
           strokeWidth="2"
           opacity="0.4"
         />
@@ -174,7 +174,7 @@ function AdminBannerClock() {
               cx={60 + (major ? 46 : 47) * Math.cos(angle)}
               cy={60 + (major ? 46 : 47) * Math.sin(angle)}
               r={major ? 3.5 : 2}
-              fill="#f59e0b"
+              fill="var(--color-primary)"
               opacity={major ? 0.9 : 0.3}
             />
           );
@@ -202,11 +202,11 @@ function AdminBannerClock() {
           y1={sTail.y}
           x2={sTip.x}
           y2={sTip.y}
-          stroke="#f59e0b"
+          stroke="var(--color-primary)"
           strokeWidth="1.5"
           strokeLinecap="round"
         />
-        <circle cx="60" cy="60" r="3" fill="#f59e0b" />
+        <circle cx="60" cy="60" r="3" fill="var(--color-primary)" />
       </svg>
       <div>
         <p
@@ -332,32 +332,32 @@ export default function AdminDashboard() {
 
       <main className="md:ml-56 flex-1 flex flex-col">
         <header
-          className="border-b pl-16 pr-4 py-4 md:px-8 flex items-center justify-between sticky top-0 z-20"
+          className="border-b pl-16 pr-4 py-4 md:px-8 flex items-center justify-between gap-3 sticky top-0 z-20"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div>
+          <div className="min-w-0">
             <h1
-              className="text-lg font-semibold"
+              className="text-lg font-semibold truncate"
               style={{ color: "var(--text-primary)" }}
             >
               Panel de Administración
             </h1>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-xs truncate hidden sm:block" style={{ color: "var(--text-secondary)" }}>
               EduDynamis — Vista global de la plataforma
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             <NotificationBell />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
                 <Shield size={14} className="text-white" />
               </div>
-              <div>
+              <div className="min-w-0 hidden sm:block">
                 <p
-                  className="text-sm font-medium"
+                  className="text-sm font-medium truncate"
                   style={{ color: "var(--text-primary)" }}
                 >
                   {user?.full_name}
@@ -389,28 +389,31 @@ export default function AdminDashboard() {
             className="rounded-2xl p-5 md:p-8 mb-8 relative overflow-hidden border"
             style={{
               backgroundColor: "var(--bg-secondary)",
-              borderColor: "#f59e0b",
+              borderColor: "var(--color-primary)",
               borderWidth: "1.5px",
             }}
           >
             {/* Círculos decorativos */}
             <div
               className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-5"
-              style={{ backgroundColor: "#f59e0b" }}
+              style={{ backgroundColor: "var(--color-primary)" }}
             />
             <div
               className="absolute -bottom-16 right-32 w-64 h-64 rounded-full opacity-5"
-              style={{ backgroundColor: "#f59e0b" }}
+              style={{ backgroundColor: "var(--color-primary)" }}
             />
 
             {/* Fila superior — saludo + reloj */}
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold text-white shadow-sm bg-yellow-500">
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold text-white shadow-sm"
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                >
                   <Shield size={28} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium mb-1 text-yellow-600">
+                  <p className="text-sm font-medium mb-1" style={{ color: "var(--color-primary)" }}>
                     {greeting}
                   </p>
                   <h2
@@ -463,16 +466,19 @@ export default function AdminDashboard() {
                     borderColor: "var(--border-color)",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#f59e0b";
-                    e.currentTarget.style.backgroundColor = "#fef9c3";
+                    e.currentTarget.style.borderColor = "var(--color-primary)";
+                    e.currentTarget.style.backgroundColor = "var(--color-primary-light)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = "var(--border-color)";
                     e.currentTarget.style.backgroundColor = "var(--bg-primary)";
                   }}
                 >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-yellow-100">
-                    <Icon size={15} className="text-yellow-600" />
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: "var(--color-primary-light)" }}
+                  >
+                    <Icon size={15} style={{ color: "var(--color-primary)" }} />
                   </div>
                   <span
                     className="text-xs font-medium"
@@ -485,7 +491,8 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => navigate("/admin/calendario")}
-                className="flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all bg-yellow-500 border-yellow-500"
+                className="flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all"
+                style={{ backgroundColor: "var(--color-primary)", borderColor: "var(--color-primary)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
               >
