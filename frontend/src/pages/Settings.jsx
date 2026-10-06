@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import api from "../services/api";
@@ -7,6 +7,13 @@ import Sidebar from "../components/layout/Sidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
+import NotificationBell from "../components/NotificationBell";
+import {
+  EDITABLE_INSTITUTION_FIELDS,
+  validateInstitutionForm,
+  isValidPhone,
+  formatApiError,
+} from "../utils/institutionFields";
 import {
   Bell,
   ChevronLeft,
@@ -19,13 +26,30 @@ import {
   Sun,
   Mail,
   Shield,
+  Building2,
+  Lock,
+  Droplets,
+  Upload,
+  Trash2,
+  ImageIcon,
 } from "lucide-react";
 
+
 const TABS = [
+  { id: "institution", label: "Institución", icon: Building2 },
   { id: "account", label: "Contraseña", icon: User },
   { id: "email", label: "Correo", icon: Mail },
   { id: "appearance", label: "Apariencia", icon: Sun },
 ];
+
+const LOGO_POSITIONS = [
+  { id: "top-left", label: "Izquierda" },
+  { id: "top-center", label: "Centro" },
+  { id: "top-right", label: "Derecha" },
+];
+
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2 MB, igual que el backend
 
 const PASSWORD_RULES = [
   { key: "length", label: "Mínimo 8 caracteres" },
@@ -99,7 +123,7 @@ function PasswordStrengthIndicator({ strength }) {
 function AppearanceTab({ theme, setTheme, themes }) {
   return (
     <div
-      className="rounded-2xl border p-6"
+      className="rounded-2xl border p-4 md:p-6"
       style={{
         backgroundColor: "var(--bg-secondary)",
         borderColor: "var(--border-color)",
@@ -153,6 +177,337 @@ function AppearanceTab({ theme, setTheme, themes }) {
   );
 }
 
+function InstitutionTab({ onSuccess, onError }) {
+  const [institution, setInstitution] = useState(null);
+  const [form, setForm] = useState({});
+  const [prefs, setPrefs] = useState({ logo_position: "top-left", logo_watermark: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const fillForm = (data) => {
+    setForm(
+      Object.fromEntries(EDITABLE_INSTITUTION_FIELDS.map((f) => [f.key, data[f.key] || ""])),
+    );
+    setPrefs({
+      logo_position: data.logo_position || "top-left",
+      logo_watermark: !!data.logo_watermark,
+    });
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.get("/institutions/my");
+        setInstitution(res.data);
+        fillForm(res.data);
+      } catch (err) {
+        onError(formatApiError(err, "No se pudieron cargar los datos de la institución."));
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite volver a elegir el mismo archivo
+    if (!file) return;
+    if (!LOGO_TYPES.includes(file.type)) {
+      onError("Formato no permitido. Usa PNG, JPG, WEBP o SVG.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      onError("El logo no puede superar 2 MB.");
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await api.post("/institutions/my/logo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setInstitution((prev) => ({ ...prev, logo_url: res.data.logo_url }));
+      onError("");
+      onSuccess("Logo actualizado.");
+    } catch (err) {
+      onError(formatApiError(err, "No se pudo subir el logo."));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    if (!confirm("¿Quitar el logo de la institución? Dejará de aparecer en tus documentos.")) return;
+    setUploadingLogo(true);
+    try {
+      await api.delete("/institutions/my/logo");
+      setInstitution((prev) => ({ ...prev, logo_url: null, logo_watermark: false }));
+      setPrefs((p) => ({ ...p, logo_watermark: false }));
+      onError("");
+      onSuccess("Logo eliminado.");
+    } catch (err) {
+      onError(formatApiError(err, "No se pudo quitar el logo."));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const required = ["department", "municipality", "education_level"];
+    const missing = EDITABLE_INSTITUTION_FIELDS.filter(
+      (f) => required.includes(f.key) && !(form[f.key] || "").trim(),
+    );
+    if (missing.length) {
+      onError(`Completa: ${missing.map((f) => f.label).join(", ")}.`);
+      return;
+    }
+    const validation = validateInstitutionForm(form);
+    if (validation) {
+      onError(validation);
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        ...Object.fromEntries(Object.entries(form).map(([k, v]) => [k, (v || "").trim()])),
+        ...prefs,
+      };
+      const res = await api.put("/institutions/my", payload);
+      setInstitution(res.data);
+      fillForm(res.data);
+      onError("");
+      onSuccess("Datos de la institución actualizados.");
+    } catch (err) {
+      onError(formatApiError(err, "No se pudieron guardar los datos de la institución."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-sm py-10 text-center" style={{ color: "var(--text-secondary)" }}>
+        Cargando...
+      </div>
+    );
+  }
+  if (!institution) return null;
+
+  const legal = [
+    { label: "Nombre", value: institution.name },
+    { label: "Licencia de funcionamiento", value: institution.license_number },
+    { label: "Código DANE", value: institution.dane_code },
+  ];
+
+  return (
+    <div
+      className="rounded-2xl border p-4 md:p-6"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-color)",
+      }}
+    >
+      <h2 className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+        Datos de la institución
+      </h2>
+      <p className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>
+        Aparecen en el encabezado y el contenido de tus documentos.
+      </p>
+
+      <div
+        className="rounded-xl p-4 mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3"
+        style={{ backgroundColor: "var(--bg-primary)" }}
+      >
+        {legal.map(({ label, value }) => (
+          <div key={label} className="min-w-0">
+            <p
+              className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <Lock size={10} /> {label}
+            </p>
+            <p className="text-sm truncate" style={{ color: "var(--text-primary)" }}>
+              {value || "—"}
+            </p>
+          </div>
+        ))}
+        <p className="sm:col-span-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+          Son datos legales. Para cambiarlos, escríbele al equipo de EasyDocs.
+        </p>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {EDITABLE_INSTITUTION_FIELDS.map((f) => {
+            const invalid = f.type === "tel" && !isValidPhone(form[f.key]);
+            return (
+              <div key={f.key} className="min-w-0">
+                <label
+                  className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {f.label}
+                </label>
+                <input
+                  type={f.type || "text"}
+                  inputMode={f.type === "tel" ? "tel" : undefined}
+                  value={form[f.key] || ""}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, [f.key]: e.target.value }));
+                    onError("");
+                  }}
+                  className="w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all"
+                  style={{
+                    borderColor: invalid ? "#dc2626" : "var(--border-color)",
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {invalid && (
+                  <p className="text-xs mt-1" style={{ color: "#dc2626" }}>
+                    Solo números, espacios, guiones y + (7 a 15 dígitos).
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="pt-2">
+          <h3 className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+            Logo en los documentos
+          </h3>
+          <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+            Preferencias por defecto. Puedes cambiarlas en cada documento antes de generarlo.
+          </p>
+
+          <div
+            className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border mb-3"
+            style={{ borderColor: "var(--border-color)", backgroundColor: "var(--bg-primary)" }}
+          >
+            <div
+              className="w-24 h-24 rounded-xl border flex items-center justify-center flex-shrink-0 overflow-hidden"
+              style={{ borderColor: "var(--border-color)", backgroundColor: "#ffffff" }}
+            >
+              {institution.logo_url ? (
+                <img
+                  src={institution.logo_url}
+                  alt="Logo de la institución"
+                  className="max-w-full max-h-full object-contain p-2"
+                />
+              ) : (
+                <ImageIcon size={28} style={{ color: "var(--text-secondary)", opacity: 0.4 }} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {institution.logo_url ? "Logo de la institución" : "Aún no has subido un logo"}
+              </p>
+              <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+                PNG, JPG, WEBP o SVG, máximo 2 MB. Un PNG con fondo transparente se ve mejor como marca de agua.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <label
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white ${uploadingLogo ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                >
+                  <Upload size={14} />
+                  {uploadingLogo
+                    ? "Procesando..."
+                    : institution.logo_url
+                      ? "Cambiar logo"
+                      : "Subir logo"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoUpload}
+                    disabled={uploadingLogo}
+                    className="hidden"
+                  />
+                </label>
+                {institution.logo_url && (
+                  <button
+                    type="button"
+                    onClick={handleLogoDelete}
+                    disabled={uploadingLogo}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border disabled:opacity-50"
+                    style={{ borderColor: "#fecaca", color: "#dc2626", backgroundColor: "#fef2f2" }}
+                  >
+                    <Trash2 size={14} /> Quitar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {LOGO_POSITIONS.map((p) => {
+              const active = prefs.logo_position === p.id;
+              return (
+                <button
+                  type="button"
+                  key={p.id}
+                  onClick={() => setPrefs((s) => ({ ...s, logo_position: p.id }))}
+                  className="px-4 py-2 rounded-xl border text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: active ? "var(--color-primary-light)" : "var(--bg-primary)",
+                    borderColor: active ? "var(--color-primary)" : "var(--border-color)",
+                    color: active ? "var(--color-primary)" : "var(--text-secondary)",
+                  }}
+                >
+                  Logo arriba a la {p.label.toLowerCase()}
+                </button>
+              );
+            })}
+          </div>
+          <label
+            className={`flex items-start gap-3 p-4 rounded-xl border ${institution.logo_url ? "cursor-pointer" : "opacity-60 cursor-not-allowed"}`}
+            style={{
+              borderColor: prefs.logo_watermark ? "var(--color-primary)" : "var(--border-color)",
+              backgroundColor: prefs.logo_watermark ? "var(--color-primary-light)" : "var(--bg-primary)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={prefs.logo_watermark}
+              disabled={!institution.logo_url}
+              onChange={(e) => setPrefs((s) => ({ ...s, logo_watermark: e.target.checked }))}
+              className="w-4 h-4 mt-0.5 flex-shrink-0"
+            />
+            <span className="min-w-0">
+              <span
+                className="flex items-center gap-1.5 text-sm font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                <Droplets size={14} /> Usar mi logo como marca de agua
+              </span>
+              <span className="block text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                {institution.logo_url
+                  ? "Tu logo aparece grande, centrado y suave detrás del texto, en todas las páginas."
+                  : "Primero sube el logo de tu institución."}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors text-sm text-white disabled:opacity-40"
+          style={{ backgroundColor: "var(--color-primary)" }}
+        >
+          <Save size={16} />
+          {saving ? "Guardando..." : "Guardar cambios"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function EmailChangeTab({ currentEmail, onSuccess, onError }) {
   const [step, setStep] = useState("form"); // form | verify
   const [newEmail, setNewEmail] = useState("");
@@ -201,7 +556,7 @@ function EmailChangeTab({ currentEmail, onSuccess, onError }) {
 
   return (
     <div
-      className="rounded-2xl border p-6"
+      className="rounded-2xl border p-4 md:p-6"
       style={{
         backgroundColor: "var(--bg-secondary)",
         borderColor: "var(--border-color)",
@@ -351,8 +706,12 @@ export default function Settings() {
   const { user, logout } = useAuth();
   const { theme, setTheme, themes } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
 
-  const [activeTab, setActiveTab] = useState("account");
+  const [activeTab, setActiveTab] = useState(
+    TABS.some((t) => t.id === tabParam) ? tabParam : "institution",
+  );
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -432,46 +791,44 @@ export default function Settings() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
-            <div>
+            <div className="min-w-0">
               <h1
-                className="text-lg font-semibold"
+                className="text-lg font-semibold truncate"
                 style={{ color: "var(--text-primary)" }}
               >
                 Configuración
               </h1>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>
                 Tu cuenta y preferencias
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
-            </button>
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              <NotificationBell/>
             <div className="flex items-center gap-2">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center"
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <span className="text-white text-xs font-bold">
@@ -479,7 +836,7 @@ export default function Settings() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden sm:block text-sm font-medium truncate max-w-[160px]"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -488,7 +845,7 @@ export default function Settings() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-3xl mx-auto w-full">
+        <div className="flex-1 p-4 md:p-8 max-w-3xl mx-auto w-full min-w-0">
           {success && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
               <CheckCircle size={16} /> {success}
@@ -501,7 +858,7 @@ export default function Settings() {
           )}
 
           <div
-            className="flex gap-1 rounded-2xl p-1 mb-6 border"
+            className="grid grid-cols-2 sm:flex gap-1 rounded-2xl p-1 mb-6 border"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--border-color)",
@@ -515,7 +872,7 @@ export default function Settings() {
                   setError("");
                   setSuccess("");
                 }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl text-sm font-medium transition-colors min-w-0"
                 style={{
                   backgroundColor:
                     activeTab === id ? "var(--color-primary)" : "transparent",
@@ -528,9 +885,19 @@ export default function Settings() {
             ))}
           </div>
 
+          {activeTab === "institution" && (
+            <InstitutionTab
+              onSuccess={(msg) => {
+                setSuccess(msg);
+                setTimeout(() => setSuccess(""), 3000);
+              }}
+              onError={(msg) => setError(msg)}
+            />
+          )}
+
           {activeTab === "account" && (
             <div
-              className="rounded-2xl border p-6"
+              className="rounded-2xl border p-4 md:p-6"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-color)",

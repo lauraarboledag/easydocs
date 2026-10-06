@@ -5,6 +5,10 @@ import { Plus, X } from "lucide-react";
 function DataTableView({ node, updateAttributes, extension }) {
     const rows = node.attrs.rows; // [{ label, jinjaKey }]
     const variables = extension.options.variables || [];
+    // Una variable que no está en la lista se muestra tal cual; si no, el
+    // <select> mostraría la primera opción ("Nombre institución") y confundiría.
+    const isUnknownKey = (key) =>
+        !!key && !variables.some((v) => v.jinjaKey === key);
 
     const updateRow = (index, key, value) => {
         const next = [...rows];
@@ -53,11 +57,28 @@ function DataTableView({ node, updateAttributes, extension }) {
                                     <td className="p-0">
                                         <div className="flex items-center gap-1 px-2 py-1.5">
                                             <select
-                                                value={row.jinjaKey}
+                                                value={row.jinjaKey || ""}
                                                 onChange={(e) => updateRow(i, "jinjaKey", e.target.value)}
                                                 className="flex-1 min-w-0 bg-transparent text-xs outline-none"
-                                                style={{ color: "var(--text-primary)" }}
+                                                style={{
+                                                    color: isUnknownKey(row.jinjaKey)
+                                                        ? "#b45309"
+                                                        : "var(--text-primary)",
+                                                }}
+                                                title={
+                                                    isUnknownKey(row.jinjaKey)
+                                                        ? `Variable personalizada: ${row.jinjaKey}`
+                                                        : undefined
+                                                }
                                             >
+                                                {!row.jinjaKey && (
+                                                    <option value="">Selecciona una variable…</option>
+                                                )}
+                                                {isUnknownKey(row.jinjaKey) && (
+                                                    <option value={row.jinjaKey}>
+                                                        {row.jinjaKey} (personalizada)
+                                                    </option>
+                                                )}
                                                 {variables.map((v) => (
                                                     <option key={v.jinjaKey} value={v.jinjaKey}>
                                                         {v.label}

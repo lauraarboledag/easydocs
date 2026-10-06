@@ -67,7 +67,7 @@ const PLAN_LABELS = {
 function MetricCard({ label, value, sub, icon: Icon, iconColor, alert }) {
   return (
     <div
-      className="rounded-xl p-5 border"
+      className="rounded-xl p-4 md:p-5 border min-w-0"
       style={{
         backgroundColor: "var(--bg-secondary)",
         borderColor: alert ? "#fbbf24" : "var(--border-color)",
@@ -83,7 +83,7 @@ function MetricCard({ label, value, sub, icon: Icon, iconColor, alert }) {
         <Icon size={14} style={{ color: iconColor || "var(--color-icon)" }} />
       </div>
       <p
-        className="text-3xl font-bold"
+        className="text-2xl md:text-3xl font-bold"
         style={{ color: alert ? "#f59e0b" : "var(--text-primary)" }}
       >
         {value}
@@ -128,7 +128,7 @@ function BannerClock() {
   });
 
   return (
-    <div className="flex items-center gap-4 flex-shrink-0">
+    <div className="hidden sm:flex items-center gap-4 flex-shrink-0">
       <svg width="90" height="90" viewBox="0 0 120 120">
         <circle
           cx="60"
@@ -312,17 +312,27 @@ export default function Dashboard() {
       ? Math.round(((docsThisMonth - docsLastMonth) / docsLastMonth) * 100)
       : null;
   const pendingDrafts = documents.filter((d) => d.status === "ai_draft").length;
+  const draftCount = documents.filter((d) => d.status === "draft").length;
+  // El cupo del plan no cuenta borradores (igual que el backend)
+  const usedThisMonth = thisMonth.filter(
+    (d) => !["draft", "ai_draft"].includes(d.status),
+  ).length;
   const generatedCount = documents.filter(
     (d) => d.status === "generated",
   ).length;
 
   const planName = subscription?.plan?.name || "free";
-  const planLimit = PLAN_LIMITS[planName] ?? 10;
+  // El límite sale del plan guardado (null = ilimitado); si no viene, la tabla fija
+  const planFeatures = subscription?.plan?.features || {};
+  const planLimit =
+    "documentos_por_mes" in planFeatures
+      ? planFeatures.documentos_por_mes ?? Infinity
+      : (PLAN_LIMITS[planName] ?? 10);
   const planLabel = PLAN_LABELS[planName] || "Free";
   const usagePercent =
     planLimit === Infinity
       ? 0
-      : Math.min((docsThisMonth / planLimit) * 100, 100);
+      : Math.min((usedThisMonth / planLimit) * 100, 100);
   const usageColor =
     usagePercent >= 90
       ? "#dc2626"
@@ -339,7 +349,7 @@ export default function Dashboard() {
 
   const statusCounts = {
     generated: generatedCount,
-    draft: documents.filter((d) => d.status === "draft").length,
+    draft: draftCount,
     ai_draft: pendingDrafts,
     cancelled: documents.filter((d) => d.status === "cancelled").length,
   };
@@ -351,31 +361,31 @@ export default function Dashboard() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-20"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-20"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div>
+          <div className="min-w-0">
             <h1
-              className="text-lg font-semibold"
+              className="text-lg font-semibold truncate"
               style={{ color: "var(--text-primary)" }}
             >
               Panel de Control
             </h1>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>
               {user?.institution?.name || "Vista general"}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <NotificationBell />
             <div className="flex items-center gap-2">
               <div
@@ -386,7 +396,7 @@ export default function Dashboard() {
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div>
+              <div className="hidden md:block">
                 <p
                   className="text-sm font-medium"
                   style={{ color: "var(--text-primary)" }}
@@ -404,10 +414,10 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           {/* Banner */}
           <div
-            className="rounded-2xl p-8 mb-8 relative overflow-hidden border"
+            className="rounded-2xl p-5 md:p-8 mb-6 md:mb-8 relative overflow-hidden border"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--color-primary)",
@@ -425,15 +435,15 @@ export default function Dashboard() {
             />
 
             {/* Fila superior — saludo + reloj */}
-            <div className="relative z-10 flex items-start justify-between mb-8">
-              <div className="flex items-center gap-4">
+            <div className="relative z-10 flex items-start justify-between gap-4 mb-6 md:mb-8">
+              <div className="flex items-center gap-3 md:gap-4 min-w-0">
                 <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold text-white shadow-sm"
+                  className="w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl font-bold text-white shadow-sm"
                   style={{ backgroundColor: "var(--color-primary)" }}
                 >
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p
                     className="text-sm font-medium mb-1"
                     style={{ color: "var(--color-primary)" }}
@@ -441,7 +451,7 @@ export default function Dashboard() {
                     {greeting}
                   </p>
                   <h2
-                    className="text-2xl font-bold"
+                    className="text-xl md:text-2xl font-bold truncate"
                     style={{ color: "var(--text-primary)" }}
                   >
                     {user?.full_name?.split(" ")[0]}
@@ -476,12 +486,12 @@ export default function Dashboard() {
                 {
                   label: "Matrículas",
                   icon: ClipboardList,
-                  path: "/matriculas",
+                  path: "/academico?tab=matriculas",
                 },
                 {
                   label: "Estudiantes",
                   icon: GraduationCap,
-                  path: "/estudiantes",
+                  path: "/academico?tab=estudiantes",
                 },
               ].map(({ label, icon: Icon, path }) => (
                 <button
@@ -519,7 +529,7 @@ export default function Dashboard() {
 
               <button
                 onClick={() => navigate("/calendario")}
-                className="flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all"
+                className="col-span-2 lg:col-span-1 flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all"
                 style={{
                   backgroundColor: "var(--color-primary)",
                   borderColor: "var(--color-primary)",
@@ -538,9 +548,9 @@ export default function Dashboard() {
           </div>
 
           {/* Métricas */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
             <div
-              className="rounded-xl p-5 border"
+              className="rounded-xl p-4 md:p-5 border min-w-0"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-color)",
@@ -556,7 +566,7 @@ export default function Dashboard() {
                 <TrendingUp size={14} style={{ color: "var(--color-icon)" }} />
               </div>
               <p
-                className="text-3xl font-bold"
+                className="text-2xl md:text-3xl font-bold"
                 style={{ color: "var(--text-primary)" }}
               >
                 {docsThisMonth}
@@ -575,7 +585,7 @@ export default function Dashboard() {
                     >
                       {docsDelta >= 0 ? "+" : ""}
                       {docsDelta}
-                      {"% vs mes anterior"}
+                      {"% vs mes ant."}
                     </p>
                   </>
                 ) : (
@@ -583,7 +593,7 @@ export default function Dashboard() {
                     className="text-xs"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    documentos generados
+                    documentos creados
                   </p>
                 )}
               </div>
@@ -603,21 +613,25 @@ export default function Dashboard() {
               icon={BookOpen}
             />
             <MetricCard
-              label="Borradores IA"
-              value={pendingDrafts}
+              label="Borradores"
+              value={draftCount + pendingDrafts}
               sub={
-                pendingDrafts > 0 ? "Pendientes de revisión" : "Sin borradores"
+                pendingDrafts > 0
+                  ? `${pendingDrafts} de IA por revisar`
+                  : draftCount > 0
+                    ? "Por continuar"
+                    : "Sin borradores"
               }
-              icon={Clock}
+              icon={pendingDrafts > 0 ? Clock : FilePen}
               iconColor={pendingDrafts > 0 ? "#f59e0b" : "var(--color-icon)"}
               alert={pendingDrafts > 0}
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             {/* Documentos recientes */}
             <div
-              className="lg:col-span-2 rounded-xl border p-6"
+              className="lg:col-span-2 rounded-xl border p-4 md:p-6 min-w-0"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-color)",
@@ -680,7 +694,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-1">
                   <div
-                    className="grid grid-cols-12 text-xs uppercase tracking-wide pb-2 border-b px-2"
+                    className="hidden sm:grid grid-cols-12 text-xs uppercase tracking-wide pb-2 border-b px-2"
                     style={{
                       color: "var(--text-secondary)",
                       borderColor: "var(--border-color)",
@@ -695,17 +709,17 @@ export default function Dashboard() {
                     return (
                       <div
                         key={doc.id}
-                        className="grid grid-cols-12 items-center py-2.5 rounded-lg px-2 transition-colors"
+                        className="flex items-center justify-between gap-2 sm:grid sm:grid-cols-12 py-2.5 rounded-lg px-2 transition-colors"
                         onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "var(--bg-primary)")
+                        (e.currentTarget.style.backgroundColor =
+                          "var(--bg-primary)")
                         }
                         onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "transparent")
+                        (e.currentTarget.style.backgroundColor =
+                          "transparent")
                         }
                       >
-                        <div className="col-span-5 flex items-center gap-2">
+                        <div className="col-span-5 flex items-center gap-2 min-w-0">
                           <div
                             className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                             style={{
@@ -724,9 +738,9 @@ export default function Dashboard() {
                             {getTemplateName(doc.template_id)}
                           </p>
                         </div>
-                        <div className="col-span-3">
+                        <div className="col-span-3 flex-shrink-0">
                           <span
-                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                             style={{
                               backgroundColor: STATUS_STYLES[doc.status]?.bg,
                               color: STATUS_STYLES[doc.status]?.color,
@@ -737,7 +751,7 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <span
-                          className="col-span-4 text-xs"
+                          className="hidden sm:block col-span-4 text-xs"
                           style={{ color: "var(--text-secondary)" }}
                         >
                           {new Date(doc.created_at).toLocaleDateString(
@@ -867,7 +881,7 @@ export default function Dashboard() {
                     className="text-3xl font-bold"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {docsThisMonth}
+                    {usedThisMonth}
                   </span>
                   <span
                     className="text-sm mb-1"
@@ -900,7 +914,7 @@ export default function Dashboard() {
                     ? "Documentos ilimitados"
                     : usagePercent >= 90
                       ? "\u26A0\uFE0F Casi en el límite"
-                      : `${planLimit - docsThisMonth} documentos restantes`}
+                      : `${Math.max(planLimit - usedThisMonth, 0)} documentos restantes`}
                 </p>
                 {planName !== "enterprise" && (
                   <button

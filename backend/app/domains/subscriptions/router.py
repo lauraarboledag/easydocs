@@ -34,6 +34,9 @@ from app.domains.subscriptions.services import (
     get_institution_subscription,
     list_transactions,
     activate_subscription_with_invoice,
+    request_plan_change,
+    get_pending_request,
+    cancel_pending_request,
 )
 
 router = APIRouter(tags=["Suscripciones"])
@@ -69,6 +72,21 @@ def my_subscription(
     return get_institution_subscription(db, current_user.institution_id)
 
 
+@router.get("/subscriptions/pending", response_model=Optional[SubscriptionResponse])
+def my_pending_request(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """Solicitud de cambio de plan esperando confirmación de pago (o null)."""
+    return get_pending_request(db, current_user.institution_id)
+
+
+@router.delete("/subscriptions/pending", status_code=204)
+def cancel_my_pending_request(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    cancel_pending_request(db, current_user.institution_id)
+
+
 @router.get("/transactions/", response_model=list[TransactionResponse])
 def get_transactions(
     db: Session = Depends(get_db),
@@ -93,30 +111,16 @@ class ChangePlanRequest(BaseModel):
     plan_id: str
 
 
-@router.post("/subscriptions/change-plan")
+@router.post("/subscriptions/change-plan", response_model=SubscriptionResponse)
 def change_plan(
     data: ChangePlanRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    current_sub = db.execute(
-        select(Subscription).where(
-            Subscription.institution_id == current_user.institution_id,
-            Subscription.is_active == True,
-        )
-    ).scalar_one_or_none()
-
-    if current_sub:
-        current_sub.is_active = False
-        current_sub.status = SubscriptionStatus.cancelled
-        db.commit()
-
-    return create_subscription(
-        db,
-        SubscriptionCreate(
-            plan_id=data.plan_id, institution_id=current_user.institution_id
-        ),
-    )
+    # Plan gratuito: inmediato. Plan de pago: queda pendiente y el plan actual
+    # sigue vigente hasta que se confirme el pago (ver request_plan_change).
+    # La respuesta trae status: "active" (aplicado) o "pending" (espera el pago).
+    return request_plan_change(db, current_user.institution_id, data.plan_id)
 
 
 class PlanUpdate(BaseModel):

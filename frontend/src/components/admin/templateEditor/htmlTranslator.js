@@ -26,10 +26,41 @@ function extractVariableRuns(text) {
     return parts.filter((p) => !(p.type === "text" && p.text === ""));
 }
 
+// Marcas de formato que el editor entiende (negrita, cursiva, subrayado)
+const MARK_TAGS = { STRONG: "bold", B: "bold", EM: "italic", I: "italic", U: "underline" };
+
+// Recorre el contenido de un elemento conservando negrita/cursiva/subrayado
+// y los chips de variable. Antes se usaba solo textContent, y al guardar
+// desde el editor se perdía todo el formato del texto.
+function collectRuns(node, marks = []) {
+    if (node.nodeType === Node.TEXT_NODE) {
+        return extractVariableRuns(node.textContent).map((part) =>
+            marks.length ? { ...part, marks: marks.map((type) => ({ type })) } : part,
+        );
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return [];
+    if (node.tagName === "BR") return [{ type: "text", text: " " }];
+    const mark = MARK_TAGS[node.tagName];
+    const nextMarks = mark && !marks.includes(mark) ? [...marks, mark] : marks;
+    return Array.from(node.childNodes).flatMap((child) => collectRuns(child, nextMarks));
+}
+
+function hasRealContent(runs) {
+    return runs.some((r) => r.type === "variableChip" || (r.text || "").trim() !== "");
+}
+
+const ALLOWED_ALIGN = ["center", "right", "justify"];
+
 function translateParagraph(el) {
-    const runs = extractVariableRuns(el.textContent);
-    if (runs.length === 0) return null;
-    return { type: "paragraph", content: runs };
+    const runs = collectRuns(el);
+    if (!hasRealContent(runs)) return null;
+    const paragraph = { type: "paragraph", content: runs };
+    // Conserva la alineación (ej. párrafos centrados de los certificados)
+    const align = el.style?.textAlign;
+    if (ALLOWED_ALIGN.includes(align)) {
+        paragraph.attrs = { textAlign: align };
+    }
+    return paragraph;
 }
 
 function translateHeading(el) {
@@ -97,7 +128,7 @@ function translateFirmas(el) {
 
 function translateList(el, ordered) {
     const items = Array.from(el.querySelectorAll(":scope > li")).map((li) => {
-        const runs = extractVariableRuns(li.textContent);
+        const runs = collectRuns(li);
         return {
             type: "listItem",
             content: [{ type: "paragraph", content: runs }],

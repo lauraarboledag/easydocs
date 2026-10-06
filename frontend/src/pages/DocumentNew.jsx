@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import LogoutModal from "../components/LogoutModal";
@@ -7,6 +7,19 @@ import Sidebar from "../components/layout/Sidebar";
 import EduBot from "../components/EduBot";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import {
+  analyzeConditionals,
+  isFieldHidden,
+  getMinorConditions,
+  GUARDIAN_AUTOFILL,
+} from "../utils/templateConditionals";
+import {
+  INSTITUTION_FIELDS,
+  getInstitutionVarsUsed,
+  validateInstitutionForm,
+  isValidPhone,
+  formatApiError,
+} from "../utils/institutionFields";
 import {
   FileText,
   ChevronLeft,
@@ -24,6 +37,12 @@ import {
   Plus,
   X,
   Sparkles,
+  Building2,
+  Lock,
+  Droplets,
+  Save,
+  Bot,
+  Loader2,
 } from "lucide-react";
 
 const FIELD_LABELS = {
@@ -89,6 +108,7 @@ const FIELD_LABELS = {
   telefono_estudiante: "Teléfono del estudiante",
   tipo_certificado: "Tipo de certificado que otorga",
   direccion: "Dirección de residencia",
+  es_menor_edad: "El estudiante es menor de edad",
   dia: "Día",
   mes: "Mes",
   anio: "Año",
@@ -180,6 +200,70 @@ function isTableField(template, field) {
   return !!(template?.table_columns && field in template.table_columns);
 }
 
+// Campos que se pueden autollenar desde una matrícula (estudiante + programa)
+const AUTOFILL_FIELDS = [
+  "nombre_estudiante",
+  "tipo_documento",
+  "documento_estudiante",
+  "lugar_expedicion",
+  "direccion",
+  "barrio",
+  "comuna",
+  "telefono_estudiante",
+  "nombre_programa",
+  "tipo_certificado",
+  "numero_matricula",
+  "folio",
+  "dia",
+  "mes",
+  "anio",
+  ...Object.keys(GUARDIAN_AUTOFILL),
+];
+
+// El autollenado solo tiene sentido si el documento es sobre un estudiante
+const STUDENT_KEY_FIELDS = ["nombre_estudiante", "documento_estudiante"];
+
+function conditionLabel(cond) {
+  return FIELD_LABELS[cond] || cond.replace(/_/g, " ").replace(/^\w/, (l) => l.toUpperCase());
+}
+
+const buildEnrollmentData = (enrollment) => {
+  const now = new Date();
+  const { student, program } = enrollment;
+  return {
+    nombre_estudiante: student.full_name,
+    tipo_documento: student.document_type || "",
+    documento_estudiante: student.document_number || "",
+    lugar_expedicion: student.document_place || "",
+    direccion: student.address || "",
+    barrio: student.neighborhood || "",
+    comuna: student.commune || "",
+    telefono_estudiante: student.phone || "",
+    nombre_programa: program.name,
+    tipo_certificado:
+      enrollment.certificate_type || program.certificate_type || "",
+    numero_matricula: enrollment.enrollment_number || "",
+    folio: enrollment.folio || "",
+    dia: now.getDate().toString(),
+    mes: now.toLocaleString("es-CO", { month: "long" }),
+    anio: enrollment.year || now.getFullYear().toString(),
+    ...Object.fromEntries(
+      Object.entries(GUARDIAN_AUTOFILL).map(([key, studentKey]) => [
+        key,
+        enrollment.student?.[studentKey] || "",
+      ]),
+    ),
+  };
+};
+
+// Marca visible en la vista previa mientras el texto de EduBot no se ha revisado
+const AI_PREVIEW_MARK = `<div style="position:fixed;top:45%;left:0;right:0;text-align:center;transform:rotate(-30deg);font:700 34px Arial,sans-serif;color:rgba(180,83,9,0.18);letter-spacing:3px;pointer-events:none;z-index:9999;">BORRADOR – PENDIENTE DE REVISIÓN</div>`;
+
+const withAiMark = (html) =>
+  html.includes("</body>")
+    ? html.replace("</body>", `${AI_PREVIEW_MARK}</body>`)
+    : html + AI_PREVIEW_MARK;
+
 export default function DocumentNew() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -200,6 +284,88 @@ export default function DocumentNew() {
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [logoPosition, setLogoPosition] = useState("top-left");
+  const [watermark, setWatermark] = useState(false);
+  const [enrollments, setEnrollments] = useState([]);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState("");
+  const [institution, setInstitution] = useState(null);
+  const [instForm, setInstForm] = useState({});
+  // Borradores: ?draft=<id> abre un borrador guardado para continuarlo
+  const [searchParams, setSearchParams] = useSearchParams();
+  const draftParam = searchParams.get("draft");
+  const [draftId, setDraftId] = useState(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [notice, setNotice] = useState("");
+  const draftLoaded = useRef(false);
+  // Borrador con IA (EduBot redacta campos de texto largo)
+  const [aiConfig, setAiConfig] = useState(null);
+  const [aiFields, setAiFields] = useState([]); // campos con texto de EduBot
+  const [aiReviewed, setAiReviewed] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiNotes, setAiNotes] = useState("");
+  const [aiSelected, setAiSelected] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  const conditionals = useMemo(
+    () => analyzeConditionals(selectedTemplate?.template_html || ""),
+    [selectedTemplate],
+  );
+
+  // Datos de la institución que usa la plantilla elegida
+  const institutionVars = useMemo(
+    () => getInstitutionVarsUsed(selectedTemplate?.template_html || ""),
+    [selectedTemplate],
+  );
+  // Campos que EduBot puede redactar en la plantilla elegida
+  const aiDraftable = useMemo(() => {
+    if (!selectedTemplate || !aiConfig?.fields) return [];
+    const list = aiConfig.fields[selectedTemplate.document_type] || [];
+    return list.filter((f) => selectedTemplate.required_fields.includes(f.name));
+  }, [selectedTemplate, aiConfig]);
+
+  const editableInstVars = institutionVars.filter((v) => INSTITUTION_FIELDS[v].editable);
+  const readonlyInstVars = institutionVars.filter((v) => !INSTITUTION_FIELDS[v].editable);
+
+  useEffect(() => {
+    const fetchInstitution = async () => {
+      try {
+        const res = await api.get("/institutions/my");
+        setInstitution(res.data);
+        // Preferencias del logo guardadas en Configuración
+        // (si se abre un borrador, manda lo que se guardó con él)
+        if (!draftParam) {
+          setLogoPosition(res.data.logo_position || "top-left");
+          setWatermark(!!res.data.logo_watermark && !!res.data.logo_url);
+        }
+      } catch {
+        setInstitution(null); // sin datos, el recuadro no se muestra
+      }
+    };
+    fetchInstitution();
+  }, []);
+
+  // Precarga el recuadro con lo guardado en el perfil de la institución
+  useEffect(() => {
+    if (!selectedTemplate || !institution) return;
+    const form = {};
+    getInstitutionVarsUsed(selectedTemplate.template_html || "").forEach((v) => {
+      const field = INSTITUTION_FIELDS[v];
+      if (field.editable) form[field.key] = institution[field.key] || "";
+    });
+    setInstForm(form);
+  }, [selectedTemplate, institution]);
+
+  useEffect(() => {
+    const fetchAiConfig = async () => {
+      try {
+        const res = await api.get("/edubot/draft/config");
+        setAiConfig(res.data);
+      } catch {
+        setAiConfig(null); // sin configuración, no se muestra la opción
+      }
+    };
+    fetchAiConfig();
+  }, []);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -213,6 +379,69 @@ export default function DocumentNew() {
     fetchTemplates();
   }, []);
 
+  // Abre un borrador (?draft=<id>) cuando ya están las plantillas
+  useEffect(() => {
+    if (!draftParam || templates.length === 0 || draftLoaded.current) return;
+    draftLoaded.current = true;
+    const loadDraft = async () => {
+      try {
+        const res = await api.get(`/documents/${draftParam}`);
+        const doc = res.data;
+        if (!["draft", "ai_draft"].includes(doc.status)) {
+          setError("Este documento ya fue generado; descárgalo desde Documentos.");
+          return;
+        }
+        const template = templates.find((t) => t.id === doc.template_id);
+        if (!template) {
+          setError("La plantilla de este borrador ya no está disponible.");
+          return;
+        }
+        const { _opciones: opciones, _ia: iaInfo, ...saved } = doc.document_data || {};
+        // Parte de los campos vacíos de la plantilla y encima lo guardado
+        const initial = {};
+        template.required_fields.forEach((f) => {
+          initial[f] = isTableField(template, f) ? [] : "";
+        });
+        analyzeConditionals(template.template_html || "").conditions.forEach((c) => {
+          initial[c] = false;
+        });
+        setSelectedTemplate(template);
+        setFormData({ ...initial, ...saved });
+        if (opciones?.logo_position) setLogoPosition(opciones.logo_position);
+        if (typeof opciones?.marca_agua === "boolean") setWatermark(opciones.marca_agua);
+        setSelectedEnrollmentId("");
+        setDraftId(doc.id);
+        setAiFields(Array.isArray(iaInfo?.campos) ? iaInfo.campos : []);
+        setAiReviewed(false);
+        setStep(2);
+        setNotice(
+          doc.status === "ai_draft"
+            ? "Este borrador tiene texto redactado por EduBot. Revísalo y corrígelo antes de generarlo."
+            : "Continuando borrador. Puedes seguir llenándolo y guardarlo cuantas veces quieras.",
+        );
+      } catch {
+        setError("No se pudo abrir el borrador.");
+      }
+    };
+    loadDraft();
+  }, [draftParam, templates]);
+
+  useEffect(() => {
+    const fetchEnrollments = async () => {
+      try {
+        const res = await api.get("/enrollments/");
+        const sorted = [...res.data].sort((a, b) =>
+          a.student.full_name.localeCompare(b.student.full_name, "es"),
+        );
+        setEnrollments(sorted);
+      } catch {
+        // Si falla, el documento se sigue pudiendo llenar a mano
+        setEnrollments([]);
+      }
+    };
+    fetchEnrollments();
+  }, []);
+
   useInactivity({
     timeout: 30,
     onWarning: () => setShowInactivity(true),
@@ -223,11 +452,30 @@ export default function DocumentNew() {
     },
   });
 
+  // Vuelve a las preferencias de logo de la institución
+  const resetLogoOptions = () => {
+    setLogoPosition(institution?.logo_position || "top-left");
+    setWatermark(!!institution?.logo_watermark && !!institution?.logo_url);
+  };
+
   const handleSelectTemplate = (template) => {
+    // Otra plantilla = documento nuevo (el borrador abierto queda como estaba)
+    if (draftId && selectedTemplate?.id !== template.id) {
+      setDraftId(null);
+      setSearchParams({});
+    }
+    setNotice("");
+    setAiFields([]);
+    setAiReviewed(false);
     setSelectedTemplate(template);
+    resetLogoOptions();
     const initial = {};
+    setSelectedEnrollmentId("");
     template.required_fields.forEach((f) => {
       initial[f] = isTableField(template, f) ? [] : "";
+    });
+    analyzeConditionals(template.template_html || "").conditions.forEach((c) => {
+      initial[c] = false;
     });
     setFormData(initial);
     setStep(2);
@@ -236,6 +484,36 @@ export default function DocumentNew() {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    setError("");
+  };
+
+  const handleSelectEnrollment = (id) => {
+    setSelectedEnrollmentId(id);
+    if (!selectedTemplate) return;
+
+    const enrollment = enrollments.find((e) => String(e.id) === String(id));
+    const source = enrollment ? buildEnrollmentData(enrollment) : null;
+
+    setFormData((prev) => {
+      const next = { ...prev };
+      selectedTemplate.required_fields.forEach((f) => {
+        if (!AUTOFILL_FIELDS.includes(f)) return;
+        if (isTableField(selectedTemplate, f)) return;
+        next[f] = source ? source[f] : ""; // sin selección => limpia esos campos
+      });
+      return next;
+    });
+    // Marca/desmarca la condición de menor de edad según el estudiante
+    const minorConditions = getMinorConditions(conditionals);
+    if (minorConditions.length > 0) {
+      setFormData((prev) => {
+        const next = { ...prev };
+        minorConditions.forEach((c) => {
+          next[c] = !!enrollment?.student?.is_minor;
+        });
+        return next;
+      });
+    }
     setError("");
   };
 
@@ -264,8 +542,34 @@ export default function DocumentNew() {
     });
   };
 
+  // Guarda en el perfil los datos de la institución que se completaron aquí
+  const saveInstitutionChanges = async () => {
+    if (!institution || Object.keys(instForm).length === 0) return true;
+    const instError = validateInstitutionForm(instForm, { requireAll: true });
+    if (instError) {
+      setError(instError);
+      return false;
+    }
+    const changed = Object.fromEntries(
+      Object.entries(instForm)
+        .map(([key, value]) => [key, (value || "").trim()])
+        .filter(([key, value]) => value !== (institution[key] || "")),
+    );
+    if (Object.keys(changed).length === 0) return true;
+    try {
+      const res = await api.put("/institutions/my", changed);
+      setInstitution(res.data);
+      return true;
+    } catch (err) {
+      setError(formatApiError(err, "No se pudieron guardar los datos de la institución."));
+      return false;
+    }
+  };
+
   const handleGoToPreview = async (position = logoPosition) => {
     const empty = selectedTemplate.required_fields.filter((f) => {
+      if (conditionals.conditions.includes(f)) return false;
+      if (isFieldHidden(f, conditionals, formData)) return false;
       if (isTableField(selectedTemplate, f)) {
         return !formData[f] || formData[f].length === 0;
       }
@@ -279,10 +583,17 @@ export default function DocumentNew() {
     }
     setPreviewLoading(true);
     setError("");
+    // Primero los datos de la institución: la vista previa y el PDF los leen del perfil
+    const instOk = await saveInstitutionChanges();
+    if (!instOk) {
+      setPreviewLoading(false);
+      return;
+    }
     try {
       const res = await api.post(`/templates/${selectedTemplate.id}/preview`, {
         document_data: formData,
         logo_position: position,
+        watermark,
       });
       setPreviewHtml(res.data.html);
       setStep(3);
@@ -293,13 +604,13 @@ export default function DocumentNew() {
     }
   };
 
-  const handleLogoPositionChange = async (position) => {
-    setLogoPosition(position);
+  const refreshPreview = async (position, withWatermark) => {
     setPreviewLoading(true);
     try {
       const res = await api.post(`/templates/${selectedTemplate.id}/preview`, {
         document_data: formData,
         logo_position: position,
+        watermark: withWatermark,
       });
       setPreviewHtml(res.data.html);
     } catch {
@@ -309,14 +620,140 @@ export default function DocumentNew() {
     }
   };
 
+  const handleLogoPositionChange = (position) => {
+    setLogoPosition(position);
+    refreshPreview(position, watermark);
+  };
+
+  const handleWatermarkChange = (value) => {
+    setWatermark(value);
+    refreshPreview(logoPosition, value);
+  };
+
+  const hasLogo = !!institution?.logo_url;
+
+  // --- Borrador con IA ---
+  const isEmptyValue = (v) => !v || (typeof v === "string" && !v.trim());
+
+  const openAiModal = () => {
+    // Por defecto se marcan los campos que siguen vacíos
+    const empty = aiDraftable.filter((f) => isEmptyValue(formData[f.name])).map((f) => f.name);
+    setAiSelected(empty.length > 0 ? empty : aiDraftable.map((f) => f.name));
+    setAiError("");
+    setShowAiModal(true);
+  };
+
+  const toggleAiField = (name) => {
+    setAiSelected((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  };
+
+  const handleAiDraft = async () => {
+    if (aiSelected.length === 0) {
+      setAiError("Elige al menos un campo.");
+      return;
+    }
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await api.post("/edubot/draft", {
+        template_id: selectedTemplate.id,
+        fields: aiSelected,
+        notes: aiNotes,
+        current_values: formData,
+      });
+      const drafted = res.data.fields || {};
+      const names = Object.keys(drafted);
+      setFormData((prev) => ({ ...prev, ...drafted }));
+      setAiFields((prev) => [...new Set([...prev, ...names])]);
+      setAiReviewed(false);
+      setShowAiModal(false);
+      setError("");
+      setNotice(
+        `EduBot redactó ${names.length} campo${names.length !== 1 ? "s" : ""}. Léelos y corrígelos: busca los [COMPLETAR] que haya dejado.`,
+      );
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (detail?.feature_locked) {
+        setAiError("El borrador con IA no está incluido en tu plan actual.");
+      } else {
+        setAiError(
+          (typeof detail === "string" && detail) || "No se pudo contactar a EduBot. Intenta de nuevo.",
+        );
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Guarda lo que haya (aunque falten campos). No gasta cupo del plan.
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    setError("");
+    setNotice("");
+    try {
+      const payload = {
+        document_data: formData,
+        logo_position: logoPosition,
+        watermark,
+        save_as_draft: true,
+        ai_fields: aiFields,
+      };
+      if (draftId) {
+        await api.put(`/documents/${draftId}`, payload);
+      } else {
+        const res = await api.post("/documents/", {
+          ...payload,
+          template_id: selectedTemplate.id,
+        });
+        setDraftId(res.data.id);
+        // Así, si se recarga la página, sigue en el mismo borrador
+        setSearchParams({ draft: res.data.id }, { replace: true });
+        draftLoaded.current = true;
+      }
+      const hora = new Date().toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      setNotice(
+        aiFields.length > 0
+          ? `Borrador IA guardado a las ${hora}. Queda pendiente de revisión en Documentos → «Revisar».`
+          : `Borrador guardado a las ${hora}. Lo encuentras en Documentos → «Continuar».`,
+      );
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(
+        (typeof detail === "string" && detail) ||
+        detail?.message ||
+        "No se pudo guardar el borrador.",
+      );
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleCreate = async () => {
     setLoading(true);
     try {
-      const res = await api.post("/documents/", {
-        template_id: selectedTemplate.id,
+      const payload = {
         document_data: formData,
-      });
+        // Se guardan con el documento: el PDF sale igual que la vista previa
+        logo_position: logoPosition,
+        watermark,
+        save_as_draft: false,
+        ai_fields: aiFields,
+        ai_reviewed: aiReviewed,
+      };
+      // Si venía de un borrador, se completa ese mismo documento
+      const res = draftId
+        ? await api.put(`/documents/${draftId}`, payload)
+        : await api.post("/documents/", { ...payload, template_id: selectedTemplate.id });
       setCreatedDoc(res.data);
+      setDraftId(null);
+      setNotice("");
+      setAiFields([]);
+      setAiReviewed(false);
       setStep(4);
     } catch (err) {
       const detail = err.response?.data?.detail;
@@ -363,39 +800,39 @@ export default function DocumentNew() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       {loading && <RocketAnimation />}
 
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() =>
                 step === 1 ? navigate("/documentos") : setStep(step - 1)
               }
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
-            <div>
+            <div className="min-w-0">
               <h1
-                className="text-lg font-semibold"
+                className="text-lg font-semibold truncate"
                 style={{ color: "var(--text-primary)" }}
               >
                 Nuevo documento
               </h1>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>
                 {step === 1 && "Selecciona el tipo de documento"}
                 {step === 2 && selectedTemplate?.name}
                 {step === 3 && "Revisa tu documento antes de generarlo"}
@@ -403,13 +840,13 @@ export default function DocumentNew() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
             <div className="flex items-center gap-2">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center"
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <span className="text-white text-xs font-bold">
@@ -417,7 +854,7 @@ export default function DocumentNew() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden sm:block text-sm font-medium truncate max-w-[160px]"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -426,9 +863,9 @@ export default function DocumentNew() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
+        <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full min-w-0">
           {/* Stepper */}
-          <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6 md:mb-8">
             {STEPS.map((label, i) => (
               <div key={i} className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -466,7 +903,7 @@ export default function DocumentNew() {
                 {i < 3 && (
                   <ChevronRight
                     size={14}
-                    className="mx-1"
+                    className="mx-0.5 sm:mx-1"
                     style={{ color: "var(--border-color)" }}
                   />
                 )}
@@ -477,6 +914,19 @@ export default function DocumentNew() {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
               <AlertCircle size={16} /> {error}
+            </div>
+          )}
+
+          {notice && !error && step === 2 && (
+            <div
+              className="border px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2"
+              style={{
+                backgroundColor: "var(--color-primary-light)",
+                borderColor: "var(--color-primary)",
+                color: "var(--color-primary)",
+              }}
+            >
+              <Save size={16} className="flex-shrink-0" /> {notice}
             </div>
           )}
 
@@ -637,7 +1087,7 @@ export default function DocumentNew() {
                 </div>
               </div>
               <div
-                className="rounded-xl border p-6"
+                className="rounded-xl border p-4 md:p-6"
                 style={{
                   backgroundColor: "var(--bg-secondary)",
                   borderColor: "var(--border-color)",
@@ -653,11 +1103,217 @@ export default function DocumentNew() {
                   className="text-sm mb-6"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Los datos de tu institución se incluirán automáticamente.
-                  Completa los campos específicos.
+                  Completa los campos del documento. Los datos de tu institución
+                  se toman de su perfil.
                 </p>
+                {institution && institutionVars.length > 0 && (() => {
+                  const missingCount = editableInstVars.filter(
+                    (v) => !(instForm[INSTITUTION_FIELDS[v].key] || "").trim(),
+                  ).length;
+                  return (
+                    <div
+                      className="mb-6 rounded-xl border p-4"
+                      style={{
+                        borderColor: missingCount ? "#fde68a" : "var(--border-color)",
+                        backgroundColor: missingCount ? "#fffbeb" : "var(--bg-primary)",
+                      }}
+                    >
+                      <div className="flex items-start gap-2 mb-3">
+                        <Building2
+                          size={16}
+                          className="flex-shrink-0 mt-0.5"
+                          style={{ color: missingCount ? "#b45309" : "var(--color-primary)" }}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                            Datos de tu institución en este documento
+                          </p>
+                          <p className="text-xs" style={{ color: missingCount ? "#b45309" : "var(--text-secondary)" }}>
+                            {missingCount
+                              ? `Faltan ${missingCount} dato(s). Al continuar se guardan en el perfil de tu institución.`
+                              : "Si los cambias aquí, se actualizan también en el perfil de tu institución."}
+                          </p>
+                        </div>
+                      </div>
+                      {readonlyInstVars.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {readonlyInstVars.map((v) => {
+                            const field = INSTITUTION_FIELDS[v];
+                            const value = institution[field.key];
+                            return (
+                              <span
+                                key={v}
+                                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full max-w-full"
+                                style={{
+                                  backgroundColor: value ? "var(--bg-secondary)" : "#fef3c7",
+                                  color: value ? "var(--text-secondary)" : "#b45309",
+                                  border: "1px solid var(--border-color)",
+                                }}
+                                title="Dato legal: lo modifica el administrador de EasyDocs"
+                              >
+                                <Lock size={10} className="flex-shrink-0" />
+                                <span className="truncate">
+                                  {field.label}: {value || "sin registrar"}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {editableInstVars.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {editableInstVars.map((v) => {
+                            const field = INSTITUTION_FIELDS[v];
+                            const value = instForm[field.key] || "";
+                            const invalid =
+                              !value.trim() || (field.type === "tel" && !isValidPhone(value));
+                            return (
+                              <div key={v} className="min-w-0">
+                                <label
+                                  className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                                  style={{ color: "var(--text-secondary)" }}
+                                >
+                                  {field.label} *
+                                </label>
+                                <input
+                                  type={field.type || "text"}
+                                  inputMode={field.type === "tel" ? "tel" : undefined}
+                                  value={value}
+                                  onChange={(e) => {
+                                    setInstForm((p) => ({ ...p, [field.key]: e.target.value }));
+                                    setError("");
+                                  }}
+                                  placeholder={`Ingresa ${field.label.toLowerCase()}...`}
+                                  className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2"
+                                  style={{
+                                    borderColor: invalid ? "#f59e0b" : "var(--border-color)",
+                                    backgroundColor: "var(--bg-secondary)",
+                                    color: "var(--text-primary)",
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {selectedTemplate.required_fields.some((f) =>
+                  STUDENT_KEY_FIELDS.includes(f),
+                ) && (
+                    <div className="mb-6">
+                      <label
+                        className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Autollenar desde una matrícula: Los datos se copian al formulario y puedes editarlos.
+                      </label>
+                      <select
+                        value={selectedEnrollmentId}
+                        onChange={(e) => handleSelectEnrollment(e.target.value)}
+                        className="w-full min-w-0 border rounded-lg px-3 py-2.5 text-sm"
+                        style={{
+                          backgroundColor: "var(--bg-primary)",
+                          borderColor: "var(--border-color)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        <option value="">— Llenar manualmente —</option>
+                        {enrollments.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.student.full_name} · {e.student.document_number} · {e.program.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+                        ¿No encuentras al estudiante? Solo aparecen los que tienen matrícula.{" "}
+                        <button
+                          type="button"
+                          onClick={() => navigate("/academico?tab=matriculas")}
+                          className="font-semibold underline"
+                          style={{ color: "var(--color-primary)" }}
+                        >
+                          Crear matrícula →
+                        </button>
+                      </p>
+                    </div>
+                  )}
+                {conditionals.conditions.length > 0 && (
+                  <div className="space-y-2 mb-5">
+                    {conditionals.conditions.map((cond) => (
+                      <label
+                        key={cond}
+                        className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer"
+                        style={{
+                          borderColor: "var(--border-color)",
+                          backgroundColor: "var(--bg-primary)",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!formData[cond]}
+                          onChange={(e) => handleChange(cond, e.target.checked)}
+                          className="w-4 h-4 flex-shrink-0"
+                        />
+                        <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                          {conditionLabel(cond)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {aiDraftable.length > 0 && aiConfig && (
+                  <div
+                    className="rounded-xl border p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-3"
+                    style={{
+                      borderColor: "var(--color-primary)",
+                      backgroundColor: "var(--color-primary-light)",
+                    }}
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: "var(--color-sidebar)" }}
+                      >
+                        <Bot size={16} className="text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                          Redactar con EduBot
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                          Escribe tus notas y EduBot redacta{" "}
+                          {aiDraftable.map((f) => f.label.toLowerCase()).join(", ")}. Tú revisas antes de generar.
+                        </p>
+                      </div>
+                    </div>
+                    {aiConfig.enabled ? (
+                      <button
+                        type="button"
+                        onClick={openAiModal}
+                        className="text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm flex-shrink-0"
+                        style={{ backgroundColor: "var(--color-primary)" }}
+                      >
+                        <Sparkles size={15} /> Redactar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/suscripcion")}
+                        className="border font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm flex-shrink-0"
+                        style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+                        title={aiConfig.configured ? "No incluido en tu plan" : "Servicio de IA no configurado"}
+                      >
+                        <Lock size={14} /> {aiConfig.configured ? "Ver planes" : "No disponible"}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {selectedTemplate.required_fields.map((field) => {
+                    if (conditionals.conditions.includes(field)) return null;
+                    if (isFieldHidden(field, conditionals, formData)) return null;
                     if (isTableField(selectedTemplate, field)) {
                       const columns = selectedTemplate.table_columns[field];
                       const rows = formData[field] || [];
@@ -673,62 +1329,64 @@ export default function DocumentNew() {
                             className="border rounded-lg overflow-hidden"
                             style={{ borderColor: "var(--border-color)" }}
                           >
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr style={{ backgroundColor: "var(--bg-primary)" }}>
-                                  {columns.map((col) => (
-                                    <th
-                                      key={col}
-                                      className="text-left px-3 py-2 text-xs font-semibold"
-                                      style={{ color: "var(--text-secondary)" }}
-                                    >
-                                      {col}
-                                    </th>
-                                  ))}
-                                  <th className="w-10" />
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.map((row, rowIndex) => (
-                                  <tr
-                                    key={rowIndex}
-                                    className="border-t"
-                                    style={{ borderColor: "var(--border-color)" }}
-                                  >
-                                    {columns.map((col, colIndex) => (
-                                      <td key={colIndex} className="p-1">
-                                        <input
-                                          type="text"
-                                          value={row[colIndex] || ""}
-                                          onChange={(e) =>
-                                            updateTableCell(
-                                              field,
-                                              rowIndex,
-                                              colIndex,
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full border-0 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1"
-                                          style={{
-                                            backgroundColor: "var(--bg-primary)",
-                                            color: "var(--text-primary)",
-                                          }}
-                                        />
-                                      </td>
-                                    ))}
-                                    <td className="p-1 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => removeTableRow(field, rowIndex)}
-                                        style={{ color: "#dc2626" }}
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm min-w-[480px]">
+                                <thead>
+                                  <tr style={{ backgroundColor: "var(--bg-primary)" }}>
+                                    {columns.map((col) => (
+                                      <th
+                                        key={col}
+                                        className="text-left px-3 py-2 text-xs font-semibold"
+                                        style={{ color: "var(--text-secondary)" }}
                                       >
-                                        <X size={14} />
-                                      </button>
-                                    </td>
+                                        {col}
+                                      </th>
+                                    ))}
+                                    <th className="w-10" />
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {rows.map((row, rowIndex) => (
+                                    <tr
+                                      key={rowIndex}
+                                      className="border-t"
+                                      style={{ borderColor: "var(--border-color)" }}
+                                    >
+                                      {columns.map((col, colIndex) => (
+                                        <td key={colIndex} className="p-1">
+                                          <input
+                                            type="text"
+                                            value={row[colIndex] || ""}
+                                            onChange={(e) =>
+                                              updateTableCell(
+                                                field,
+                                                rowIndex,
+                                                colIndex,
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="w-full border-0 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1"
+                                            style={{
+                                              backgroundColor: "var(--bg-primary)",
+                                              color: "var(--text-primary)",
+                                            }}
+                                          />
+                                        </td>
+                                      ))}
+                                      <td className="p-1 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeTableRow(field, rowIndex)}
+                                          style={{ color: "#dc2626" }}
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                             <button
                               type="button"
                               onClick={() => addTableRow(field)}
@@ -755,19 +1413,28 @@ export default function DocumentNew() {
 
                     const isMultiline = MULTILINE_FIELDS.includes(field);
                     const label = FIELD_LABELS[field] || field;
+                    const fromAi = aiFields.includes(field);
                     return (
                       <div key={field} className={isMultiline ? "md:col-span-2" : ""}>
                         <label
-                          className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide mb-1"
                           style={{ color: "var(--text-secondary)" }}
                         >
                           {label} *
+                          {fromAi && (
+                            <span
+                              className="inline-flex items-center gap-1 normal-case tracking-normal font-medium px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: "#fef3c7", color: "#b45309" }}
+                            >
+                              <Sparkles size={10} /> Sugerido por EduBot · revisar
+                            </span>
+                          )}
                         </label>
                         {isMultiline ? (
                           <textarea
                             value={formData[field] || ""}
                             onChange={(e) => handleChange(field, e.target.value)}
-                            rows={3}
+                            rows={fromAi ? 6 : 3}
                             placeholder={`Ingresa ${label.toLowerCase()}...`}
                             className="w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 resize-none"
                             style={{
@@ -795,31 +1462,45 @@ export default function DocumentNew() {
                   })}
                 </div>
                 <div
-                  className="flex justify-between mt-8 pt-6 border-t"
+                  className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 mt-8 pt-6 border-t"
                   style={{ borderColor: "var(--border-color)" }}
                 >
                   <button
                     onClick={() => setStep(1)}
-                    className="font-medium flex items-center gap-2 transition-colors"
+                    className="font-medium flex items-center justify-center gap-2 transition-colors py-2"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     <ChevronLeft size={16} /> Cambiar plantilla
                   </button>
-                  <button
-                    onClick={() => handleGoToPreview()}
-                    disabled={previewLoading}
-                    className="text-white font-semibold py-3 px-8 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-40"
-                    style={{ backgroundColor: "var(--color-primary)" }}
-                  >
-                    {previewLoading ? (
-                      "Cargando vista previa..."
-                    ) : (
-                      <>
-                        <Eye size={16} /> Vista previa{" "}
-                        <ChevronRight size={16} />
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-3">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft || previewLoading}
+                      className="border font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-40"
+                      style={{
+                        borderColor: "var(--color-primary)",
+                        color: "var(--color-primary)",
+                      }}
+                    >
+                      <Save size={16} />
+                      {savingDraft ? "Guardando..." : "Guardar borrador"}
+                    </button>
+                    <button
+                      onClick={() => handleGoToPreview()}
+                      disabled={previewLoading || savingDraft}
+                      className="text-white font-semibold py-3 px-8 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-40"
+                      style={{ backgroundColor: "var(--color-primary)" }}
+                    >
+                      {previewLoading ? (
+                        "Cargando vista previa..."
+                      ) : (
+                        <>
+                          <Eye size={16} /> Vista previa{" "}
+                          <ChevronRight size={16} />
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -827,8 +1508,8 @@ export default function DocumentNew() {
 
           {/* Paso 3 — Vista previa */}
           {step === 3 && previewHtml && (
-            <div className="flex gap-6">
-              <div className="flex-1">
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex-1 min-w-0">
                 <div
                   className="rounded-xl border overflow-hidden"
                   style={{
@@ -849,17 +1530,17 @@ export default function DocumentNew() {
                     </span>
                   </div>
                   <iframe
-                    srcDoc={previewHtml}
+                    srcDoc={aiFields.length > 0 ? withAiMark(previewHtml) : previewHtml}
                     title="Vista previa del documento"
-                    className="w-full border-0"
-                    style={{ height: "700px", backgroundColor: "white" }}
+                    className="w-full border-0 h-[60vh] lg:h-[700px]"
+                    style={{ backgroundColor: "white" }}
                   />
                 </div>
               </div>
 
-              <div className="w-72 flex-shrink-0">
+              <div className="w-full lg:w-72 flex-shrink-0">
                 <div
-                  className="rounded-xl border p-5 sticky top-24"
+                  className="rounded-xl border p-4 md:p-5 lg:sticky lg:top-24"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-color)",
@@ -912,6 +1593,41 @@ export default function DocumentNew() {
                       ))}
                     </div>
                   </div>
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Droplets size={14} style={{ color: "var(--color-primary)" }} />
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Marca de agua
+                      </p>
+                    </div>
+                    <label
+                      className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border text-sm ${hasLogo ? "cursor-pointer" : "opacity-60 cursor-not-allowed"}`}
+                      style={{
+                        backgroundColor: watermark ? "var(--color-primary-light)" : "var(--bg-primary)",
+                        borderColor: watermark ? "var(--color-primary)" : "var(--border-color)",
+                        color: watermark ? "var(--color-primary)" : "var(--text-secondary)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={watermark}
+                        disabled={!hasLogo || previewLoading}
+                        onChange={(e) => handleWatermarkChange(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 flex-shrink-0"
+                      />
+                      <span>
+                        Logo de fondo en todas las páginas
+                        {!hasLogo && (
+                          <span className="block text-xs mt-0.5">
+                            Sube el logo de tu institución para usarla.
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  </div>
                   <div
                     className="rounded-lg p-3 mb-6 text-xs"
                     style={{
@@ -922,9 +1638,27 @@ export default function DocumentNew() {
                     💡 Las firmas se podrán configurar próximamente desde{" "}
                     <strong>Configuración → Firmas</strong>.
                   </div>
+                  {aiFields.length > 0 && (
+                    <label
+                      className="flex items-start gap-2 p-3 rounded-lg border mb-3 cursor-pointer text-xs"
+                      style={{ backgroundColor: "#fffbeb", borderColor: "#f59e0b", color: "#92400e" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={aiReviewed}
+                        onChange={(e) => setAiReviewed(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 flex-shrink-0"
+                      />
+                      <span>
+                        Revisé y corregí el texto sugerido por EduBot (
+                        {aiFields.map((f) => (FIELD_LABELS[f] || f).toLowerCase()).join(", ")}) y
+                        confirmo que corresponde a lo ocurrido.
+                      </span>
+                    </label>
+                  )}
                   <button
                     onClick={handleCreate}
-                    disabled={loading}
+                    disabled={loading || (aiFields.length > 0 && !aiReviewed)}
                     className="w-full text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-40 mb-2"
                     style={{ backgroundColor: "var(--color-primary)" }}
                   >
@@ -955,7 +1689,7 @@ export default function DocumentNew() {
           {/* Paso 4 — Descarga */}
           {step === 4 && createdDoc && (
             <div
-              className="rounded-2xl border p-12 text-center"
+              className="rounded-2xl border p-6 md:p-12 text-center"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-color)",
@@ -1009,8 +1743,14 @@ export default function DocumentNew() {
                     setFormData({});
                     setCreatedDoc(null);
                     setPreviewHtml("");
-                    setLogoPosition("top-left");
+                    resetLogoOptions();
                     setError("");
+                    setNotice("");
+                    setDraftId(null);
+                    setAiFields([]);
+                    setAiReviewed(false);
+                    setAiNotes("");
+                    setSearchParams({});
                   }}
                   className="font-medium hover:underline py-3 px-4"
                   style={{ color: "var(--color-primary)" }}
@@ -1022,6 +1762,138 @@ export default function DocumentNew() {
           )}
         </div>
       </main>
+
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div
+            className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl p-5 max-h-[90vh] overflow-y-auto"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: "var(--color-sidebar)" }}
+                >
+                  <Bot size={16} className="text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                    Redactar con EduBot
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {selectedTemplate?.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => !aiLoading && setShowAiModal(false)}
+                className="p-1"
+                style={{ color: "var(--text-secondary)" }}
+                title="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>
+              Campos a redactar
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {aiDraftable.map((f) => {
+                const active = aiSelected.includes(f.name);
+                return (
+                  <button
+                    key={f.name}
+                    type="button"
+                    onClick={() => toggleAiField(f.name)}
+                    className="text-xs px-3 py-1.5 rounded-full border font-medium flex items-center gap-1"
+                    style={{
+                      borderColor: active ? "var(--color-primary)" : "var(--border-color)",
+                      backgroundColor: active ? "var(--color-primary-light)" : "transparent",
+                      color: active ? "var(--color-primary)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {active && <CheckCircle size={12} />}
+                    {f.label}
+                    {!isEmptyValue(formData[f.name]) && " (mejorar)"}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>
+              Tus notas
+            </p>
+            <textarea
+              value={aiNotes}
+              onChange={(e) => setAiNotes(e.target.value)}
+              rows={7}
+              maxLength={4000}
+              placeholder={
+                ["LR003", "LR004"].includes(selectedTemplate?.document_type)
+                  ? "Ej.: Se revisó el calendario del segundo semestre. El rector presentó los resultados de deserción (12 %). Se acordó hacer tutorías los sábados y que la coordinación académica envíe un informe en noviembre."
+                  : "Ej.: Somos una institución de Medellín que forma técnicos laborales en salud y sistemas, con énfasis en prácticas en empresas y en población vulnerable…"
+              }
+              className="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 resize-none"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+            <p className="text-xs mt-1 mb-3 text-right" style={{ color: "var(--text-secondary)" }}>
+              {aiNotes.length} / 4000
+            </p>
+
+            <div
+              className="text-xs rounded-lg p-3 mb-4 flex gap-2"
+              style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-secondary)" }}
+            >
+              <Lock size={14} className="flex-shrink-0 mt-0.5" />
+              <span>
+                No escribas nombres, documentos ni teléfonos de estudiantes: habla de cargos («el rector»,
+                «los formadores»). Los números largos y correos se quitan antes de enviar. EduBot solo usa
+                tus notas: lo que no le digas lo marcará como [COMPLETAR].
+              </span>
+            </div>
+
+            {aiError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg mb-4 text-xs flex items-center gap-2">
+                <AlertCircle size={14} className="flex-shrink-0" />
+                <span className="flex-1">{aiError}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <button
+                onClick={() => setShowAiModal(false)}
+                disabled={aiLoading}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg border"
+                style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAiDraft}
+                disabled={aiLoading || aiSelected.length === 0}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2 disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" /> Redactando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} /> Redactar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <EduBot />
 

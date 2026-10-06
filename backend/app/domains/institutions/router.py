@@ -4,12 +4,15 @@ from app.database import get_db
 from app.core.auth import get_current_user
 from app.core.features import require_superadmin
 from app.domains.users.models import User
-from app.domains.institutions.schemas import InstitutionCreate, InstitutionResponse
+from app.domains.institutions.schemas import (
+    InstitutionResponse,
+    InstitutionSelfUpdate,
+)
 from app.domains.institutions.services import (
     get_institution,
-    update_institution,
+    update_own_institution,
     list_institutions,
-    delete_institution
+    delete_institution,
 )
 import base64
 
@@ -24,13 +27,30 @@ def get_institutions(
     return list_institutions(db)
 
 
-@router.put("/my", response_model=InstitutionResponse)
-def update_my_institution(
-    data: InstitutionCreate,
+# Importante: las rutas /my van ANTES de /{institution_id}
+@router.get("/my", response_model=InstitutionResponse)
+def get_my_institution(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return update_institution(db, current_user.institution_id, data)
+    if not current_user.institution_id:
+        raise HTTPException(
+            status_code=404, detail="Tu usuario no tiene una institución asociada."
+        )
+    return get_institution(db, current_user.institution_id)
+
+
+@router.put("/my", response_model=InstitutionResponse)
+def update_my_institution(
+    data: InstitutionSelfUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.institution_id:
+        raise HTTPException(
+            status_code=404, detail="Tu usuario no tiene una institución asociada."
+        )
+    return update_own_institution(db, current_user.institution_id, data)
 
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/svg+xml"}
@@ -67,6 +87,18 @@ async def upload_logo(
     return {"logo_url": institution.logo_url}
 
 
+@router.delete("/my/logo", status_code=204)
+def delete_logo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    institution = get_institution(db, current_user.institution_id)
+    institution.logo_url = None
+    # Sin logo no hay marca de agua
+    institution.logo_watermark = False
+    db.commit()
+
+
 @router.get("/{institution_id}", response_model=InstitutionResponse)
 def get_institution_by_id(
     institution_id: str,
@@ -74,9 +106,15 @@ def get_institution_by_id(
     current_user: User = Depends(get_current_user),
 ):
     # Solo superadmin o la propia institución pueden ver estos datos
-    if current_user.role != "superadmin" and current_user.institution_id != institution_id:
-        raise HTTPException(status_code=403, detail="No tienes permiso para ver esta institución.")
+    if (
+        current_user.role != "superadmin"
+        and current_user.institution_id != institution_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="No tienes permiso para ver esta institución."
+        )
     return get_institution(db, institution_id)
+
 
 @router.delete("/{institution_id}", status_code=204)
 def remove_institution(

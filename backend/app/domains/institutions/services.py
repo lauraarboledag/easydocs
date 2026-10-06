@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.domains.institutions.models import Institution
-from app.domains.institutions.schemas import InstitutionCreate
+from app.domains.institutions.schemas import InstitutionCreate, InstitutionSelfUpdate
 from fastapi import HTTPException
 
 
@@ -61,6 +61,18 @@ def update_institution(
     if not institution:
         raise HTTPException(status_code=404, detail="Institución no encontrada.")
     for key, value in data.model_dump().items():
+        setattr(institution, key, value)
+    db.commit()
+    db.refresh(institution)
+    return institution
+
+
+def update_own_institution(
+    db: Session, institution_id: str, data: InstitutionSelfUpdate
+) -> Institution:
+    """Actualiza solo los campos enviados (los demás se conservan)."""
+    institution = get_institution(db, institution_id)
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(institution, key, value)
     db.commit()
     db.refresh(institution)

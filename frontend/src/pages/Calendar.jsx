@@ -105,7 +105,9 @@ export default function CalendarPage() {
     }
   };
 
+  // El día seleccionado es solo un número: al cambiar de mes se limpia
   const prevMonth = () => {
+    setSelectedDate(null);
     if (currentMonth === 0) {
       setCurrentMonth(11);
       setCurrentYear((y) => y - 1);
@@ -113,6 +115,7 @@ export default function CalendarPage() {
   };
 
   const nextMonth = () => {
+    setSelectedDate(null);
     if (currentMonth === 11) {
       setCurrentMonth(0);
       setCurrentYear((y) => y + 1);
@@ -207,23 +210,23 @@ export default function CalendarPage() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
@@ -241,7 +244,7 @@ export default function CalendarPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <NotificationBell />
             <div className="flex items-center gap-2">
               <div
@@ -253,7 +256,7 @@ export default function CalendarPage() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden md:block text-sm font-medium"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -262,9 +265,9 @@ export default function CalendarPage() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 flex gap-6">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
+        <div className="flex-1 p-4 md:p-8 flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-3 mb-4 md:mb-6">
               <h2
                 className="text-xl font-bold"
                 style={{ color: "var(--text-primary)" }}
@@ -286,6 +289,7 @@ export default function CalendarPage() {
                   onClick={() => {
                     setCurrentMonth(today.getMonth());
                     setCurrentYear(today.getFullYear());
+                    setSelectedDate(today.getDate());
                   }}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
                   style={{
@@ -322,7 +326,7 @@ export default function CalendarPage() {
                 {DAYS.map((d) => (
                   <div
                     key={d}
-                    className="py-3 text-center text-xs font-semibold uppercase tracking-wide"
+                    className="py-2 md:py-3 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wide"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     {d}
@@ -334,7 +338,7 @@ export default function CalendarPage() {
                 {Array.from({ length: firstDay }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="h-24 border-r border-b"
+                    className="h-14 sm:h-24 border-r border-b"
                     style={{
                       borderColor: "var(--border-color)",
                       backgroundColor: "var(--bg-primary)",
@@ -352,7 +356,7 @@ export default function CalendarPage() {
                     <div
                       key={day}
                       onClick={() => setSelectedDate(isSelected ? null : day)}
-                      className="h-24 border-r border-b p-2 cursor-pointer transition-colors relative"
+                      className="h-14 sm:h-24 border-r border-b p-1 sm:p-2 cursor-pointer transition-colors relative overflow-hidden"
                       style={{
                         borderColor: "var(--border-color)",
                         backgroundColor: isSelected
@@ -371,7 +375,7 @@ export default function CalendarPage() {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span
-                          className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? "text-white" : ""}`}
+                          className={`text-xs sm:text-sm font-medium w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full ${isToday ? "text-white" : ""}`}
                           style={{
                             backgroundColor: isToday
                               ? "var(--color-primary)"
@@ -387,14 +391,29 @@ export default function CalendarPage() {
                               e.stopPropagation();
                               openNewEvent(day);
                             }}
-                            className="w-5 h-5 rounded-full flex items-center justify-center"
+                            className="hidden sm:flex w-5 h-5 rounded-full items-center justify-center"
                             style={{ backgroundColor: "var(--color-primary)" }}
                           >
                             <Plus size={10} className="text-white" />
                           </button>
                         )}
                       </div>
-                      <div className="space-y-0.5">
+                      {/* En celular: puntos de color en vez de títulos */}
+                      {dayEvents.length > 0 && (
+                        <div className="flex sm:hidden flex-wrap gap-0.5 px-0.5">
+                          {dayEvents.slice(0, 4).map((ev) => (
+                            <span
+                              key={ev.id}
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{
+                                backgroundColor: getColor(ev.color).dot,
+                                opacity: ev.is_done ? 0.4 : 1,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      <div className="hidden sm:block space-y-0.5">
                         {dayEvents.slice(0, 2).map((ev) => {
                           const col = getColor(ev.color);
                           return (
@@ -433,7 +452,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          <div className="w-72 flex-shrink-0 space-y-4">
+          <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
             {selectedDate && (
               <div
                 className="rounded-xl border p-5"

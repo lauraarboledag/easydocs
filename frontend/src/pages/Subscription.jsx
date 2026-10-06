@@ -6,6 +6,7 @@ import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import NotificationBell from "../components/NotificationBell";
 import {
   CreditCard,
   CheckCircle,
@@ -19,6 +20,7 @@ import {
   AlertCircle,
   X,
   TrendingUp,
+  Hourglass,
 } from "lucide-react";
 
 const PLAN_META = {
@@ -101,19 +103,27 @@ export default function Subscription() {
   const [errorMsg, setErrorMsg] = useState("");
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutPlan, setCheckoutPlan] = useState(null);
+  // Solicitud de cambio a un plan de pago que espera confirmación del pago
+  const [pending, setPending] = useState(null);
+  const [cancelingPending, setCancelingPending] = useState(false);
   const [error, setError] = useState("");
-  
+
+  const loadSubscription = async () => {
+    const [subRes, pendingRes] = await Promise.all([
+      api.get("/subscriptions/my").catch(() => ({ data: null })),
+      api.get("/subscriptions/pending").catch(() => ({ data: null })),
+    ]);
+    setSubscription(subRes.data);
+    setPending(pendingRes.data);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [subRes, plansRes] = await Promise.all([
-          api.get("/subscriptions/my").catch(() => ({ data: null })),
+        const [, plansRes] = await Promise.all([
+          loadSubscription(),
           api.get("/plans/"),
         ]);
-        setSubscription(subRes.data);
         setPlans(plansRes.data);
       } catch (err) {
         setError("Error al cargar los planes. Intenta de nuevo más tarde");
@@ -123,6 +133,20 @@ export default function Subscription() {
     };
     fetchData();
   }, []);
+
+  const handleCancelPending = async () => {
+    if (!confirm("¿Cancelar la solicitud de cambio de plan? Seguirás con tu plan actual.")) return;
+    setCancelingPending(true);
+    try {
+      await api.delete("/subscriptions/pending");
+      setSuccessMsg("Solicitud cancelada. Sigues con tu plan actual.");
+      await loadSubscription();
+    } catch (err) {
+      setErrorMsg(err.response?.data?.detail || "No se pudo cancelar la solicitud.");
+    } finally {
+      setCancelingPending(false);
+    }
+  };
 
   useInactivity({
     timeout: 30,
@@ -144,10 +168,7 @@ export default function Subscription() {
         })
         .then(async () => {
           setSuccessMsg("Plan Free activado exitosamente.");
-          const subRes = await api
-            .get("/subscriptions/my")
-            .catch(() => ({ data: null }));
-          setSubscription(subRes.data);
+          await loadSubscription();
         })
         .catch((err) => {
           setErrorMsg(
@@ -162,21 +183,25 @@ export default function Subscription() {
     }
   };
 
+  // Suscripciones antiguas podían quedar "pendientes" como si fueran el plan
+  // actual; en ese caso no se presentan como plan activo.
+  const isCurrentActive = subscription?.status === "active";
   const currentPlanName = subscription?.plan?.name;
+  const pendingPlanName = pending?.plan?.name;
   const currentPlanIndex = PLAN_ORDER.indexOf(currentPlanName);
   const daysLeft = daysUntilExpiry(subscription?.expires_at);
   const grouped = groupPlans(plans);
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
@@ -188,10 +213,8 @@ export default function Subscription() {
           >
             Suscripción
           </h1>
-          <div className="flex items-center gap-4">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
-            </button>
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -201,7 +224,7 @@ export default function Subscription() {
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div>
+              <div className="hidden md:block">
                 <p
                   className="text-sm font-medium"
                   style={{ color: "var(--text-primary)" }}
@@ -219,7 +242,7 @@ export default function Subscription() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
+        <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
           {successMsg && (
             <div className="mb-6 flex items-start gap-3 bg-green-50 border border-green-200 text-green-700 rounded-xl px-5 py-4 text-sm">
               <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
@@ -251,7 +274,7 @@ export default function Subscription() {
               {/* Banner plan activo */}
               {subscription && currentPlanName ? (
                 <div
-                  className="mb-8 rounded-2xl p-6 flex items-center justify-between flex-wrap gap-4"
+                  className="mb-6 rounded-2xl p-5 md:p-6 flex items-center justify-between flex-wrap gap-4"
                   style={{
                     background: `linear-gradient(to right, var(--color-banner-from), var(--color-banner-to))`,
                   }}
@@ -262,19 +285,23 @@ export default function Subscription() {
                     </div>
                     <div>
                       <p className="text-white/70 text-xs mb-0.5">
-                        Plan activo
+                        {isCurrentActive ? "Plan activo" : "Pendiente de activación"}
                       </p>
                       <p className="text-white font-bold text-lg">
                         Plan{" "}
                         {PLAN_META[currentPlanName]?.label || currentPlanName}
                       </p>
                       <p className="text-white/60 text-xs">
-                        Vigente hasta {formatDate(subscription.expires_at)}
+                        {!isCurrentActive
+                          ? "Esperando confirmación del pago"
+                          : subscription.expires_at
+                            ? `Vigente hasta ${formatDate(subscription.expires_at)}`
+                            : "Sin fecha de vencimiento"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    {daysLeft !== null && (
+                  <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+                    {isCurrentActive && daysLeft !== null && (
                       <div
                         className={`text-center px-4 py-2 rounded-xl ${daysLeft <= 7 ? "bg-red-500/20" : "bg-white/10"}`}
                       >
@@ -334,6 +361,38 @@ export default function Subscription() {
                   </p>
                 </div>
               )}
+
+              {/* Solicitud de cambio pendiente */}
+              {pending && pendingPlanName && (
+                <div
+                  className="mb-8 rounded-xl border px-4 md:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                  style={{ backgroundColor: "#fffbeb", borderColor: "#f59e0b" }}
+                >
+                  <Hourglass size={20} className="flex-shrink-0 text-amber-600" />
+                  <div className="flex-1 text-sm text-amber-800">
+                    <p className="font-semibold">
+                      Solicitaste el Plan {PLAN_META[pendingPlanName]?.label || pendingPlanName} (
+                      {pending.plan?.billing_cycle === "annual" ? "anual" : "mensual"},{" "}
+                      {formatPrice(pending.plan?.price)})
+                    </p>
+                    <p className="text-xs mt-0.5">
+                      Mientras confirmamos tu pago sigues con{" "}
+                      {currentPlanName && isCurrentActive
+                        ? `tu Plan ${PLAN_META[currentPlanName]?.label || currentPlanName}`
+                        : "tu plan actual"}
+                      . El cambio se aplica en cuanto el pago quede confirmado.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCancelPending}
+                    disabled={cancelingPending}
+                    className="text-xs font-medium px-3 py-2 rounded-lg border border-amber-400 text-amber-800 disabled:opacity-50 flex-shrink-0"
+                  >
+                    {cancelingPending ? "Cancelando..." : "Cancelar solicitud"}
+                  </button>
+                </div>
+              )}
+              {!(pending && pendingPlanName) && <div className="mb-2" />}
 
               {/* Toggle */}
               <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -401,7 +460,8 @@ export default function Subscription() {
                   const meta = PLAN_META[planName];
                   const colors = PLAN_COLORS[planName];
                   const PlanIcon = meta.icon;
-                  const isCurrent = planName === currentPlanName;
+                  const isCurrent = isCurrentActive && planName === currentPlanName;
+                  const isPendingPlan = !!plan && pending?.plan_id === plan.id;
                   const planIndex = PLAN_ORDER.indexOf(planName);
                   const isDowngrade = planIndex < currentPlanIndex;
                   const isRequesting = requesting === plan?.id;
@@ -496,7 +556,11 @@ export default function Subscription() {
                         ))}
                       </ul>
 
-                      {isCurrent ? (
+                      {isPendingPlan ? (
+                        <div className="w-full py-2.5 rounded-xl text-sm font-semibold text-center border flex items-center justify-center gap-2 bg-amber-50 border-amber-400 text-amber-700">
+                          <Hourglass size={14} /> Solicitud pendiente
+                        </div>
+                      ) : isCurrent ? (
                         <div
                           className="w-full py-2.5 rounded-xl text-sm font-semibold text-center border"
                           style={{
@@ -605,181 +669,6 @@ export default function Subscription() {
         />
       )}
 
-      {showCheckout && checkoutPlan && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div
-            className="rounded-2xl shadow-xl w-full max-w-md"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
-          >
-            <div
-              className="flex items-center justify-between p-6 border-b"
-              style={{ borderColor: "var(--border-color)" }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-bold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  Solicitar Plan {PLAN_META[checkoutPlan.name]?.label}
-                </h3>
-                <p
-                  className="text-xs mt-0.5"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {checkoutPlan.billing_cycle === "monthly"
-                    ? "Facturación mensual"
-                    : "Facturación anual"}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCheckout(false)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div
-                className="rounded-xl p-4"
-                style={{ backgroundColor: "var(--bg-primary)" }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Plan {PLAN_META[checkoutPlan.name]?.label}
-                  </span>
-                  <span
-                    className="text-lg font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {formatPrice(checkoutPlan.price)}
-                    <span
-                      className="text-xs font-normal ml-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {checkoutPlan.billing_cycle === "monthly"
-                        ? "/ mes"
-                        : "/ año"}
-                    </span>
-                  </span>
-                </div>
-                <ul className="space-y-1.5">
-                  {(PLAN_FEATURES[checkoutPlan.name] || []).map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-center gap-2 text-xs"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      <CheckCircle
-                        size={12}
-                        className="text-green-500 flex-shrink-0"
-                      />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div
-                className="rounded-xl p-4"
-                style={{
-                  backgroundColor: "var(--color-primary-light)",
-                  border: "1px solid var(--color-primary)",
-                }}
-              >
-                <p
-                  className="text-xs font-semibold mb-2"
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  ¿Cómo realizar el pago?
-                </p>
-                <ol
-                  className="space-y-1.5 text-xs list-decimal list-inside"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  <li>
-                    Realiza la transferencia por{" "}
-                    {formatPrice(checkoutPlan.price)} COP
-                  </li>
-                  <li>
-                    Envía el comprobante a{" "}
-                    <strong>edudynamis1@gmail.com</strong>
-                  </li>
-                  <li>
-                    El equipo de EduDynamis activará tu plan en menos de 24
-                    horas
-                  </li>
-                </ol>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 flex items-start gap-2">
-                <AlertCircle
-                  size={14}
-                  className="text-yellow-500 flex-shrink-0 mt-0.5"
-                />
-                <p className="text-xs text-yellow-700">
-                  Próximamente integraremos pagos en línea con{" "}
-                  <strong>Wompi</strong> para una experiencia más ágil.
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowCheckout(false)}
-                  className="flex-1 border font-medium py-3 rounded-lg transition-colors text-sm"
-                  style={{
-                    borderColor: "var(--border-color)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={async () => {
-                    setRequesting(checkoutPlan.id);
-                    try {
-                      await api.post("/subscriptions/change-plan", {
-                        plan_id: checkoutPlan.id,
-                        institution_id: user.institution_id,
-                      });
-                      setShowCheckout(false);
-                      setSuccessMsg(
-                        `Solicitud enviada para Plan ${PLAN_META[checkoutPlan.name]?.label}. Un administrador la confirmará pronto.`,
-                      );
-                      const subRes = await api
-                        .get("/subscriptions/my")
-                        .catch(() => ({ data: null }));
-                      setSubscription(subRes.data);
-                    } catch (err) {
-                      setErrorMsg(
-                        err.response?.data?.detail ||
-                          "Error al enviar la solicitud.",
-                      );
-                    } finally {
-                      setRequesting(null);
-                    }
-                  }}
-                  disabled={requesting === checkoutPlan.id}
-                  className="flex-1 text-white font-semibold py-3 rounded-lg transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-40"
-                  style={{ backgroundColor: "var(--color-primary)" }}
-                >
-                  {requesting === checkoutPlan.id ? (
-                    <Clock size={15} />
-                  ) : (
-                    <ArrowRight size={15} />
-                  )}
-                  {requesting === checkoutPlan.id
-                    ? "Enviando..."
-                    : "Confirmar solicitud"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

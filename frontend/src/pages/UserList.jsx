@@ -7,6 +7,7 @@ import Sidebar from "../components/layout/Sidebar";
 import EduBot from "../components/EduBot";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import NotificationBell from "../components/NotificationBell";
 import {
   Users,
   Plus,
@@ -122,23 +123,23 @@ export default function UserList() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
@@ -155,10 +156,8 @@ export default function UserList() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
-            </button>
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -169,7 +168,7 @@ export default function UserList() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden md:block text-sm font-medium"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -178,14 +177,14 @@ export default function UserList() {
           </div>
         </header>
 
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           {success && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
               <UserCheck size={16} /> {success}
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
               <h2
                 className="text-xl font-bold"
@@ -204,7 +203,7 @@ export default function UserList() {
             {user?.role === "representative" && (
               <button
                 onClick={() => setShowModal(true)}
-                className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 transition-colors"
+                className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
                 <Plus size={18} /> Nuevo usuario
@@ -213,14 +212,14 @@ export default function UserList() {
           </div>
 
           {/* Resumen por roles */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
             {Object.entries(ROLE_CONFIG).map(([role, config]) => {
               const count = users.filter((u) => u.role === role).length;
               const Icon = config.icon;
               return (
                 <div
                   key={role}
-                  className="rounded-xl border p-4 flex items-center gap-4"
+                  className="rounded-xl border p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4 text-center sm:text-left min-w-0"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-color)",
@@ -304,7 +303,7 @@ export default function UserList() {
             ) : (
               <>
                 <div
-                  className="grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
+                  className="hidden md:grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
                   style={{
                     color: "var(--text-secondary)",
                     borderColor: "var(--border-color)",
@@ -321,17 +320,17 @@ export default function UserList() {
                   return (
                     <div
                       key={u.id}
-                      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
+                      className="flex flex-col gap-2 md:grid md:grid-cols-12 md:items-center md:gap-0 px-4 md:px-6 py-4 border-b last:border-0 transition-colors"
                       style={{ borderColor: "var(--border-color)" }}
                       onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          "var(--bg-primary)")
+                      (e.currentTarget.style.backgroundColor =
+                        "var(--bg-primary)")
                       }
                       onMouseLeave={(e) =>
                         (e.currentTarget.style.backgroundColor = "transparent")
                       }
                     >
-                      <div className="col-span-5 flex items-center gap-3">
+                      <div className="col-span-5 flex items-center gap-3 min-w-0">
                         <div
                           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{
@@ -343,59 +342,63 @@ export default function UserList() {
                             style={{ color: "var(--color-icon)" }}
                           />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p
-                            className="text-sm font-medium"
+                            className="text-sm font-medium truncate"
                             style={{ color: "var(--text-primary)" }}
                           >
                             {u.full_name}
                           </p>
                           <p
-                            className="text-xs"
+                            className="text-xs truncate"
                             style={{ color: "var(--text-secondary)" }}
                           >
                             {u.email}
                           </p>
                         </div>
                       </div>
-                      <div className="col-span-3">
-                        <span
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
-                          style={{
-                            backgroundColor: roleConfig.bg,
-                            color: roleConfig.color,
-                          }}
-                        >
-                          <RoleIcon size={11} />
-                          {roleConfig.label}
-                        </span>
-                      </div>
-                      <div className="col-span-2">
-                        <span
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
-                          style={{
-                            backgroundColor: u.is_active
-                              ? "#f0fdf4"
-                              : "var(--bg-primary)",
-                            color: u.is_active
-                              ? "#16a34a"
-                              : "var(--text-secondary)",
-                          }}
-                        >
-                          {u.is_active ? "Activo" : "Inactivo"}
-                        </span>
-                      </div>
-                      <div className="col-span-2">
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          {new Date(u.created_at).toLocaleDateString("es-CO", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </p>
+                      {/* En celular: rol, estado y fecha en una fila; en escritorio, columnas */}
+                      <div className="flex flex-wrap items-center gap-2 pl-12 md:pl-0 md:contents">
+                        <div className="col-span-3">
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                            style={{
+                              backgroundColor: roleConfig.bg,
+                              color: roleConfig.color,
+                            }}
+                          >
+                            <RoleIcon size={11} />
+                            {roleConfig.label}
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                            style={{
+                              backgroundColor: u.is_active
+                                ? "#f0fdf4"
+                                : "var(--bg-primary)",
+                              color: u.is_active
+                                ? "#16a34a"
+                                : "var(--text-secondary)",
+                            }}
+                          >
+                            {u.is_active ? "Activo" : "Inactivo"}
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            <span className="md:hidden">Desde </span>
+                            {new Date(u.created_at).toLocaleDateString("es-CO", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   );

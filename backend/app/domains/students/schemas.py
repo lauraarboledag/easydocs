@@ -1,6 +1,33 @@
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
+
+# --- Validación de teléfonos ---
+# Opcional; si viene, solo dígitos, espacios, guiones y "+" al inicio,
+# con entre 7 y 15 dígitos (espacios y guiones no cuentan).
+PHONE_RE = re.compile(r"^\+?[\d\s-]+$")
+PHONE_ERROR = (
+    "El teléfono solo puede tener números, espacios, guiones y + al inicio "
+    "(entre 7 y 15 dígitos)."
+)
+
+
+def clean_phone(value):
+    if value is None:
+        return None
+    # Excel puede entregar el número como int/float (3001234567 o 3001234567.0)
+    if isinstance(value, (int, float)):
+        value = str(int(value))
+    value = str(value).strip()
+    if not value:
+        return None
+    if re.fullmatch(r"\d+\.0", value):
+        value = value[:-2]
+    digits = len(re.sub(r"\D", "", value))
+    if not PHONE_RE.match(value) or not 7 <= digits <= 15:
+        raise ValueError(PHONE_ERROR)
+    return value
 
 
 # --- Program ---
@@ -40,6 +67,11 @@ class StudentCreate(BaseModel):
     guardian_address: Optional[str] = None
     guardian_phone: Optional[str] = None
 
+    @field_validator("phone", "guardian_phone", mode="before")
+    @classmethod
+    def validate_phones(cls, value):
+        return clean_phone(value)
+
 
 class StudentResponse(BaseModel):
     id: str
@@ -67,6 +99,13 @@ class StudentResponse(BaseModel):
 class EnrollmentCreate(BaseModel):
     student_id: str
     program_id: str
+    enrollment_number: Optional[str] = None
+    folio: Optional[str] = None
+    certificate_type: Optional[str] = None
+    year: Optional[str] = None
+
+
+class EnrollmentUpdate(BaseModel):
     enrollment_number: Optional[str] = None
     folio: Optional[str] = None
     certificate_type: Optional[str] = None

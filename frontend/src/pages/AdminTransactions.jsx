@@ -6,6 +6,7 @@ import LogoutModal from "../components/LogoutModal";
 import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import NotificationBell from "../components/NotificationBell";
 import {
   ArrowLeftRight,
   Bell,
@@ -17,9 +18,29 @@ import {
   Search,
   Filter,
   AlertCircle,
+  X,
+  Building2,
 } from "lucide-react";
 
 const ACCENT_GRADIENT = "linear-gradient(90deg, #2952cc, #1a2b4a)";
+
+const PLAN_LABELS = {
+  free: "Free",
+  basic: "Básico",
+  professional: "Profesional",
+  enterprise: "Empresarial",
+};
+
+const REJECT_REASONS = [
+  "No recibimos la transferencia.",
+  "El monto recibido no coincide con el plan.",
+  "El comprobante no es válido o no se puede leer.",
+];
+
+const formatPlan = (t) =>
+  t.plan_name
+    ? `Plan ${PLAN_LABELS[t.plan_name] || t.plan_name}${t.billing_cycle === "annual" ? " · anual" : t.billing_cycle === "monthly" ? " · mensual" : ""}`
+    : "Plan desconocido";
 
 const STATUS_CONFIG = {
   pending: { label: "Pendiente", bg: "#fef3c7", color: "#b45309", icon: Clock },
@@ -49,6 +70,9 @@ export default function AdminTransactions() {
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
   const [error, setError] = useState(null);
+  // Rechazo: transacción elegida y motivo (se le muestra a la institución)
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     fetchTransactions();
@@ -75,8 +99,16 @@ export default function AdminTransactions() {
     }
   };
 
-  const handleConfirm = async (id) => {
+  const handleConfirm = async (t) => {
+    if (
+      !confirm(
+        `¿Confirmar el pago de ${t.institution_name || "esta institución"} (${formatPlan(t)})? Se activará el plan y se enviará la factura.`,
+      )
+    )
+      return;
+    const id = t.id;
     setProcessing(id);
+    setError(null);
     try {
       await api.patch(`/transactions/${id}/confirm`, {
         notes: "Confirmado desde panel de administración EasyDocs",
@@ -85,7 +117,45 @@ export default function AdminTransactions() {
       setSuccess("Transacción confirmada exitosamente.");
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      setError("Error confirmando la transacción. Intenta de nuevo.")
+      const detail = err.response?.data?.detail;
+      setError(
+        typeof detail === "string" && detail
+          ? detail
+          : "Error confirmando la transacción. Intenta de nuevo.",
+      );
+      await fetchTransactions();
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const openReject = (t) => {
+    setRejectTarget(t);
+    setRejectReason("");
+    setError(null);
+  };
+
+  const handleReject = async () => {
+    if (!rejectTarget) return;
+    const id = rejectTarget.id;
+    setProcessing(id);
+    try {
+      await api.patch(`/transactions/${id}/reject`, {
+        notes: rejectReason.trim() || null,
+      });
+      setRejectTarget(null);
+      await fetchTransactions();
+      setSuccess("Transacción rechazada. La institución fue notificada y conserva su plan actual.");
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(
+        typeof detail === "string" && detail
+          ? detail
+          : "Error rechazando la transacción. Intenta de nuevo.",
+      );
+      setRejectTarget(null);
+      await fetchTransactions();
     } finally {
       setProcessing(null);
     }
@@ -97,8 +167,12 @@ export default function AdminTransactions() {
 
   const filtered = transactions.filter((t) => {
     const matchStatus = filterStatus === "all" || t.status === filterStatus;
+    const q = search.trim().toLowerCase();
     const matchSearch =
-      t.id.includes(search) || t.subscription_id.includes(search);
+      !q ||
+      t.id.toLowerCase().includes(q) ||
+      t.subscription_id.toLowerCase().includes(q) ||
+      (t.institution_name || "").toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
 
@@ -109,7 +183,7 @@ export default function AdminTransactions() {
     >
       <AdminSidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="md:ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
           className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10"
           style={{
@@ -139,15 +213,7 @@ export default function AdminTransactions() {
             </div>
           </div>
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
-            <button
-              className="relative p-2 rounded-full transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <Bell size={20} />
-              {pending.length > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0"
@@ -275,7 +341,7 @@ export default function AdminTransactions() {
               />
               <input
                 type="text"
-                placeholder="Buscar por ID..."
+                placeholder="Buscar por institución o ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2"
@@ -353,8 +419,8 @@ export default function AdminTransactions() {
                     borderColor: "var(--border-color)",
                   }}
                 >
-                  <span className="col-span-3">ID Transacción</span>
-                  <span className="col-span-3">Suscripción</span>
+                  <span className="col-span-4">Institución y plan</span>
+                  <span className="col-span-2">Fecha</span>
                   <span className="col-span-2">Monto</span>
                   <span className="col-span-2">Estado</span>
                   <span className="col-span-2">Acción</span>
@@ -372,15 +438,16 @@ export default function AdminTransactions() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p
-                              className="text-xs font-mono"
+                              className="text-sm font-semibold truncate"
                               style={{ color: "var(--text-primary)" }}
                             >
-                              {t.id.split("-")[0]}...
+                              {t.institution_name || "Institución"}
                             </p>
                             <p
                               className="text-xs mt-0.5"
                               style={{ color: "var(--text-secondary)" }}
                             >
+                              {formatPlan(t)} ·{" "}
                               {new Date(t.created_at).toLocaleDateString("es-CO", {
                                 day: "2-digit",
                                 month: "short",
@@ -406,13 +473,13 @@ export default function AdminTransactions() {
                               className="text-[10px] uppercase tracking-wide"
                               style={{ color: "var(--text-secondary)" }}
                             >
-                              Suscripción
+                              Transacción
                             </p>
                             <p
                               className="text-xs font-mono truncate"
                               style={{ color: "var(--text-secondary)" }}
                             >
-                              {t.subscription_id.split("-")[0]}...
+                              {t.id.split("-")[0]}...
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -433,21 +500,30 @@ export default function AdminTransactions() {
                         </div>
 
                         {t.status === "pending" && (
-                          <button
-                            onClick={() => handleConfirm(t.id)}
-                            disabled={processing === t.id}
-                            className="w-full text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
-                          >
-                            {processing === t.id ? (
-                              "Procesando..."
-                            ) : (
-                              <>
-                                <CheckCircle size={12} /> Confirmar
-                              </>
-                            )}
-                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => openReject(t)}
+                              disabled={processing === t.id}
+                              className="text-xs border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
+                            >
+                              <XCircle size={12} /> Rechazar
+                            </button>
+                            <button
+                              onClick={() => handleConfirm(t)}
+                              disabled={processing === t.id}
+                              className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
+                            >
+                              {processing === t.id ? (
+                                "Procesando..."
+                              ) : (
+                                <>
+                                  <CheckCircle size={12} /> Confirmar
+                                </>
+                              )}
+                            </button>
+                          </div>
                         )}
-                        {t.status === "confirmed" && t.notes && (
+                        {t.status !== "pending" && t.notes && (
                           <p
                             className="text-xs italic"
                             style={{ color: "var(--text-secondary)" }}
@@ -469,13 +545,30 @@ export default function AdminTransactions() {
                           (e.currentTarget.style.backgroundColor = "transparent")
                         }
                       >
-                        <div className="col-span-3">
-                          <p
-                            className="text-xs font-mono"
-                            style={{ color: "var(--text-primary)" }}
+                        <div className="col-span-4 flex items-center gap-3 min-w-0 pr-3">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: "var(--color-primary-light)" }}
                           >
-                            {t.id.split("-")[0]}...
-                          </p>
+                            <Building2 size={14} style={{ color: "var(--color-primary)" }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p
+                              className="text-sm font-medium truncate"
+                              style={{ color: "var(--text-primary)" }}
+                              title={t.institution_name || ""}
+                            >
+                              {t.institution_name || "Institución"}
+                            </p>
+                            <p
+                              className="text-xs truncate"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {formatPlan(t)} · <span className="font-mono">{t.id.split("-")[0]}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
                           <p
                             className="text-xs"
                             style={{ color: "var(--text-secondary)" }}
@@ -485,14 +578,6 @@ export default function AdminTransactions() {
                               month: "short",
                               year: "numeric",
                             })}
-                          </p>
-                        </div>
-                        <div className="col-span-3">
-                          <p
-                            className="text-xs font-mono"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            {t.subscription_id.split("-")[0]}...
                           </p>
                         </div>
                         <div className="col-span-2">
@@ -523,24 +608,36 @@ export default function AdminTransactions() {
                         </div>
                         <div className="col-span-2">
                           {t.status === "pending" && (
-                            <button
-                              onClick={() => handleConfirm(t.id)}
-                              disabled={processing === t.id}
-                              className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
-                            >
-                              {processing === t.id ? (
-                                "Procesando..."
-                              ) : (
-                                <>
-                                  <CheckCircle size={12} /> Confirmar
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleConfirm(t)}
+                                disabled={processing === t.id}
+                                className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1"
+                              >
+                                {processing === t.id ? (
+                                  "..."
+                                ) : (
+                                  <>
+                                    <CheckCircle size={12} /> Confirmar
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => openReject(t)}
+                                disabled={processing === t.id}
+                                className="p-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                                title="Rechazar pago"
+                                aria-label="Rechazar pago"
+                              >
+                                <XCircle size={14} />
+                              </button>
+                            </div>
                           )}
-                          {t.status === "confirmed" && t.notes && (
+                          {t.status !== "pending" && t.notes && (
                             <p
                               className="text-xs italic truncate"
                               style={{ color: "var(--text-secondary)" }}
+                              title={t.notes}
                             >
                               {t.notes}
                             </p>
@@ -555,6 +652,104 @@ export default function AdminTransactions() {
           </div>
         </div>
       </main>
+
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div
+            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl p-5"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-red-100">
+                  <XCircle size={18} className="text-red-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                    Rechazar pago
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    Esta acción no se puede deshacer
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRejectTarget(null)}
+                disabled={processing === rejectTarget.id}
+                style={{ color: "var(--text-secondary)" }}
+                title="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              className="rounded-xl p-3 mb-4 text-sm"
+              style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}
+            >
+              <p className="font-medium">{rejectTarget.institution_name || "Institución"}</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {formatPlan(rejectTarget)} · ${(rejectTarget.amount / 100).toLocaleString("es-CO")} COP
+              </p>
+            </div>
+
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>
+              Motivo (lo verá la institución)
+            </p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {REJECT_REASONS.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRejectReason(r)}
+                  className="text-xs px-2.5 py-1 rounded-full border"
+                  style={{
+                    borderColor: rejectReason === r ? "#dc2626" : "var(--border-color)",
+                    color: rejectReason === r ? "#dc2626" : "var(--text-secondary)",
+                  }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              maxLength={300}
+              placeholder="Escribe el motivo o elige uno de arriba (opcional)"
+              className="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 resize-none mb-2"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            />
+            <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
+              La solicitud se cancela y la institución sigue con su plan actual.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRejectTarget(null)}
+                disabled={processing === rejectTarget.id}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg border"
+                style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={processing === rejectTarget.id}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
+                style={{ backgroundColor: "#dc2626" }}
+              >
+                {processing === rejectTarget.id ? "Rechazando..." : "Sí, rechazar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLogout && (
         <LogoutModal

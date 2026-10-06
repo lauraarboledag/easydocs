@@ -27,6 +27,22 @@ import {
   Shield,
 } from "lucide-react";
 
+// Debe coincidir el enlace con el correo que se muestra
+const SUPPORT_EMAIL = "edudynamis1@gmail.com";
+
+// Cuántos mensajes anteriores se envían como contexto
+const MAX_HISTORY = 10;
+
+// Escapa el HTML antes de aplicar el formato: el texto viene del usuario y de
+// la IA, y se pinta con dangerouslySetInnerHTML.
+const escapeHtml = (text) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const SUGGESTED_QUESTIONS = [
   "¿Qué es el LR001 y cómo se diligencia?",
   "¿Qué firmas requiere el libro de matrículas?",
@@ -68,7 +84,19 @@ const ARTICLE_CATEGORIES = [
         id: "estados-documento",
         title: "¿Qué significa cada estado de un documento?",
         content:
-          '"Borrador" es un documento creado pero no descargado aún. "Generado" significa que ya descargaste el PDF al menos una vez. "Borrador IA" indica contenido sugerido por EduBot pendiente de tu revisión. "Cancelado" es un documento que invalidaste y ya no debe usarse oficialmente.',
+          '"Borrador" es un documento que guardaste a medio llenar: no gasta cupo de tu plan y lo retomas con "Continuar". "Borrador IA" tiene texto redactado por EduBot que aún no has revisado; se abre con "Revisar" y no se puede descargar hasta que confirmes la revisión y lo generes. "Generado" es un documento completo, listo para descargar en PDF. "Cancelado" es un documento que invalidaste y ya no debe usarse oficialmente.',
+      },
+      {
+        id: "guardar-borrador",
+        title: "¿Puedo dejar un documento a medias y seguir después?",
+        content:
+          'Sí. En el formulario del documento haz clic en "Guardar borrador". Se guarda aunque falten campos y no cuenta para el límite mensual de tu plan. Para retomarlo, ve a Documentos y haz clic en "Continuar" junto al borrador. El cupo solo se usa cuando generas el documento.',
+      },
+      {
+        id: "borrador-ia",
+        title: "¿Cómo redacta EduBot un acta, el PEI o la autoevaluación?",
+        content:
+          'En las Actas (LR003 y LR004), el PEI (LR001) y la Autoevaluación (LR006) verás la opción "Redactar con EduBot". Escribe notas sencillas de lo que pasó o de cómo es tu institución, elige los campos y EduBot los redacta en lenguaje formal. EduBot solo usa tus notas: lo que falte lo marca como [COMPLETAR]. No escribas nombres ni documentos de estudiantes. Antes de generar debes revisar el texto y confirmar que corresponde a lo ocurrido; mientras tanto el documento queda como "Borrador IA". Incluido en los planes con EduBot IA (Profesional y Empresarial).',
       },
       {
         id: "editar-documento",
@@ -261,7 +289,9 @@ export default function EduBot() {
     setLoading(true);
     setError("");
 
-    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    const history = messages
+      .slice(-MAX_HISTORY)
+      .map((m) => ({ role: m.role, content: m.content }));
 
     try {
       const res = await api.post("/edubot/chat", { message, history });
@@ -274,7 +304,12 @@ export default function EduBot() {
         },
       ]);
     } catch (err) {
-      setError("No se pudo conectar con EduBot. Intenta de nuevo.");
+      const detail = err.response?.data?.detail;
+      setError(
+        typeof detail === "string" && detail
+          ? detail
+          : "No se pudo conectar con EduBot. Intenta de nuevo.",
+      );
     } finally {
       setLoading(false);
     }
@@ -300,7 +335,7 @@ export default function EduBot() {
   };
 
   const formatMessage = (content) => {
-    return content
+    return escapeHtml(content || "")
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
       .replace(/\n/g, "<br/>");
@@ -319,7 +354,7 @@ export default function EduBot() {
     <>
       <button
         onClick={handleOpen}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-colors z-50 text-white"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-colors z-50 text-white"
         style={{ backgroundColor: "var(--color-sidebar)" }}
         title="Abrir EduBot"
       >
@@ -328,7 +363,7 @@ export default function EduBot() {
 
       {open && (
         <div
-          className="fixed bottom-24 right-6 w-96 rounded-2xl shadow-2xl border flex flex-col z-50"
+          className="fixed inset-x-3 bottom-20 sm:inset-x-auto sm:right-6 sm:bottom-24 sm:w-96 rounded-2xl shadow-2xl border flex flex-col z-50"
           style={{
             height: "560px",
             maxHeight: "80vh",
@@ -591,7 +626,7 @@ export default function EduBot() {
                         </div>
                       )}
                       <div
-                        className="max-w-xs rounded-2xl px-3 py-2 text-sm"
+                        className="max-w-[80%] rounded-2xl px-3 py-2 text-sm break-words"
                         style={{
                           backgroundColor:
                             msg.role === "user"
@@ -714,6 +749,7 @@ export default function EduBot() {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="Pregunta sobre normativa ETDH..."
+                      maxLength={2000}
                       rows={1}
                       className="flex-1 border rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
                       style={{
@@ -797,7 +833,7 @@ export default function EduBot() {
                 </a>
 
                 <a
-                  href="mailto:soporte@edudynamis.com"
+                  href={`mailto:${SUPPORT_EMAIL}`}
                   className="flex items-center gap-3 p-4 rounded-xl border mb-3 transition-colors hover:shadow-sm"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -815,7 +851,7 @@ export default function EduBot() {
                       className="text-sm font-semibold"
                       style={{ color: "var(--text-primary)" }}
                     >
-                      edudynamis1@gmail.com
+                      {SUPPORT_EMAIL}
                     </p>
                     <p
                       className="text-xs"

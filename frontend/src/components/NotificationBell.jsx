@@ -1,10 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { Bell, CheckCheck, Calendar, X } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Bell, CheckCheck, X, Trash2, ArrowRight } from "lucide-react";
+import {
+  getNotificationMeta,
+  timeAgo,
+  NOTIFICATIONS_CHANGED,
+  emitNotificationsChanged,
+} from "../utils/notificationMeta";
+
+const PREVIEW_LIMIT = 8;
 
 export default function NotificationBell() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === "superadmin";
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -23,7 +34,7 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/notifications/");
+      const res = await api.get("/notifications/", { params: { limit: PREVIEW_LIMIT } });
       setNotifications(res.data);
     } catch {
       // silencioso
@@ -35,7 +46,12 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 60000); // cada minuto
-    return () => clearInterval(interval);
+    // Si la página de notificaciones cambia algo, se actualiza el contador
+    window.addEventListener(NOTIFICATIONS_CHANGED, fetchUnreadCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(NOTIFICATIONS_CHANGED, fetchUnreadCount);
+    };
   }, []);
 
   useEffect(() => {
@@ -70,17 +86,30 @@ export default function NotificationBell() {
       await api.patch("/notifications/read-all");
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
+      emitNotificationsChanged();
     } catch {
       // silencioso
     }
   };
 
-  const timeAgo = (dateStr) => {
-    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-    if (diff < 60) return "hace un momento";
-    if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
-    return `hace ${Math.floor(diff / 86400)} d`;
+  const handleDelete = async (e, n) => {
+    e.stopPropagation();
+    try {
+      await api.delete(`/notifications/${n.id}`);
+      setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+      if (!n.is_read) setUnreadCount((prev) => Math.max(0, prev - 1));
+      emitNotificationsChanged();
+    } catch {
+      // silencioso
+    }
+  };
+
+  const handleOpenItem = (n, path) => {
+    if (!n.is_read) handleMarkAsRead(n.id);
+    if (path) {
+      setOpen(false);
+      navigate(path);
+    }
   };
 
   return (
@@ -95,6 +124,8 @@ export default function NotificationBell() {
         onMouseLeave={(e) =>
           (e.currentTarget.style.backgroundColor = "transparent")
         }
+        title="Notificaciones"
+        aria-label="Notificaciones"
       >
         <Bell size={20} />
         {unreadCount > 0 && (
@@ -109,14 +140,16 @@ export default function NotificationBell() {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 rounded-2xl border shadow-xl z-50 overflow-hidden"
+          // Celular: panel fijo de borde a borde bajo el encabezado.
+          // Escritorio: desplegable de 384px junto a la campana.
+          className="fixed inset-x-3 top-[4.5rem] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 rounded-2xl border shadow-xl z-50 overflow-hidden flex flex-col max-h-[75vh] sm:max-h-[32rem]"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
           <div
-            className="flex items-center justify-between px-4 py-3 border-b"
+            className="flex items-center justify-between gap-2 px-4 py-3 border-b flex-shrink-0"
             style={{ borderColor: "var(--border-color)" }}
           >
             <p
@@ -124,12 +157,17 @@ export default function NotificationBell() {
               style={{ color: "var(--text-primary)" }}
             >
               Notificaciones
+              {unreadCount > 0 && (
+                <span className="ml-1.5 text-xs font-normal" style={{ color: "var(--text-secondary)" }}>
+                  ({unreadCount} sin leer)
+                </span>
+              )}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="flex items-center gap-1 text-xs hover:underline"
+                  className="flex items-center gap-1 text-xs hover:underline whitespace-nowrap"
                   style={{ color: "var(--color-primary)" }}
                 >
                   <CheckCheck size={12} /> Marcar todas
@@ -138,13 +176,14 @@ export default function NotificationBell() {
               <button
                 onClick={() => setOpen(false)}
                 style={{ color: "var(--text-secondary)" }}
+                title="Cerrar"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="overflow-y-auto flex-1">
             {loading ? (
               <div
                 className="text-center py-8 text-xs"
@@ -167,80 +206,93 @@ export default function NotificationBell() {
                 </p>
               </div>
             ) : (
-              notifications.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => {
-                    if (!n.is_read) handleMarkAsRead(n.id);
-                    if (n.calendar_event_id) {
-                      setOpen(false);
-                      navigate("/calendario");
-                    }
-                  }}
-                  className="w-full text-left px-4 py-3 border-b last:border-0 transition-colors flex items-start gap-3"
-                  style={{
-                    borderColor: "var(--border-color)",
-                    backgroundColor: n.is_read
-                      ? "transparent"
-                      : "var(--color-primary-light)",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      "var(--bg-primary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = n.is_read
-                      ? "transparent"
-                      : "var(--color-primary-light)")
-                  }
-                >
+              notifications.map((n) => {
+                const meta = getNotificationMeta(n, isSuperadmin);
+                const Icon = meta.icon;
+                return (
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    key={n.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenItem(n, meta.path)}
+                    onKeyDown={(e) => e.key === "Enter" && handleOpenItem(n, meta.path)}
+                    className="group w-full text-left px-4 py-3 border-b last:border-0 transition-colors flex items-start gap-3 cursor-pointer"
                     style={{
+                      borderColor: "var(--border-color)",
                       backgroundColor: n.is_read
-                        ? "var(--bg-primary)"
-                        : "#fee2e2",
+                        ? "transparent"
+                        : "var(--color-primary-light)",
                     }}
                   >
-                    <Calendar
-                      size={14}
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
-                        color: n.is_read ? "var(--text-secondary)" : "#dc2626",
+                        backgroundColor: n.is_read ? "var(--bg-primary)" : meta.bg,
                       }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-xs font-medium truncate"
-                      style={{ color: "var(--text-primary)" }}
                     >
-                      {n.title}
-                    </p>
-                    {n.message && (
+                      <Icon
+                        size={14}
+                        style={{
+                          color: n.is_read ? "var(--text-secondary)" : meta.color,
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <p
-                        className="text-xs mt-0.5 line-clamp-2"
+                        className={`text-xs truncate ${n.is_read ? "font-medium" : "font-semibold"}`}
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {n.title}
+                      </p>
+                      {n.message && (
+                        <p
+                          className="text-xs mt-0.5 line-clamp-2"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {n.message}
+                        </p>
+                      )}
+                      <p
+                        className="text-xs mt-1"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {n.message}
+                        {timeAgo(n.created_at)}
                       </p>
-                    )}
-                    <p
-                      className="text-xs mt-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {timeAgo(n.created_at)}
-                    </p>
+                    </div>
+                    <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                      {!n.is_read && (
+                        <div
+                          className="w-2 h-2 rounded-full mt-1.5"
+                          style={{ backgroundColor: "var(--color-primary)" }}
+                        />
+                      )}
+                      {/* En celular siempre visible; en escritorio al pasar el mouse */}
+                      <button
+                        onClick={(e) => handleDelete(e, n)}
+                        className="p-1 rounded-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                        style={{ color: "#dc2626" }}
+                        title="Eliminar notificación"
+                        aria-label="Eliminar notificación"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                  {!n.is_read && (
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
-                      style={{ backgroundColor: "var(--color-primary)" }}
-                    />
-                  )}
-                </button>
-              ))
+                );
+              })
             )}
           </div>
+
+          <button
+            onClick={() => {
+              setOpen(false);
+              navigate(isSuperadmin ? "/admin/notificaciones" : "/notificaciones");
+            }}
+            className="flex items-center justify-center gap-1.5 py-3 text-xs font-semibold border-t flex-shrink-0"
+            style={{ borderColor: "var(--border-color)", color: "var(--color-primary)" }}
+          >
+            Ver todas las notificaciones <ArrowRight size={13} />
+          </button>
         </div>
       )}
     </div>

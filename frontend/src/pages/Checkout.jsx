@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import Sidebar from "../components/layout/Sidebar";
@@ -21,6 +21,7 @@ import {
   FileText,
   Zap,
   Star,
+  Hourglass,
 } from "lucide-react";
 
 const PLAN_META = {
@@ -107,7 +108,10 @@ function WompiWidget({ plan, institution, onPending }) {
 export default function Checkout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [plans, setPlans] = useState([]);
+  // Solicitud anterior que sigue esperando el pago (se reemplaza si se envía otra)
+  const [pending, setPending] = useState(null);
   const [institution, setInstitution] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState("monthly");
@@ -133,15 +137,18 @@ export default function Checkout() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [plansRes, instRes] = await Promise.all([
+        const [plansRes, instRes, pendingRes] = await Promise.all([
           api.get("/plans/"),
           api.get(`/institutions/${user.institution_id}`),
+          api.get("/subscriptions/pending").catch(() => ({ data: null })),
         ]);
         setPlans(plansRes.data);
         setInstitution(instRes.data);
+        setPending(pendingRes.data);
 
+        // Plan elegido en Suscripción (llega por state) o por ?plan=<id>
         const params = new URLSearchParams(window.location.search);
-        const planId = params.get("plan");
+        const planId = location.state?.plan?.id || params.get("plan");
         if (planId) {
           const found = plansRes.data.find((p) => p.id === planId);
           if (found) {
@@ -213,13 +220,13 @@ export default function Checkout() {
   if (success) {
     return (
       <div
-        className="min-h-screen flex"
+        className="min-h-screen flex overflow-x-hidden"
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
         <Sidebar onLogout={() => setShowLogout(true)} />
-        <main className="ml-56 flex-1 flex items-center justify-center p-8">
+        <main className="md:ml-56 flex-1 flex items-center justify-center p-4 pt-20 md:p-8 min-w-0">
           <div
-            className="max-w-md w-full rounded-2xl border p-10 text-center"
+            className="max-w-md w-full rounded-2xl border p-6 md:p-10 text-center"
             style={{
               backgroundColor: "var(--bg-secondary)",
               borderColor: "var(--border-color)",
@@ -242,7 +249,8 @@ export default function Checkout() {
             >
               {paymentMethod === "wompi"
                 ? "Cuando el pago se confirme, tu plan se activará automáticamente y recibirás tu factura por correo."
-                : "El equipo de EduDynamis confirmará tu transferencia y activará tu plan en breve."}
+                : "El equipo de EduDynamis confirmará tu transferencia y activará tu plan en breve."}{" "}
+              Mientras tanto sigues con tu plan actual, sin perder nada.
             </p>
             <button
               onClick={() => navigate("/suscripcion")}
@@ -267,23 +275,23 @@ export default function Checkout() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/suscripcion")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
@@ -300,7 +308,7 @@ export default function Checkout() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
             </button>
@@ -314,7 +322,7 @@ export default function Checkout() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden md:block text-sm font-medium"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -323,7 +331,20 @@ export default function Checkout() {
           </div>
         </header>
 
-        <div className="flex-1 p-8 max-w-6xl mx-auto w-full">
+        <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+          {pending && pending.plan && (
+            <div
+              className="rounded-xl border px-4 py-3 mb-6 text-sm flex items-start gap-2"
+              style={{ backgroundColor: "#fffbeb", borderColor: "#f59e0b", color: "#92400e" }}
+            >
+              <Hourglass size={16} className="flex-shrink-0 mt-0.5" />
+              <span>
+                Ya tienes una solicitud pendiente del Plan{" "}
+                {PLAN_META[pending.plan.name]?.label || pending.plan.name}. Si envías una nueva,
+                reemplaza a la anterior.
+              </span>
+            </div>
+          )}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
               <AlertCircle size={16} /> {error}
@@ -342,13 +363,13 @@ export default function Checkout() {
               {/* Selección de plan */}
               <div className="lg:col-span-2 space-y-6">
                 <div
-                  className="rounded-2xl border p-6"
+                  className="rounded-2xl border p-4 md:p-6"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-color)",
                   }}
                 >
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                     <h2
                       className="font-bold"
                       style={{ color: "var(--text-primary)" }}
@@ -451,7 +472,7 @@ export default function Checkout() {
                       >
                         Incluye
                       </p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {(PLAN_FEATURES[selectedPlan.name] || []).map((f) => (
                           <div
                             key={f}
@@ -472,7 +493,7 @@ export default function Checkout() {
 
                 {/* Método de pago */}
                 <div
-                  className="rounded-2xl border p-6"
+                  className="rounded-2xl border p-4 md:p-6"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-color)",
@@ -485,7 +506,7 @@ export default function Checkout() {
                     2. Método de pago
                   </h2>
 
-                  <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     <button
                       onClick={() => setPaymentMethod("wompi")}
                       className="flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left"
@@ -599,6 +620,7 @@ export default function Checkout() {
                           className="text-sm font-medium font-mono"
                           style={{ color: "var(--text-primary)" }}
                         >
+                          {/* TODO producción: número de cuenta real */}
                           000-000000-00
                         </span>
                       </div>
@@ -647,7 +669,7 @@ export default function Checkout() {
               {/* Resumen */}
               <div className="space-y-4">
                 <div
-                  className="rounded-2xl border p-6 sticky top-24"
+                  className="rounded-2xl border p-4 md:p-6 lg:sticky lg:top-24"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-color)",

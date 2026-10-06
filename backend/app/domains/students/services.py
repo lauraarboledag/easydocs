@@ -2,7 +2,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from fastapi import HTTPException
 from app.domains.students.models import Program, Student, Enrollment
-from app.domains.students.schemas import ProgramCreate, StudentCreate, EnrollmentCreate
+from app.domains.students.schemas import (
+    ProgramCreate,
+    StudentCreate,
+    EnrollmentCreate,
+    EnrollmentUpdate,
+)
 
 
 # --- Programs ---
@@ -61,7 +66,11 @@ def get_students(db: Session, institution_id: str, program_id: str = None):
         Student.institution_id == institution_id, Student.is_active == True
     )
     if program_id:
-        query = query.join(Enrollment).where(Enrollment.program_id == program_id)
+        # Solo matrículas activas: una matrícula cancelada no debe
+        # hacer aparecer al estudiante en el filtro del programa
+        query = query.join(Enrollment).where(
+            Enrollment.program_id == program_id, Enrollment.is_active == True
+        )
     return db.execute(query).scalars().all()
 
 
@@ -98,13 +107,35 @@ def update_student(
 def delete_student(db: Session, student_id: str, institution_id: str):
     student = get_student(db, student_id, institution_id)
     student.is_active = False
+    # Al desactivar un estudiante también se cancelan sus matrículas activas
+    # (borrado lógico: se conservan para el historial y los documentos ya generados)
+    enrollments = (
+        db.execute(
+            select(Enrollment).where(
+                Enrollment.student_id == student.id,
+                Enrollment.institution_id == institution_id,
+                Enrollment.is_active == True,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for enrollment in enrollments:
+        enrollment.is_active = False
     db.commit()
 
 
 # --- Enrollments ---
 def get_enrollments(db: Session, institution_id: str, program_id: str = None):
-    query = select(Enrollment).where(
-        Enrollment.institution_id == institution_id, Enrollment.is_active == True
+    # Solo matrículas activas de estudiantes activos
+    query = (
+        select(Enrollment)
+        .join(Student, Enrollment.student_id == Student.id)
+        .where(
+            Enrollment.institution_id == institution_id,
+            Enrollment.is_active == True,
+            Student.is_active == True,
+        )
     )
     if program_id:
         query = query.where(Enrollment.program_id == program_id)
@@ -131,6 +162,28 @@ def create_enrollment(db: Session, data: EnrollmentCreate, institution_id: str):
     return db.execute(
         select(Enrollment).where(Enrollment.id == enrollment.id)
     ).scalar_one()
+
+
+def update_enrollment(
+    db: Session, enrollment_id: str, data: EnrollmentUpdate, institution_id: str
+):
+    enrollment = db.execute(
+        select(Enrollment).where(
+            Enrollment.id == enrollment_id,
+            Enrollment.institution_id == institution_id,
+            Enrollment.is_active == True,
+        )
+    ).scalar_one_or_none()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Matrícula no encontrada.")
+    for key, value in data.model_dump().items():
+        # Texto vacío o solo espacios se guarda como NULL
+        if isinstance(value, str):
+            value = value.strip() or None
+        setattr(enrollment, key, value)
+    db.commit()
+    db.refresh(enrollment)
+    return enrollment
 
 
 def delete_enrollment(db: Session, enrollment_id: str, institution_id: str):

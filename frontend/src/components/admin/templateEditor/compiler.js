@@ -2,25 +2,48 @@
 // que espera el backend. No depende de React ni de Tiptap directamente — solo
 // recibe un objeto plano y devuelve strings.
 
+// Encabezado institucional + hoja de estilos compartida.
+// IMPORTANTE: mantener idéntico a BASE_HEAD en backend/seed_templates.py,
+// así las plantillas sembradas y las guardadas desde el editor se ven igual.
 const HEADER_AND_STYLES = `<!DOCTYPE html><html><head><meta charset='utf-8'><style>
-body{font-family:Arial,sans-serif;margin:60px;font-size:11pt;}
-.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #000;padding-bottom:15px;}
-.header p{margin:3px 0;font-size:10pt;}
-.title{text-align:center;font-size:15pt;font-weight:bold;text-transform:uppercase;margin:25px 0;}
-.section{margin:20px 0;}
-.section h1{font-size:14pt;font-weight:bold;margin:20px 0 10px;}
-.section h2{font-size:12pt;font-weight:bold;text-transform:uppercase;margin:20px 0 10px;}
-.section h3{font-size:11pt;font-weight:bold;margin:15px 0 8px;}
-.section h4{font-size:10pt;font-weight:bold;text-transform:uppercase;margin:12px 0 6px;}
-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10pt;}
-th{background-color:#ccc;padding:6px;text-align:left;border:1px solid #000;}
-td{border:1px solid #ccc;padding:6px;}
-ul,ol{margin:8px 0;padding-left:24px;}
+@page{size:letter;margin:2cm 2.2cm 2.4cm 2.2cm;
+@bottom-left{content:string(institucion);font-family:'Liberation Sans',Arial,Helvetica,'DejaVu Sans',sans-serif;font-size:7.5pt;color:#6b7280;}
+@bottom-right{content:'Página ' counter(page) ' de ' counter(pages);font-family:'Liberation Sans',Arial,Helvetica,'DejaVu Sans',sans-serif;font-size:7.5pt;color:#6b7280;}}
+body{font-family:'Liberation Sans',Arial,Helvetica,'DejaVu Sans',sans-serif;font-size:10.5pt;color:#1f2937;line-height:1.5;margin:0;}
+@media screen{body{max-width:760px;margin:32px auto;padding:0 24px;}}
+.logo{margin-bottom:10px;}
+.logo img{max-height:70px;max-width:180px;}
+.marca-agua{position:fixed;top:50%;left:50%;width:13cm;height:13cm;margin-top:-6.5cm;margin-left:-6.5cm;opacity:0.07;z-index:-1;}
+.marca-agua img{width:100%;height:100%;object-fit:contain;}
+.header{text-align:center;padding-bottom:10px;margin-bottom:6px;border-bottom:2.5px solid #1a2b4a;}
+.header p{margin:1px 0;font-size:8.5pt;color:#4b5563;text-align:center;}
+.header p.inst-nombre{string-set:institucion content();font-size:13.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;color:#1a2b4a;margin-bottom:3px;}
+.section h1{text-align:center;font-size:15pt;text-transform:uppercase;letter-spacing:1px;color:#1a2b4a;margin:22px 0 14px;}
+.section h2{font-size:10pt;text-transform:uppercase;letter-spacing:0.5px;color:#ffffff;background-color:#1a2b4a;padding:5px 10px;margin:18px 0 8px;}
+.section h3{font-size:10.5pt;color:#1a2b4a;border-bottom:1px solid #c9d1e0;padding-bottom:3px;margin:14px 0 6px;}
+.section h4{font-size:9.5pt;text-transform:uppercase;color:#4b5563;margin:10px 0 4px;}
+p{margin:6px 0;text-align:justify;}
+p[style*='center']{text-align:center;margin:10px 0;}
+p[style*='center'] strong{font-size:13.5pt;text-transform:uppercase;letter-spacing:0.5px;color:#1a2b4a;}
+p[style*='right']{font-size:9.5pt;color:#374151;}
+table{width:100%;border-collapse:collapse;margin:8px 0 12px;font-size:9.5pt;}
+tr{page-break-inside:avoid;}
+th{background-color:#eef1f7;color:#1a2b4a;text-align:left;padding:4px 8px;border:1px solid #c9d1e0;font-weight:bold;}
+td{padding:4px 8px;border:1px solid #c9d1e0;}
+tr>th:first-child:nth-last-child(2){width:34%;}
+ul,ol{margin:6px 0;padding-left:22px;}
+li{margin:3px 0;}
+em{color:#4b5563;}
+.firmas{display:flex;justify-content:space-around;margin-top:50px;page-break-inside:avoid;}
+.firma{width:30%;text-align:center;}
+.firma .linea{border-top:1px solid #1f2937;margin-bottom:4px;}
+.firma p{margin:0;text-align:center;font-size:9pt;}
 </style></head><body>
-{% if institucion.logo_url %}<div style="text-align:{{ institucion.logo_align|default('left') }};margin-bottom:15px;"><img src="{{ institucion.logo_url }}" style="max-height:80px;max-width:200px;" /></div>{% endif %}
+{% if institucion.logo_url %}<div class="logo" style="text-align:{{ institucion.logo_align|default('left') }};"><img src="{{ institucion.logo_url }}" /></div>{% if institucion.marca_agua %}<div class="marca-agua"><img src="{{ institucion.logo_url }}" /></div>{% endif %}{% endif %}
 <div class='header'>
+<p class="inst-nombre">{{ institucion.nombre }}</p>
 <p>Institución de Educación para el Trabajo y el Desarrollo Humano</p>
-<p>Licencia de Funcionamiento N° {{ institucion.licencia }}</p>
+<p>Licencia de Funcionamiento N° {{ institucion.licencia }} · {{ institucion.municipio }}, {{ institucion.departamento }}</p>
 </div>`;
 
 const FOOTER = `</body></html>`;
@@ -32,15 +55,19 @@ function escapeHtml(text) {
         .replace(/>/g, "&gt;");
 }
 
-// Envuelve un texto con las marcas de formato (negrita, cursiva, subrayado)
-function applyMarks(text, marks = []) {
-    let result = escapeHtml(text);
+// Envuelve HTML ya escapado con las marcas de formato (negrita, cursiva, subrayado)
+function wrapMarks(html, marks = []) {
+    let result = html;
     for (const mark of marks) {
         if (mark.type === "bold") result = `<strong>${result}</strong>`;
         if (mark.type === "italic") result = `<em>${result}</em>`;
         if (mark.type === "underline") result = `<u>${result}</u>`;
     }
     return result;
+}
+
+function applyMarks(text, marks = []) {
+    return wrapMarks(escapeHtml(text), marks);
 }
 
 // Convierte el contenido inline de un nodo (texto + chips de variable)
@@ -59,7 +86,8 @@ function compileInline(content = [], requiredFields) {
                     if (!key.startsWith("institucion.")) {
                         requiredFields.add(key);
                     }
-                    return `{{ ${key} }}`;
+                    // Los chips también pueden ir en negrita (ej. el nombre en un certificado)
+                    return wrapMarks(`{{ ${key} }}`, node.marks);
                 }
             }
             return "";
@@ -114,6 +142,7 @@ function compileBlocks(nodes = [], requiredFields, tableColumns) {
                 case "dataTable": {
                     const rows = node.attrs?.rows || [];
                     const rowsHtml = rows
+                        .filter((row) => row.jinjaKey) // una fila sin variable generaría {{  }} inválido
                         .map((row) => {
                             if (row.jinjaKey && !row.jinjaKey.startsWith("institucion.")) {
                                 requiredFields.add(row.jinjaKey);
@@ -121,6 +150,7 @@ function compileBlocks(nodes = [], requiredFields, tableColumns) {
                             return `<tr><th>${escapeHtml(row.label)}</th><td>{{ ${row.jinjaKey} }}</td></tr>`;
                         })
                         .join("");
+                    if (!rowsHtml) return "";
                     return `<table>${rowsHtml}</table>`;
                 }
 

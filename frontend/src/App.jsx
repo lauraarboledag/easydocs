@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -12,9 +12,6 @@ import AdminInstitutions from "./pages/AdminInstitutions";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminTransactions from "./pages/AdminTransactions";
 import Subscription from "./pages/Subscription";
-import Programs from "./pages/Programs";
-import Students from "./pages/Students";
-import Enrollments from "./pages/Enrollments";
 import Settings from "./pages/Settings";
 import { ThemeProvider } from "./context/ThemeContext";
 import AdminSettings from "./pages/AdminSettings";
@@ -27,6 +24,8 @@ import NotFound from "./pages/NotFound";
 import CalendarPage from "./pages/Calendar";
 import AdminCalendar from "./pages/AdminCalendar";
 import BlockAccount from "./pages/BlockAccount";
+import Academic from "./pages/Academic";
+import Notifications from "./pages/Notifications";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -63,6 +62,14 @@ function InstitutionRoute({ children }) {
   if (!user) return <Navigate to="/" />;
   if (user.role === "superadmin") return <NotFound />;
   return children;
+}
+
+// Las rutas antiguas redirigen a la página académica, conservando filtros
+function AcademicRedirect({ tab }) {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set("tab", tab);
+  return <Navigate to={`/academico?${params.toString()}`} replace />;
 }
 
 function AppRoutes() {
@@ -117,7 +124,7 @@ function AppRoutes() {
         path="/programas"
         element={
           <InstitutionRoute>
-            <Programs />
+            <AcademicRedirect tab="programas" />
           </InstitutionRoute>
         }
       />
@@ -125,7 +132,7 @@ function AppRoutes() {
         path="/estudiantes"
         element={
           <InstitutionRoute>
-            <Students />
+            <AcademicRedirect tab="estudiantes" />
           </InstitutionRoute>
         }
       />
@@ -133,7 +140,15 @@ function AppRoutes() {
         path="/matriculas"
         element={
           <InstitutionRoute>
-            <Enrollments />
+            <AcademicRedirect tab="matriculas" />
+          </InstitutionRoute>
+        }
+      />
+      <Route
+        path="/academico"
+        element={
+          <InstitutionRoute>
+            <Academic />
           </InstitutionRoute>
         }
       />
@@ -158,6 +173,14 @@ function AppRoutes() {
         element={
           <InstitutionRoute>
             <CalendarPage />
+          </InstitutionRoute>
+        }
+      />
+      <Route
+        path="/notificaciones"
+        element={
+          <InstitutionRoute>
+            <Notifications />
           </InstitutionRoute>
         }
       />
@@ -216,6 +239,14 @@ function AppRoutes() {
         element={
           <AdminRoute>
             <AdminCalendar />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/notificaciones"
+        element={
+          <AdminRoute>
+            <Notifications />
           </AdminRoute>
         }
       />

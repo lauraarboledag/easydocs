@@ -8,6 +8,7 @@ import AdminSidebar from "../components/layout/AdminSidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
 import { translateHtmlToBlocks } from "../components/admin/templateEditor/htmlTranslator";
+import NotificationBell from "../components/NotificationBell";
 import {
   FileText,
   Bell,
@@ -52,19 +53,50 @@ const DOCUMENT_TYPES = [
   { value: "personalizado", label: "Personalizado" },
 ];
 
+// Variables que el superadmin puede elegir en el editor visual.
+// El valor va en formato {{ clave }}; las institucion.* las llena el backend.
+// Si una plantilla usa una variable que no está aquí, el editor la muestra
+// como "(personalizada)" en vez de confundirla con otra.
 const VARIABLES = [
+  // Institución (automáticas)
   { label: "Nombre institución", value: "{{ institucion.nombre }}" },
   { label: "Municipio", value: "{{ institucion.municipio }}" },
   { label: "Departamento", value: "{{ institucion.departamento }}" },
   { label: "Licencia", value: "{{ institucion.licencia }}" },
   { label: "Email institución", value: "{{ institucion.email }}" },
   { label: "Teléfono institución", value: "{{ institucion.telefono }}" },
+  { label: "Dirección institución", value: "{{ institucion.direccion }}" },
+  { label: "Nivel educativo", value: "{{ institucion.nivel_educativo }}" },
+  { label: "Código DANE", value: "{{ institucion.dane_code }}" },
+  // Estudiante
   { label: "Nombre estudiante", value: "{{ nombre_estudiante }}" },
+  { label: "Tipo de documento", value: "{{ tipo_documento }}" },
   { label: "Documento estudiante", value: "{{ documento_estudiante }}" },
   { label: "Lugar expedición", value: "{{ lugar_expedicion }}" },
+  { label: "Dirección estudiante", value: "{{ direccion }}" },
+  { label: "Barrio", value: "{{ barrio }}" },
+  { label: "Comuna", value: "{{ comuna }}" },
+  { label: "Teléfono estudiante", value: "{{ telefono_estudiante }}" },
+  // Representante legal (menores de edad)
+  { label: "Nombre representante", value: "{{ nombre_representante }}" },
+  { label: "Documento representante", value: "{{ documento_representante }}" },
+  { label: "Dirección representante", value: "{{ direccion_representante }}" },
+  { label: "Teléfono representante", value: "{{ telefono_representante }}" },
+  // Programa y matrícula
   { label: "Nombre programa", value: "{{ nombre_programa }}" },
+  { label: "Tipo de certificado", value: "{{ tipo_certificado }}" },
   { label: "Total horas", value: "{{ total_horas }}" },
+  { label: "Resolución del programa", value: "{{ resolucion_programa }}" },
+  { label: "Número de matrícula", value: "{{ numero_matricula }}" },
+  { label: "Folio", value: "{{ folio }}" },
+  { label: "Número del libro", value: "{{ numero_libro }}" },
+  { label: "Fecha de registro", value: "{{ fecha_registro }}" },
+  // Actas y firmas
   { label: "Número acta", value: "{{ numero_acta }}" },
+  { label: "Nombre director", value: "{{ nombre_director }}" },
+  { label: "Documento director", value: "{{ documento_director }}" },
+  { label: "Observaciones", value: "{{ observaciones }}" },
+  // Fecha
   { label: "Día", value: "{{ dia }}" },
   { label: "Mes", value: "{{ mes }}" },
   { label: "Año", value: "{{ anio }}" },
@@ -88,10 +120,22 @@ function renderPreview(html) {
     .replace(/\{\{\s*institucion\.licencia\s*\}\}/g, "Resolución 001 de 2024")
     .replace(/\{\{\s*institucion\.email\s*\}\}/g, "contacto@instituto.edu.co")
     .replace(/\{\{\s*institucion\.telefono\s*\}\}/g, "+57 300 000 0000")
+    .replace(/\{\{\s*institucion\.direccion\s*\}\}/g, "Carrera 50 # 40-20")
+    .replace(/\{\{\s*institucion\.nivel_educativo\s*\}\}/g, "Educación para el Trabajo y el Desarrollo Humano")
+    .replace(/\{\{\s*institucion\.dane_code\s*\}\}/g, "105001000000")
     .replace(/\{\{\s*nombre_estudiante\s*\}\}/g, "María García López")
     .replace(/\{\{\s*documento_estudiante\s*\}\}/g, "1234567890")
     .replace(/\{\{\s*tipo_documento\s*\}\}/g, "CC")
     .replace(/\{\{\s*lugar_expedicion\s*\}\}/g, "Medellín")
+    .replace(/\{\{\s*direccion\s*\}\}/g, "Calle 45 # 12-34")
+    .replace(/\{\{\s*barrio\s*\}\}/g, "Laureles")
+    .replace(/\{\{\s*comuna\s*\}\}/g, "11")
+    .replace(/\{\{\s*telefono_estudiante\s*\}\}/g, "300 123 4567")
+    .replace(/\{\{\s*tipo_certificado\s*\}\}/g, "Técnico Laboral por Competencias")
+    .replace(/\{\{\s*nombre_representante\s*\}\}/g, "Ana López Ruiz")
+    .replace(/\{\{\s*documento_representante\s*\}\}/g, "43123456")
+    .replace(/\{\{\s*direccion_representante\s*\}\}/g, "Calle 45 # 12-34")
+    .replace(/\{\{\s*telefono_representante\s*\}\}/g, "310 765 4321")
     .replace(/\{\{\s*nombre_programa\s*\}\}/g, "Auxiliar de Enfermería")
     .replace(/\{\{\s*total_horas\s*\}\}/g, "1440")
     .replace(/\{\{\s*resolucion_programa\s*\}\}/g, "Resolución 002 de 2024")
@@ -764,9 +808,7 @@ export default function AdminTemplates() {
             </div>
           </div>
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
-            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-8 h-8 bg-yellow-500 rounded-full items-center justify-center flex-shrink-0 hidden xs:flex">
                 <Shield size={14} className="text-white" />

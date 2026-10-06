@@ -18,7 +18,9 @@ from app.domains.documents.schemas import (
     DocumentTemplateResponse,
     DocumentCreate,
     DocumentResponse,
+    DocumentUpdate,
 )
+from app.domains.documents.models import DocumentStatus
 from app.domains.documents.services import (
     create_template,
     list_templates,
@@ -28,6 +30,9 @@ from app.domains.documents.services import (
     cancel_document,
     update_template,
     delete_template,
+    build_institution_context,
+    get_document,
+    update_document,
 )
 
 router = APIRouter(tags=["Documentos"])
@@ -63,7 +68,9 @@ def remove_template(
 
 class PreviewRequest(BaseModel):
     document_data: dict
-    logo_position: str = "top-left"
+    # None = usar las preferencias de la institución
+    logo_position: str | None = None
+    watermark: bool | None = None
 
 
 @router.post("/templates/{template_id}/preview")
@@ -80,23 +87,10 @@ def preview_template(
         raise HTTPException(status_code=404, detail="Plantilla no encontrada.")
 
     institution = get_institution(db, current_user.institution_id)
-
-    align_map = {
-        "top-left": "left",
-        "top-center": "center",
-        "top-right": "right",
-    }
-
-    institution_dict = {
-        "nombre": institution.name,
-        "municipio": institution.municipality,
-        "direccion": institution.address,
-        "telefono": institution.phone,
-        "email": institution.email,
-        "licencia": institution.license_number,
-        "logo_url": institution.logo_url or "",
-        "logo_align": align_map.get(data.logo_position, "left"),
-    }
+    # Mismo contexto que el PDF final (ver build_institution_context)
+    institution_dict = build_institution_context(
+        institution, data.logo_position, data.watermark
+    )
 
     rendered_html = render_html_preview(
         template.template_html,
@@ -128,74 +122,92 @@ def get_template_by_id(
     return template
 
 
+def check_monthly_quota(db: Session, institution_id: str) -> None:
+    """Límite de documentos del plan. Los borradores no gastan cupo:
+    se cuenta cuando el documento se genera."""
+    subscription = db.execute(
+        select(Subscription).where(
+            Subscription.institution_id == institution_id,
+            Subscription.is_active == True,
+        )
+    ).scalar_one_or_none()
+    if not subscription:
+        return
+    plan = db.execute(
+        select(Plan).where(Plan.id == subscription.plan_id)
+    ).scalar_one_or_none()
+    if not plan:
+        return
+    limite = plan.features.get("documentos_por_mes")
+    if limite is None:  # None = ilimitado (enterprise)
+        return
+
+    inicio_mes = datetime.utcnow().replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+    total_mes = db.execute(
+        select(func.count()).where(
+            Document.institution_id == institution_id,
+            Document.created_at >= inicio_mes,
+            Document.status.not_in([DocumentStatus.draft, DocumentStatus.ai_draft]),
+        )
+    ).scalar()
+
+    if total_mes >= limite:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": f"Alcanzaste el límite de {limite} documentos por mes de tu plan.",
+                "limit_reached": True,
+                "limit": limite,
+                "used": total_mes,
+            },
+        )
+    # Notificar cuando se alcanza el 80% del límite (una sola vez)
+    if limite and total_mes == int(limite * 0.8):
+        try:
+            create_notification(
+                db,
+                title="Cerca del límite de tu plan",
+                message=f"Has usado {total_mes} de {limite} documentos este mes.",
+                institution_id=institution_id,
+            )
+        except Exception as e:
+            print(f"Error creando notificación de límite: {e}")
+
+
 @router.post("/documents/", response_model=DocumentResponse, status_code=201)
 def new_document(
     data: DocumentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Obtener suscripción activa y su plan
-    subscription = db.execute(
-        select(Subscription).where(
-            Subscription.institution_id == current_user.institution_id,
-            Subscription.is_active == True,
-        )
-    ).scalar_one_or_none()
-
-    if subscription:
-        plan = db.execute(
-            select(Plan).where(Plan.id == subscription.plan_id)
-        ).scalar_one_or_none()
-
-        if plan:
-            limite = plan.features.get("documentos_por_mes")
-
-            # None = ilimitado (enterprise)
-            if limite is not None:
-                # Contar documentos del mes actual
-                inicio_mes = datetime.utcnow().replace(
-                    day=1, hour=0, minute=0, second=0, microsecond=0
-                )
-                total_mes = db.execute(
-                    select(func.count()).where(
-                        Document.institution_id == current_user.institution_id,
-                        Document.created_at >= inicio_mes,
-                    )
-                ).scalar()
-
-                if total_mes >= limite:
-                    raise HTTPException(
-                        status_code=403,
-                        detail={
-                            "message": f"Alcanzaste el límite de {limite} documentos por mes de tu plan.",
-                            "limit_reached": True,
-                            "limit": limite,
-                            "used": total_mes,
-                        },
-                    )
-                # Notificar cuando se alcanza el 80% del límite (una sola vez)
-                if limite and total_mes == int(limite * 0.8):
-                    try:
-                        create_notification(
-                            db,
-                            title="Cerca del límite de tu plan",
-                            message=f"Has usado {total_mes} de {limite} documentos este mes.",
-                            institution_id=current_user.institution_id,
-                        )
-                    except Exception as e:
-                        print(f"Error creando notificación de límite: {e}")
-
-                if total_mes >= limite:
-                    raise HTTPException(
-                        status_code=403,
-                        detail={
-                            "message": f"Alcanzaste el límite de {limite} documentos por mes de tu plan.",
-                            "limit_reached": True,
-                            "limit": limite,
-                            "used": total_mes,
-                        },
-                    )
+    if not data.save_as_draft:
+        check_monthly_quota(db, current_user.institution_id)
     return create_document(db, data, current_user.institution_id, current_user.id)
+
+
+@router.get("/documents/{document_id}", response_model=DocumentResponse)
+def get_document_by_id(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_document(db, document_id, current_user.institution_id)
+
+
+@router.put("/documents/{document_id}", response_model=DocumentResponse)
+def edit_document(
+    document_id: str,
+    data: DocumentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not data.save_as_draft:
+        check_monthly_quota(db, current_user.institution_id)
+    return update_document(
+        db, document_id, data, current_user.institution_id, current_user.id
+    )
 
 
 @router.get("/documents/", response_model=list[DocumentResponse])

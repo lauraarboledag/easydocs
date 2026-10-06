@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, Text, String, Boolean, DateTime, func
+from sqlalchemy import Column, Text, String, Boolean, DateTime, func, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -23,6 +23,13 @@ class Institution(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     logo_url = Column(Text, nullable=True)
+    # Preferencias del logo en los documentos (cada documento puede cambiarlas)
+    logo_position: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="top-left", server_default="top-left"
+    )
+    logo_watermark: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     updated_at: Mapped[datetime] = mapped_column(

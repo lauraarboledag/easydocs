@@ -16,6 +16,7 @@ from app.domains.students.schemas import (
     StudentResponse,
     EnrollmentCreate,
     EnrollmentResponse,
+    EnrollmentUpdate,
 )
 from app.domains.students.services import (
     get_programs,
@@ -29,6 +30,7 @@ from app.domains.students.services import (
     delete_student,
     get_enrollments,
     create_enrollment,
+    update_enrollment,
     delete_enrollment,
 )
 
@@ -491,6 +493,14 @@ def add_enrollment(
 ):
     return create_enrollment(db, data, current_user.institution_id)
 
+@router.put("/enrollments/{enrollment_id}", response_model=EnrollmentResponse)
+def edit_enrollment(
+    enrollment_id: str,
+    data: EnrollmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return update_enrollment(db, enrollment_id, data, current_user.institution_id)
 
 @router.delete("/enrollments/{enrollment_id}", status_code=204)
 def remove_enrollment(

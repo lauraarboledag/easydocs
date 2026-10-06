@@ -20,7 +20,11 @@ import {
   FilePen,
   Bell,
   Trash2,
+  PlayCircle,
+  AlertCircle,
+  X,
 } from "lucide-react";
+import NotificationBell from "../components/NotificationBell";
 
 const STATUS_STYLES = {
   generated: {
@@ -38,6 +42,46 @@ const STATUS_LABELS = {
   draft: "Borradores",
   ai_draft: "Borradores IA",
   cancelled: "Cancelados",
+};
+
+// Etiqueta de cada fila (singular)
+const STATUS_BADGE = {
+  generated: "Generado",
+  draft: "Borrador",
+  ai_draft: "Borrador IA",
+  cancelled: "Cancelado",
+};
+
+// Estados que todavía se pueden seguir editando
+const EDITABLE_STATUSES = ["draft", "ai_draft"];
+
+const formatDate = (value) =>
+  new Date(value).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+const formatTime = (value) =>
+  new Date(value).toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// Con responseType "blob", el error del backend llega como Blob: se lee el texto
+const readBlobError = async (err, fallback) => {
+  try {
+    const data = err.response?.data;
+    if (data instanceof Blob) {
+      const json = JSON.parse(await data.text());
+      if (typeof json.detail === "string") return json.detail;
+    } else if (typeof data?.detail === "string") {
+      return data.detail;
+    }
+  } catch {
+    // sin detalle legible
+  }
+  return fallback;
 };
 
 const STATUS_ICONS = {
@@ -87,6 +131,7 @@ export default function DocumentList() {
 
   const handleDownload = async (doc) => {
     setDownloading(doc.id);
+    setError(null);
     try {
       const res = await api.get(`/documents/${doc.id}/pdf`, {
         responseType: "blob",
@@ -105,7 +150,9 @@ export default function DocumentList() {
         prev.map((d) => (d.id === doc.id ? { ...d, status: "generated" } : d)),
       );
     } catch (err) {
-      setError("Error al descargar documento. Intenta de nuevo más tarde");
+      setError(
+        await readBlobError(err, "Error al descargar documento. Intenta de nuevo más tarde"),
+      );
     } finally {
       setDownloading(null);
     }
@@ -157,31 +204,31 @@ export default function DocumentList() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex overflow-x-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
       <Sidebar onLogout={() => setShowLogout(true)} />
 
-      <main className="ml-56 flex-1 flex flex-col">
+      <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         {/* Topbar */}
         <header
-          className="border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10"
+          className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-color)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2 rounded-lg transition-colors"
+              className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: "var(--text-secondary)" }}
             >
               <ChevronLeft size={18} />
             </button>
-            <div>
+            <div className="min-w-0">
               <h1
-                className="text-lg font-semibold"
+                className="text-lg font-semibold truncate"
                 style={{ color: "var(--text-primary)" }}
               >
                 Documentos
@@ -192,9 +239,9 @@ export default function DocumentList() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <button className="p-2" style={{ color: "var(--text-secondary)" }}>
-              <Bell size={20} />
+              <NotificationBell />
             </button>
             <div className="flex items-center gap-2">
               <div
@@ -206,7 +253,7 @@ export default function DocumentList() {
                 </span>
               </div>
               <p
-                className="text-sm font-medium"
+                className="hidden md:block text-sm font-medium"
                 style={{ color: "var(--text-primary)" }}
               >
                 {user?.full_name}
@@ -215,9 +262,9 @@ export default function DocumentList() {
           </div>
         </header>
 
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           {/* Header + botón nuevo */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <h2
               className="text-xl font-bold"
               style={{ color: "var(--text-primary)" }}
@@ -226,7 +273,7 @@ export default function DocumentList() {
             </h2>
             <button
               onClick={() => navigate("/documentos/nuevo")}
-              className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2 transition-colors"
+              className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"
               style={{ backgroundColor: "var(--color-primary)" }}
             >
               <Plus size={18} />
@@ -234,9 +281,19 @@ export default function DocumentList() {
             </button>
           </div>
 
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm flex items-start gap-2">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <span className="flex-1">{error}</span>
+              <button onClick={() => setError(null)} title="Cerrar">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {/* Tarjetas resumen ARRIBA — filtros rápidos */}
           {documents.length > 0 && (
-            <div className="grid grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               {Object.entries(STATUS_LABELS).map(([status, label]) => {
                 const count = documents.filter(
                   (d) => d.status === status,
@@ -248,7 +305,7 @@ export default function DocumentList() {
                   <button
                     key={status}
                     onClick={() => setFilterStatus(isActive ? "all" : status)}
-                    className="rounded-xl border p-4 flex items-center gap-3 transition-all hover:shadow-sm text-left"
+                    className="rounded-xl border p-3 md:p-4 flex items-center gap-3 transition-all hover:shadow-sm text-left min-w-0"
                     style={{
                       backgroundColor: isActive
                         ? style.cardBg
@@ -265,7 +322,7 @@ export default function DocumentList() {
                     >
                       <Icon size={16} style={{ color: style.color }} />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p
                         className="text-2xl font-bold"
                         style={{ color: "var(--text-primary)" }}
@@ -273,7 +330,7 @@ export default function DocumentList() {
                         {count}
                       </p>
                       <p
-                        className="text-xs"
+                        className="text-xs truncate"
                         style={{ color: "var(--text-secondary)" }}
                       >
                         {label}
@@ -317,7 +374,7 @@ export default function DocumentList() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
+                className="flex-1 sm:flex-none text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2"
                 style={{
                   borderColor: "var(--border-color)",
                   backgroundColor: "var(--bg-secondary)",
@@ -389,7 +446,7 @@ export default function DocumentList() {
             ) : (
               <>
                 <div
-                  className="grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
+                  className="hidden md:grid grid-cols-12 text-xs uppercase tracking-wide px-6 py-3 border-b"
                   style={{
                     color: "var(--text-secondary)",
                     borderColor: "var(--border-color)",
@@ -405,20 +462,21 @@ export default function DocumentList() {
                   const StatusIcon = STATUS_ICONS[doc.status] || FileText;
                   const style =
                     STATUS_STYLES[doc.status] || STATUS_STYLES.draft;
+                  const isEditable = EDITABLE_STATUSES.includes(doc.status);
                   return (
                     <div
                       key={doc.id}
-                      className="grid grid-cols-12 items-center px-6 py-4 border-b last:border-0 transition-colors"
+                      className="flex flex-col gap-3 md:grid md:grid-cols-12 md:items-center md:gap-0 px-4 md:px-6 py-4 border-b last:border-0 transition-colors"
                       style={{ borderColor: "var(--border-color)" }}
                       onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          "var(--bg-primary)")
+                      (e.currentTarget.style.backgroundColor =
+                        "var(--bg-primary)")
                       }
                       onMouseLeave={(e) =>
                         (e.currentTarget.style.backgroundColor = "transparent")
                       }
                     >
-                      <div className="col-span-5 flex items-center gap-3">
+                      <div className="col-span-5 flex items-center gap-3 min-w-0">
                         <div
                           className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{
@@ -430,9 +488,9 @@ export default function DocumentList() {
                             style={{ color: "var(--color-icon)" }}
                           />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p
-                            className="text-sm font-medium"
+                            className="text-sm font-medium truncate"
                             style={{ color: "var(--text-primary)" }}
                           >
                             {getTemplateName(doc.template_id)}
@@ -446,7 +504,7 @@ export default function DocumentList() {
                         </div>
                       </div>
 
-                      <div className="col-span-2">
+                      <div className="col-span-2 flex items-center gap-3 md:block">
                         <span
                           className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
                           style={{
@@ -455,38 +513,71 @@ export default function DocumentList() {
                           }}
                         >
                           <StatusIcon size={11} />
-                          {STATUS_LABELS[doc.status]}
+                          {STATUS_BADGE[doc.status] || doc.status}
+                        </span>
+                        {/* En celular la fecha va junto al estado */}
+                        <span
+                          className="md:hidden text-xs"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {formatDate(doc.created_at)} · {formatTime(doc.created_at)}
                         </span>
                       </div>
 
-                      <div className="col-span-3">
+                      <div className="col-span-3 hidden md:block">
                         <p
                           className="text-sm"
                           style={{ color: "var(--text-primary)" }}
                         >
-                          {new Date(doc.created_at).toLocaleDateString(
-                            "es-CO",
-                            { day: "2-digit", month: "long", year: "numeric" },
-                          )}
+                          {formatDate(doc.created_at)}
                         </p>
                         <p
                           className="text-xs"
                           style={{ color: "var(--text-secondary)" }}
                         >
-                          {new Date(doc.created_at).toLocaleTimeString(
-                            "es-CO",
-                            { hour: "2-digit", minute: "2-digit" },
+                          {formatTime(doc.created_at)}
+                          {isEditable && doc.updated_at && (
+                            <> · editado {formatDate(doc.updated_at)}</>
                           )}
                         </p>
                       </div>
 
-                      <div className="col-span-2 flex items-center justify-end gap-2">
-                        {doc.status !== "cancelled" && (
+                      <div className="col-span-2 flex items-center md:justify-end gap-2 flex-wrap">
+                        {isEditable && (
+                          <button
+                            onClick={() =>
+                              navigate(`/documentos/nuevo?draft=${doc.id}`)
+                            }
+                            className="flex items-center gap-1.5 text-xs text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
+                            style={{ backgroundColor: "var(--color-primary)" }}
+                            title={
+                              doc.status === "ai_draft"
+                                ? "Revisar el texto de EduBot y generar"
+                                : "Seguir llenando este borrador"
+                            }
+                          >
+                            <PlayCircle size={12} />
+                            {doc.status === "ai_draft" ? "Revisar" : "Continuar"}
+                          </button>
+                        )}
+                        {/* Un borrador IA no se descarga hasta revisarlo */}
+                        {!["cancelled", "ai_draft"].includes(doc.status) && (
                           <button
                             onClick={() => handleDownload(doc)}
                             disabled={downloading === doc.id}
-                            className="flex items-center gap-1.5 text-xs text-white px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
-                            style={{ backgroundColor: "var(--color-primary)" }}
+                            className={
+                              isEditable
+                                ? "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors disabled:opacity-40"
+                                : "flex items-center gap-1.5 text-xs text-white px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
+                            }
+                            style={
+                              isEditable
+                                ? {
+                                  borderColor: "var(--border-color)",
+                                  color: "var(--text-secondary)",
+                                }
+                                : { backgroundColor: "var(--color-primary)" }
+                            }
                           >
                             {downloading === doc.id ? (
                               <span>Generando...</span>
@@ -497,7 +588,7 @@ export default function DocumentList() {
                             )}
                           </button>
                         )}
-                        {doc.status === "draft" && (
+                        {isEditable && (
                           <button
                             onClick={() => handleCancel(doc.id)}
                             className="p-1.5 rounded-lg transition-colors"

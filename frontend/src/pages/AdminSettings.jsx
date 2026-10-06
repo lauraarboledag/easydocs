@@ -7,6 +7,7 @@ import AdminSidebar from "../components/layout/AdminSidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
+import NotificationBell from "../components/NotificationBell";
 import {
   Bell,
   ChevronLeft,
@@ -562,12 +563,7 @@ export default function AdminSettings() {
             </div>
           </div>
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
-            <button
-              className="p-2 rounded-full transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <Bell size={20} />
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0"
