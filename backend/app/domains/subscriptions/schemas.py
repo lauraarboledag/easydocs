@@ -44,7 +44,7 @@ class SubscriptionResponse(BaseModel):
     is_active: bool
     created_at: datetime
     plan: Optional[PlanResponse] = None
-
+    receipt_uploaded: bool = False
     model_config = {"from_attributes": True}
 
 
@@ -55,13 +55,19 @@ class TransactionResponse(BaseModel):
     status: TransactionStatus
     notes: Optional[str]
     confirmed_by: Optional[str]
+    created_at: datetime
     institution_name: Optional[str] = None
     plan_name: Optional[str] = None
     billing_cycle: Optional[str] = None
-    created_at: datetime
-
+    has_receipt: bool = False
     model_config = {"from_attributes": True}
-
 
 class ConfirmTransaction(BaseModel):
     notes: Optional[str] = None
+
+class ReceiptInfo(BaseModel):
+    transaction_id: str
+    filename: Optional[str]
+    content_type: str
+    size: int
+    created_at: Optional[datetime] = None

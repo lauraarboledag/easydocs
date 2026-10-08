@@ -20,6 +20,8 @@ import {
   AlertCircle,
   X,
   Building2,
+  Paperclip,
+  Download,
 } from "lucide-react";
 
 const ACCENT_GRADIENT = "linear-gradient(90deg, #2952cc, #1a2b4a)";
@@ -73,6 +75,8 @@ export default function AdminTransactions() {
   // Rechazo: transacción elegida y motivo (se le muestra a la institución)
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  // Visor del comprobante de pago
+  const [receiptView, setReceiptView] = useState(null); // { t, url, type, loading, error }
 
   useEffect(() => {
     fetchTransactions();
@@ -128,6 +132,47 @@ export default function AdminTransactions() {
       setProcessing(null);
     }
   };
+
+  const openReceipt = async (t) => {
+    setReceiptView({ t, url: null, type: null, loading: true, error: "" });
+    try {
+      const res = await api.get(`/transactions/${t.id}/receipt`, {
+        responseType: "blob",
+      });
+      const type = res.data.type || res.headers["content-type"] || "";
+      const url = window.URL.createObjectURL(res.data);
+      setReceiptView({ t, url, type, loading: false, error: "" });
+    } catch {
+      setReceiptView({ t, url: null, type: null, loading: false, error: "No se pudo cargar el comprobante." });
+    }
+  };
+
+  const closeReceipt = () => {
+    if (receiptView?.url) window.URL.revokeObjectURL(receiptView.url);
+    setReceiptView(null);
+  };
+
+  const ReceiptButton = ({ t, compact = false }) =>
+    t.has_receipt ? (
+      <button
+        onClick={() => openReceipt(t)}
+        className={
+          compact
+            ? "p-1.5 rounded-lg border transition-colors"
+            : "text-xs font-medium flex items-center gap-1 hover:underline"
+        }
+        style={
+          compact
+            ? { borderColor: "var(--border-color)", color: "var(--color-primary)" }
+            : { color: "var(--color-primary)" }
+        }
+        title="Ver comprobante de pago"
+        aria-label="Ver comprobante de pago"
+      >
+        <Paperclip size={compact ? 14 : 12} />
+        {!compact && "Ver comprobante"}
+      </button>
+    ) : null;
 
   const openReject = (t) => {
     setRejectTarget(t);
@@ -499,6 +544,17 @@ export default function AdminTransactions() {
                           </div>
                         </div>
 
+                        {(t.has_receipt || t.status === "pending") && (
+                          <div className="flex items-center justify-between">
+                            {t.has_receipt ? (
+                              <ReceiptButton t={t} />
+                            ) : (
+                              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                                Sin comprobante adjunto
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {t.status === "pending" && (
                           <div className="grid grid-cols-2 gap-2">
                             <button
@@ -631,6 +687,12 @@ export default function AdminTransactions() {
                               >
                                 <XCircle size={14} />
                               </button>
+                              <ReceiptButton t={t} compact />
+                            </div>
+                          )}
+                          {t.status !== "pending" && t.has_receipt && (
+                            <div className="mb-1">
+                              <ReceiptButton t={t} />
                             </div>
                           )}
                           {t.status !== "pending" && t.notes && (
@@ -691,6 +753,15 @@ export default function AdminTransactions() {
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {formatPlan(rejectTarget)} · ${(rejectTarget.amount / 100).toLocaleString("es-CO")} COP
               </p>
+              <div className="mt-1.5">
+                {rejectTarget.has_receipt ? (
+                  <ReceiptButton t={rejectTarget} />
+                ) : (
+                  <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    Sin comprobante adjunto
+                  </span>
+                )}
+              </div>
             </div>
 
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>
@@ -746,6 +817,71 @@ export default function AdminTransactions() {
               >
                 {processing === rejectTarget.id ? "Rechazando..." : "Sí, rechazar"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receiptView && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6">
+          <div
+            className="w-full max-w-3xl rounded-2xl shadow-xl flex flex-col max-h-[92vh] overflow-hidden"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div
+              className="flex items-center justify-between gap-3 px-4 py-3 border-b"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                  Comprobante — {receiptView.t.institution_name || "Institución"}
+                </p>
+                <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>
+                  {formatPlan(receiptView.t)} · ${(receiptView.t.amount / 100).toLocaleString("es-CO")} COP
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {receiptView.url && (
+                  <a
+                    href={receiptView.url}
+                    download={`comprobante_${receiptView.t.id.split("-")[0]}`}
+                    className="p-2 rounded-lg border"
+                    style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+                    title="Descargar"
+                  >
+                    <Download size={15} />
+                  </a>
+                )}
+                <button
+                  onClick={closeReceipt}
+                  className="p-2"
+                  style={{ color: "var(--text-secondary)" }}
+                  title="Cerrar"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center p-3" style={{ backgroundColor: "var(--bg-primary)" }}>
+              {receiptView.loading ? (
+                <p className="text-sm py-16" style={{ color: "var(--text-secondary)" }}>
+                  Cargando comprobante...
+                </p>
+              ) : receiptView.error ? (
+                <p className="text-sm py-16 text-red-600">{receiptView.error}</p>
+              ) : receiptView.type.includes("pdf") ? (
+                <iframe
+                  src={receiptView.url}
+                  title="Comprobante de pago"
+                  className="w-full h-[70vh] rounded-lg bg-white"
+                />
+              ) : (
+                <img
+                  src={receiptView.url}
+                  alt="Comprobante de pago"
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg"
+                />
+              )}
             </div>
           </div>
         </div>

@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 // Debe coincidir el enlace con el correo que se muestra
-const SUPPORT_EMAIL = "edudynamis1@gmail.com";
+const SUPPORT_EMAIL = "clientes@edudynamis.org";
 
 // Cuántos mensajes anteriores se envían como contexto
 const MAX_HISTORY = 10;

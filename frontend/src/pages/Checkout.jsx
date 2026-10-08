@@ -22,6 +22,8 @@ import {
   Zap,
   Star,
   Hourglass,
+  Paperclip,
+  X,
 } from "lucide-react";
 
 const PLAN_META = {
@@ -49,6 +51,27 @@ const PLAN_FEATURES = {
     "EduBot IA",
     "Transcripción de audio IA",
   ],
+};
+
+// Comprobante de pago: foto, captura o PDF de hasta 5 MB
+const RECEIPT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX_RECEIPT_MB = 5;
+const validateReceipt = (file) => {
+  if (!file) return "";
+  if (!RECEIPT_ACCEPT.split(",").includes(file.type))
+    return "Sube una foto (JPG, PNG, WEBP) o un PDF.";
+  if (file.size > MAX_RECEIPT_MB * 1024 * 1024)
+    return `El comprobante no puede superar ${MAX_RECEIPT_MB} MB.`;
+  return "";
+};
+const uploadReceipt = (file) => {
+  const form = new FormData();
+  form.append("file", file);
+  // Igual que la subida del logo: el api envía JSON por defecto, así que
+  // hay que indicar multipart para que el archivo llegue al backend.
+  return api.post("/subscriptions/pending/receipt", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 };
 
 function formatPrice(price) {
@@ -123,6 +146,10 @@ export default function Checkout() {
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptError, setReceiptError] = useState("");
+  // Resultado del comprobante tras enviar la solicitud: "ok" | "failed" | null
+  const [receiptResult, setReceiptResult] = useState(null);
 
   useInactivity({
     timeout: 30,
@@ -199,6 +226,15 @@ export default function Checkout() {
       await api.post("/subscriptions/change-plan", {
         plan_id: selectedPlan.id,
       });
+      if (receiptFile) {
+        try {
+          await uploadReceipt(receiptFile);
+          setReceiptResult("ok");
+        } catch {
+          // La solicitud ya quedó creada; el comprobante se puede subir luego
+          setReceiptResult("failed");
+        }
+      }
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.detail || "Error al procesar la solicitud.");
@@ -252,6 +288,21 @@ export default function Checkout() {
                 : "El equipo de EduDynamis confirmará tu transferencia y activará tu plan en breve."}{" "}
               Mientras tanto sigues con tu plan actual, sin perder nada.
             </p>
+            {paymentMethod === "transfer" && (
+              <p
+                className={`text-xs mb-6 rounded-lg px-3 py-2 ${receiptResult === "ok"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-amber-50 text-amber-700"
+                  }`}
+              >
+                {receiptResult === "ok"
+                  ? "✓ Recibimos tu comprobante de pago."
+                  : receiptResult === "failed"
+                    ? "No se pudo subir el comprobante. Adjúntalo desde Suscripción."
+                    : "Cuando hagas la transferencia, adjunta el comprobante desde Suscripción para agilizar la activación."}
+              </p>
+            )}
+
             <button
               onClick={() => navigate("/suscripcion")}
               className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 rounded-xl transition-colors"
@@ -660,6 +711,72 @@ export default function Checkout() {
                             <Copy size={13} />
                           )}
                         </button>
+                      </div>
+
+                      {/* Comprobante (opcional) */}
+                      <div
+                        className="pt-3 border-t"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <p
+                          className="text-xs font-semibold mb-1"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          Comprobante de pago
+                        </p>
+                        <p
+                          className="text-xs mb-2"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          Si ya transferiste, adjunta la foto, captura o PDF del
+                          comprobante. Si no, podrás subirlo después desde Suscripción.
+                        </p>
+                        {receiptFile ? (
+                          <div
+                            className="flex items-center gap-2 rounded-lg border px-3 py-2"
+                            style={{ borderColor: "var(--border-color)" }}
+                          >
+                            <Paperclip size={14} style={{ color: "var(--color-primary)" }} />
+                            <span
+                              className="text-xs flex-1 truncate"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {receiptFile.name}
+                            </span>
+                            <button
+                              onClick={() => setReceiptFile(null)}
+                              style={{ color: "var(--text-secondary)" }}
+                              title="Quitar"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <label
+                            className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-3 text-xs font-medium cursor-pointer"
+                            style={{
+                              borderColor: "var(--border-color)",
+                              color: "var(--color-primary)",
+                            }}
+                          >
+                            <Paperclip size={14} /> Adjuntar comprobante
+                            <input
+                              type="file"
+                              accept={RECEIPT_ACCEPT}
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                const problem = validateReceipt(file);
+                                setReceiptError(problem);
+                                if (!problem) setReceiptFile(file);
+                              }}
+                            />
+                          </label>
+                        )}
+                        {receiptError && (
+                          <p className="text-xs text-red-600 mt-1">{receiptError}</p>
+                        )}
                       </div>
                     </div>
                   )}

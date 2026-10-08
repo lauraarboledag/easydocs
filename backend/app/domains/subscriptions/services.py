@@ -9,6 +9,7 @@ from app.domains.subscriptions.models import (
     Subscription,
     Transaction,
     Invoice,
+    PaymentReceipt,
     SubscriptionStatus,
     TransactionStatus,
     BillingCycle,
@@ -227,6 +228,143 @@ def request_plan_change(db: Session, institution_id: str, plan_id: str) -> Subsc
     return subscription
 
 
+# --- Comprobantes de pago -----------------------------------------------------
+MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+
+RECEIPT_TYPES = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "application/pdf": "pdf",
+}
+
+
+def _detect_receipt_type(content: bytes):
+    """Tipo real del archivo según sus primeros bytes (no se confía en la extensión)."""
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    if content.startswith(b"%PDF"):
+        return "application/pdf"
+    return None
+
+
+def _pending_transaction(db: Session, subscription: Subscription):
+    return (
+        db.execute(
+            select(Transaction)
+            .where(
+                Transaction.subscription_id == subscription.id,
+                Transaction.status == TransactionStatus.pending,
+            )
+            .order_by(Transaction.created_at.desc())
+        )
+        .scalars()
+        .first()
+    )
+
+
+def has_receipt(db: Session, transaction_id: str) -> bool:
+    return (
+        db.execute(
+            select(PaymentReceipt.id).where(
+                PaymentReceipt.transaction_id == transaction_id
+            )
+        ).first()
+        is not None
+    )
+
+
+def pending_has_receipt(db: Session, subscription: Subscription) -> bool:
+    tx = _pending_transaction(db, subscription)
+    return bool(tx and has_receipt(db, tx.id))
+
+
+def attach_receipt(
+    db: Session, institution_id: str, user_id: str, filename: str, content: bytes
+) -> PaymentReceipt:
+    """Adjunta (o reemplaza) el comprobante de la solicitud de plan pendiente."""
+    pending = get_pending_request(db, institution_id)
+    if not pending:
+        raise HTTPException(
+            status_code=404, detail="No tienes una solicitud de plan pendiente."
+        )
+    transaction = _pending_transaction(db, pending)
+    if not transaction:
+        raise HTTPException(
+            status_code=404, detail="No hay un pago pendiente para esta solicitud."
+        )
+
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío.")
+    if len(content) > MAX_RECEIPT_BYTES:
+        raise HTTPException(
+            status_code=400, detail="El comprobante no puede superar 5 MB."
+        )
+    content_type = _detect_receipt_type(content)
+    if not content_type:
+        raise HTTPException(
+            status_code=400,
+            detail="Formato no permitido. Sube una foto (JPG, PNG, WEBP) o un PDF.",
+        )
+
+    receipt = db.execute(
+        select(PaymentReceipt).where(PaymentReceipt.transaction_id == transaction.id)
+    ).scalar_one_or_none()
+    replaced = receipt is not None
+    if not receipt:
+        receipt = PaymentReceipt(transaction_id=transaction.id)
+        db.add(receipt)
+    receipt.filename = (filename or f"comprobante.{RECEIPT_TYPES[content_type]}")[:255]
+    receipt.content_type = content_type
+    receipt.size = len(content)
+    receipt.data = content
+    receipt.uploaded_by = user_id
+    db.commit()
+    db.refresh(receipt)
+
+    institution = get_institution(db, institution_id)
+    plan = db.execute(
+        select(Plan).where(Plan.id == pending.plan_id)
+    ).scalar_one_or_none()
+    superadmins = (
+        db.execute(select(User).where(User.role == UserRole.superadmin)).scalars().all()
+    )
+    for admin in superadmins:
+        create_notification(
+            db,
+            title="Comprobante de pago " + ("actualizado" if replaced else "recibido"),
+            message=f"{institution.name if institution else 'Institución'} — plan "
+            f"{plan.name.value if plan else ''}: revisa el comprobante en Transacciones.",
+            user_id=admin.id,
+        )
+    return receipt
+
+
+def get_receipt(db: Session, transaction_id: str, user) -> PaymentReceipt:
+    """Comprobante de una transacción: lo ve el superadmin o la institución dueña."""
+    transaction = db.execute(
+        select(Transaction).where(Transaction.id == transaction_id)
+    ).scalar_one_or_none()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transacción no encontrada.")
+    if user.role != UserRole.superadmin:
+        sub = transaction.subscription
+        if not sub or sub.institution_id != user.institution_id:
+            raise HTTPException(status_code=404, detail="Transacción no encontrada.")
+    receipt = db.execute(
+        select(PaymentReceipt).where(PaymentReceipt.transaction_id == transaction_id)
+    ).scalar_one_or_none()
+    if not receipt:
+        raise HTTPException(
+            status_code=404, detail="Esta transacción no tiene comprobante."
+        )
+    return receipt
+
+
 def cancel_pending_request(db: Session, institution_id: str) -> None:
     if not get_pending_request(db, institution_id):
         raise HTTPException(status_code=404, detail="No tienes solicitudes pendientes.")
@@ -240,6 +378,9 @@ def list_transactions(db: Session) -> list[dict]:
         db.execute(select(Transaction).order_by(Transaction.created_at.desc()))
         .scalars()
         .all()
+    )
+    with_receipt = set(
+        db.execute(select(PaymentReceipt.transaction_id)).scalars().all()
     )
     result = []
     for tx in transactions:
@@ -260,6 +401,7 @@ def list_transactions(db: Session) -> list[dict]:
                 "billing_cycle": (
                     sub.plan.billing_cycle.value if sub and sub.plan else None
                 ),
+                "has_receipt": tx.id in with_receipt,
             }
         )
     return result

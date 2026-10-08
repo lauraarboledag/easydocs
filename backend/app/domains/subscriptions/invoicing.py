@@ -25,7 +25,7 @@ td{padding:14px 12px;border-bottom:1px solid #e5e7eb;font-size:10pt;}
   <div>
     <h1>EasyDocs</h1>
     <p>EduDynamis · Asesores Educativos</p>
-    <p>soporte@edudynamis.com</p>
+    <p>clientes@edudynamis.org</p>
   </div>
   <div class='invoice-title'>
     <h2>Factura</h2>
@@ -63,7 +63,7 @@ td{padding:14px 12px;border-bottom:1px solid #e5e7eb;font-size:10pt;}
 
 <div class='footer'>
   <p>Esta factura fue generada automáticamente por EasyDocs al confirmarse tu pago.</p>
-  <p>EduDynamis · Asesores Educativos · soporte@edudynamis.com</p>
+  <p>EduDynamis · Asesores Educativos · clientes@edudynamis.org</p>
 </div>
 </body></html>"""
 

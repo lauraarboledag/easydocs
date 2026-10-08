@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -24,6 +24,7 @@ from app.domains.subscriptions.schemas import (
     SubscriptionResponse,
     TransactionResponse,
     ConfirmTransaction,
+    ReceiptInfo,
     SubscriptionStatus,
 )
 from app.domains.subscriptions.services import (
@@ -35,6 +36,11 @@ from app.domains.subscriptions.services import (
     list_transactions,
     activate_subscription_with_invoice,
     request_plan_change,
+    reject_transaction,
+    attach_receipt,
+    get_receipt,
+    pending_has_receipt,
+    MAX_RECEIPT_BYTES,
     get_pending_request,
     cancel_pending_request,
 )
@@ -77,7 +83,50 @@ def my_pending_request(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Solicitud de cambio de plan esperando confirmación de pago (o null)."""
-    return get_pending_request(db, current_user.institution_id)
+    pending = get_pending_request(db, current_user.institution_id)
+    if not pending:
+        return None
+    response = SubscriptionResponse.model_validate(pending)
+    response.receipt_uploaded = pending_has_receipt(db, pending)
+    return response
+
+
+@router.post("/subscriptions/pending/receipt", response_model=ReceiptInfo)
+async def upload_pending_receipt(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Adjunta la foto o PDF del comprobante a la solicitud de plan pendiente."""
+    content = await file.read(MAX_RECEIPT_BYTES + 1)
+    receipt = attach_receipt(
+        db, current_user.institution_id, current_user.id, file.filename, content
+    )
+    return ReceiptInfo(
+        transaction_id=receipt.transaction_id,
+        filename=receipt.filename,
+        content_type=receipt.content_type,
+        size=receipt.size,
+        created_at=receipt.created_at,
+    )
+
+
+@router.get("/transactions/{transaction_id}/receipt")
+def download_receipt(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    receipt = get_receipt(db, transaction_id, current_user)
+    safe_name = (receipt.filename or "comprobante").replace('"', "")
+    return Response(
+        content=receipt.data,
+        media_type=receipt.content_type,
+        headers={
+            "Content-Disposition": f'inline; filename="{safe_name}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.delete("/subscriptions/pending", status_code=204)
@@ -105,6 +154,19 @@ def confirm(
     current_user: User = Depends(require_superadmin),
 ):
     return confirm_transaction(db, transaction_id, data, current_user.id)
+
+
+@router.patch(
+    "/transactions/{transaction_id}/reject", response_model=TransactionResponse
+)
+def reject(
+    transaction_id: str,
+    data: ConfirmTransaction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin),
+):
+    """Rechaza un pago pendiente. `notes` = motivo (se le muestra a la institución)."""
+    return reject_transaction(db, transaction_id, data, current_user.id)
 
 
 class ChangePlanRequest(BaseModel):

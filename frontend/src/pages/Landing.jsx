@@ -273,11 +273,11 @@ export default function Landing() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <button
               onClick={() =>
-                (window.location.href = "mailto:edudynamis1@gmail.com")
+                (window.location.href = "mailto:clientes@edudynamis.org")
               }
               className="flex items-center gap-2 text-blue-200 hover:text-white text-sm transition-colors"
             >
-              <Phone size={14} /> edudynamis1@gmail.com
+              <Phone size={14} /> clientes@edudynamis.org
             </button>
             <span className="hidden sm:block text-blue-700">|</span>
             <button

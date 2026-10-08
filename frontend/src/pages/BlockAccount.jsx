@@ -105,10 +105,10 @@ export default function BlockAccount() {
             <p className="text-gray-500 text-sm mb-6 leading-relaxed">
               {message} Contacta a soporte en{" "}
               <a
-                href="mailto:soporte@edudynamis.com"
+                href="mailto:clientes@edudynamis.org"
                 className="text-[#2952cc] hover:underline"
               >
-                soporte@edudynamis.com
+                clientes@edudynamis.org
               </a>{" "}
               para recuperar el acceso.
             </p>

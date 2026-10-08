@@ -6,7 +6,6 @@ import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
-import NotificationBell from "../components/NotificationBell";
 import {
   CreditCard,
   CheckCircle,
@@ -21,6 +20,7 @@ import {
   X,
   TrendingUp,
   Hourglass,
+  Paperclip,
 } from "lucide-react";
 
 const PLAN_META = {
@@ -62,6 +62,27 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_ORDER = ["free", "basic", "professional", "enterprise"];
+
+// Comprobante de pago: foto, captura o PDF de hasta 5 MB
+const RECEIPT_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX_RECEIPT_MB = 5;
+const validateReceipt = (file) => {
+  if (!file) return "";
+  if (!RECEIPT_ACCEPT.split(",").includes(file.type))
+    return "Sube una foto (JPG, PNG, WEBP) o un PDF.";
+  if (file.size > MAX_RECEIPT_MB * 1024 * 1024)
+    return `El comprobante no puede superar ${MAX_RECEIPT_MB} MB.`;
+  return "";
+};
+const uploadReceipt = (file) => {
+  const form = new FormData();
+  form.append("file", file);
+  // Igual que la subida del logo: el api envía JSON por defecto, así que
+  // hay que indicar multipart para que el archivo llegue al backend.
+  return api.post("/subscriptions/pending/receipt", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 function formatPrice(price) {
   if (price === 0) return "Gratis";
@@ -106,6 +127,7 @@ export default function Subscription() {
   // Solicitud de cambio a un plan de pago que espera confirmación del pago
   const [pending, setPending] = useState(null);
   const [cancelingPending, setCancelingPending] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [error, setError] = useState("");
 
   const loadSubscription = async () => {
@@ -133,6 +155,25 @@ export default function Subscription() {
     };
     fetchData();
   }, []);
+
+  const handleReceiptSelected = async (file) => {
+    const problem = validateReceipt(file);
+    if (problem) {
+      setErrorMsg(problem);
+      return;
+    }
+    setUploadingReceipt(true);
+    try {
+      await uploadReceipt(file);
+      setSuccessMsg("Comprobante recibido. Lo revisaremos para activar tu plan.");
+      await loadSubscription();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setErrorMsg(typeof detail === "string" ? detail : "No se pudo subir el comprobante.");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   const handleCancelPending = async () => {
     if (!confirm("¿Cancelar la solicitud de cambio de plan? Seguirás con tu plan actual.")) return;
@@ -214,7 +255,9 @@ export default function Subscription() {
             Suscripción
           </h1>
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-              <NotificationBell />
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
+              <Bell size={20} />
+            </button>
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -375,6 +418,12 @@ export default function Subscription() {
                       {pending.plan?.billing_cycle === "annual" ? "anual" : "mensual"},{" "}
                       {formatPrice(pending.plan?.price)})
                     </p>
+                    <p className="text-xs mt-1 flex items-center gap-1 font-medium">
+                      <Paperclip size={12} />
+                      {pending.receipt_uploaded
+                        ? "Comprobante adjunto ✓"
+                        : "Aún no has adjuntado el comprobante de pago."}
+                    </p>
                     <p className="text-xs mt-0.5">
                       Mientras confirmamos tu pago sigues con{" "}
                       {currentPlanName && isCurrentActive
@@ -383,13 +432,35 @@ export default function Subscription() {
                       . El cambio se aplica en cuanto el pago quede confirmado.
                     </p>
                   </div>
-                  <button
-                    onClick={handleCancelPending}
-                    disabled={cancelingPending}
-                    className="text-xs font-medium px-3 py-2 rounded-lg border border-amber-400 text-amber-800 disabled:opacity-50 flex-shrink-0"
-                  >
-                    {cancelingPending ? "Cancelando..." : "Cancelar solicitud"}
-                  </button>
+                  <div className="flex flex-wrap gap-2 flex-shrink-0">
+                    <label
+                      className={`text-xs font-semibold px-3 py-2 rounded-lg text-white bg-amber-600 cursor-pointer flex items-center gap-1 ${uploadingReceipt ? "opacity-50 pointer-events-none" : ""}`}
+                    >
+                      <Paperclip size={12} />
+                      {uploadingReceipt
+                        ? "Subiendo..."
+                        : pending.receipt_uploaded
+                          ? "Cambiar comprobante"
+                          : "Adjuntar comprobante"}
+                      <input
+                        type="file"
+                        accept={RECEIPT_ACCEPT}
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) handleReceiptSelected(file);
+                        }}
+                      />
+                    </label>
+                    <button
+                      onClick={handleCancelPending}
+                      disabled={cancelingPending}
+                      className="text-xs font-medium px-3 py-2 rounded-lg border border-amber-400 text-amber-800 disabled:opacity-50"
+                    >
+                      {cancelingPending ? "Cancelando..." : "Cancelar solicitud"}
+                    </button>
+                  </div>
                 </div>
               )}
               {!(pending && pendingPlanName) && <div className="mb-2" />}

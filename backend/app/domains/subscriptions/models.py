@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum, Integer, JSON
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum, Integer, JSON, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 import enum
+
 
 class PlanName(str, enum.Enum):
     free = "free"
@@ -11,20 +12,24 @@ class PlanName(str, enum.Enum):
     professional = "professional"
     enterprise = "enterprise"
 
+
 class SubscriptionStatus(str, enum.Enum):
     active = "active"
     expired = "expired"
     pending = "pending"
     cancelled = "cancelled"
 
+
 class TransactionStatus(str, enum.Enum):
     pending = "pending"
     confirmed = "confirmed"
     rejected = "rejected"
-    
+
+
 class BillingCycle(str, enum.Enum):
     monthly = "monthly"
     annual = "annual"
+
 
 class Plan(Base):
     __tablename__ = "plans"
@@ -36,7 +41,8 @@ class Plan(Base):
     description: Mapped[str] = mapped_column(String(500), nullable=True)
     price: Mapped[int] = mapped_column(Integer, nullable=False)  # en centavos COP
     billing_cycle: Mapped[BillingCycle] = mapped_column(
-    Enum(BillingCycle), nullable=False, default=BillingCycle.monthly)
+        Enum(BillingCycle), nullable=False, default=BillingCycle.monthly
+    )
     features: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -53,9 +59,7 @@ class Subscription(Base):
     institution_id: Mapped[str] = mapped_column(
         String, ForeignKey("institutions.id"), nullable=False
     )
-    plan_id: Mapped[str] = mapped_column(
-        String, ForeignKey("plans.id"), nullable=False
-    )
+    plan_id: Mapped[str] = mapped_column(String, ForeignKey("plans.id"), nullable=False)
     status: Mapped[SubscriptionStatus] = mapped_column(
         Enum(SubscriptionStatus), nullable=False, default=SubscriptionStatus.pending
     )
@@ -93,10 +97,39 @@ class Transaction(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
-    
 
     subscription = relationship("Subscription", back_populates="transactions")
-    
+
+
+class PaymentReceipt(Base):
+    """Comprobante de pago (foto, captura o PDF) de una transacción.
+
+    Se guarda en la base de datos y no en disco: en Railway el disco del
+    servidor se borra en cada despliegue. La columna `data` es diferida para
+    no cargar el archivo al listar transacciones.
+    """
+
+    __tablename__ = "payment_receipts"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    transaction_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("transactions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=True)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
+    uploaded_by: Mapped[str] = mapped_column(
+        String, ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class Invoice(Base):
     __tablename__ = "invoices"
 
@@ -116,7 +149,9 @@ class Invoice(Base):
     plan_name: Mapped[str] = mapped_column(String(50), nullable=False)
     billing_cycle: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)  # centavos COP
-    payment_method: Mapped[str] = mapped_column(String(50), nullable=False)  # "wompi" | "transfer"
+    payment_method: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # "wompi" | "transfer"
     issued_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     institution = relationship("Institution")

@@ -72,17 +72,17 @@ export default function TermsAndConditions() {
             <div className="mt-4 bg-gray-50 rounded-xl p-4 space-y-1">
               <p>
                 <span className="font-medium">Correo de contacto:</span>{" "}
-                edudynamis1@gmail.com
+                clientes@edudynamis.org
               </p>
               <p>
                 <span className="font-medium">Sitio web:</span>{" "}
                 <a
-                  href="https://edudynamis.org/Edudynamis/"
+                  href="https://edudynamis.org/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#2952cc] hover:underline"
                 >
-                  https://edudynamis.org/Edudynamis/
+                  https://edudynamis.org/
                 </a>
               </p>
               <p>
@@ -91,7 +91,7 @@ export default function TermsAndConditions() {
               </p>
               <p>
                 <span className="font-medium">Redes sociales:</span> Facebook e
-                Instagram como <strong>EduDynamis</strong>
+                Instagram como <strong>@edudynamis.co</strong>
               </p>
             </div>
           </section>
@@ -246,7 +246,7 @@ export default function TermsAndConditions() {
             <p className="mt-3">
               El usuario tiene derecho a conocer, actualizar, rectificar y
               suprimir sus datos personales. Para ejercer estos derechos puede
-              escribir a <strong>edudynamis1@gmail.com</strong>.
+              escribir a <strong>clientes@edudynamis.org</strong>.
             </p>
           </section>
 
@@ -302,17 +302,17 @@ export default function TermsAndConditions() {
             <div className="space-y-1 text-sm">
               <p>
                 <span className="font-medium">Correo:</span>{" "}
-                edudynamis1@gmail.com
+                clientes@edudynamis.org
               </p>
               <p>
                 <span className="font-medium">Sitio web:</span>{" "}
                 <a
-                  href="https://edudynamis.org/Edudynamis/"
+                  href="https://edudynamis.org/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#2952cc] hover:underline"
                 >
-                  https://edudynamis.org/Edudynamis/
+                  https://edudynamis.org/
                 </a>
               </p>
               <p>

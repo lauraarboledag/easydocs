@@ -82,7 +82,7 @@ def send_password_reset_email(to_email: str, reset_url: str, full_name: str):
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
@@ -135,13 +135,13 @@ def send_welcome_email(to_email: str, full_name: str, institution_name: str):
 
             <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
                 Si tienes dudas, escríbenos a
-                <a href="mailto:soporte@edudynamis.com" style="color: #2952cc;">soporte@edudynamis.com</a>
+                <a href="mailto:clientes@edudynamis.org" style="color: #2952cc;">clientes@edudynamis.org</a>
                 o contáctanos por WhatsApp.
             </p>
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
@@ -194,7 +194,7 @@ def send_new_device_email(
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
@@ -235,7 +235,7 @@ def send_email_change_code(to_email: str, code: str, full_name: str):
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
@@ -263,12 +263,12 @@ def send_email_changed_notice(old_email: str, full_name: str, new_email: str):
             </p>
             <p style="color: #4b5563; line-height: 1.6;">
                 Si no realizaste este cambio, contacta a soporte de inmediato en
-                <a href="mailto:soporte@edudynamis.com" style="color: #2952cc;">soporte@edudynamis.com</a>.
+                <a href="mailto:clientes@edudynamis.org" style="color: #2952cc;">clientes@edudynamis.org</a>.
             </p>
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
@@ -309,7 +309,7 @@ def send_invoice_email(
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
@@ -362,7 +362,7 @@ def send_event_reminder_email(
 
             <div style="border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-                    EasyDocs · EduDynamis · soporte@edudynamis.com
+                    EasyDocs · EduDynamis · clientes@edudynamis.org
                 </p>
             </div>
         </div>
