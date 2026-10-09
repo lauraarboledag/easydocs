@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from fastapi import HTTPException
 from fastapi.responses import Response
 from app.domains.documents.models import Document, DocumentTemplate, DocumentStatus
@@ -87,17 +87,50 @@ def _template_payload(data: DocumentTemplateCreate) -> dict:
     return payload
 
 
+# Tipo que admite muchas plantillas (las creadas a medida en el editor).
+# Los tipos oficiales (LR001…LR009, certificados, constancias) solo tienen una.
+CUSTOM_DOCUMENT_TYPE = "personalizado"
+
+
+def _type_value(document_type) -> str:
+    return getattr(document_type, "value", document_type)
+
+
 def create_template(db: Session, data: DocumentTemplateCreate) -> DocumentTemplate:
-    existing = db.execute(
-        select(DocumentTemplate).where(
-            DocumentTemplate.document_type == data.document_type
+    if _type_value(data.document_type) == CUSTOM_DOCUMENT_TYPE:
+        # Varias personalizadas, pero sin nombres repetidos entre las activas
+        same_name = (
+            db.execute(
+                select(DocumentTemplate).where(
+                    DocumentTemplate.document_type == data.document_type,
+                    DocumentTemplate.is_active == True,
+                    func.lower(DocumentTemplate.name)
+                    == (data.name or "").strip().lower(),
+                )
+            )
+            .scalars()
+            .first()
         )
-    ).scalar_one_or_none()
-    if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="Ya existe una plantilla para ese tipo de documento.",
+        if same_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe una plantilla personalizada con ese nombre.",
+            )
+    else:
+        existing = (
+            db.execute(
+                select(DocumentTemplate).where(
+                    DocumentTemplate.document_type == data.document_type
+                )
+            )
+            .scalars()
+            .first()
         )
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe una plantilla para ese tipo de documento.",
+            )
     template = DocumentTemplate(**_template_payload(data))
     db.add(template)
     db.commit()
@@ -451,9 +484,13 @@ def delete_template(db: Session, template_id: str) -> dict:
     if not template:
         raise HTTPException(status_code=404, detail="Plantilla no encontrada.")
 
-    has_documents = db.execute(
-        select(Document).where(Document.template_id == template_id)
-    ).scalar_one_or_none()
+    # .first(): una plantilla puede tener muchos documentos
+    has_documents = (
+        db.execute(
+            select(Document.id).where(Document.template_id == template_id)
+        ).first()
+        is not None
+    )
 
     if has_documents:
         # Ya se usó para generar documentos reales — se conserva el
