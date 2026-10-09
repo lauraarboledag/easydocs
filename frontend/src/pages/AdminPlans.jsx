@@ -6,7 +6,14 @@ import AdminSidebar from "../components/layout/AdminSidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
-import NotificationBell from "../components/NotificationBell";
+import {
+  DEFAULT_FEATURES,
+  TOGGLE_FEATURES,
+  LIMIT_FEATURES,
+  SUPPORT_OPTIONS,
+  describePlanFeatures,
+  featuresWithDefaults,
+} from "../utils/planFeatures";
 import {
   Bell,
   ChevronLeft,
@@ -45,71 +52,12 @@ const PLAN_META = {
   },
 };
 
-const PLAN_FEATURES = {
-  free: ["LR001 – LR009", "1 usuario", "10 documentos / mes"],
-  basic: ["LR001 – LR009", "3 usuarios", "50 documentos / mes"],
-  professional: [
-    "LR001 – LR009",
-    "Certificados Capítulo II",
-    "10 usuarios",
-    "200 documentos / mes",
-    "EduBot IA",
-  ],
-  enterprise: [
-    "LR001 – LR009",
-    "Certificados Capítulo II",
-    "Usuarios ilimitados",
-    "Documentos ilimitados",
-    "EduBot IA",
-    "Transcripción de audio IA",
-  ],
-};
-
 const PLAN_NAME_OPTIONS = [
   { value: "free", label: "Free" },
   { value: "basic", label: "Básico" },
   { value: "professional", label: "Profesional" },
   { value: "enterprise", label: "Empresarial" },
 ];
-
-const DEFAULT_FEATURES = {
-  free: {
-    documentos_lr001_lr009: true,
-    certificados_capitulo_ii: false,
-    edubot: false,
-    transcripcion_audio: false,
-    usuarios_maximos: 1,
-    documentos_por_mes: 10,
-    soporte: "ninguno",
-  },
-  basic: {
-    documentos_lr001_lr009: true,
-    certificados_capitulo_ii: false,
-    edubot: false,
-    transcripcion_audio: false,
-    usuarios_maximos: 3,
-    documentos_por_mes: 50,
-    soporte: "email",
-  },
-  professional: {
-    documentos_lr001_lr009: true,
-    certificados_capitulo_ii: true,
-    edubot: true,
-    transcripcion_audio: false,
-    usuarios_maximos: 10,
-    documentos_por_mes: 200,
-    soporte: "email_chat",
-  },
-  enterprise: {
-    documentos_lr001_lr009: true,
-    certificados_capitulo_ii: true,
-    edubot: true,
-    transcripcion_audio: true,
-    usuarios_maximos: null,
-    documentos_por_mes: null,
-    soporte: "prioritario",
-  },
-};
 
 function formatPrice(price) {
   if (price === 0) return "Gratis";
@@ -324,7 +272,7 @@ function PlanPreviewCard({ planName, plan, previewCycle }) {
         )}
       </div>
       <ul className="space-y-1.5 flex-1">
-        {(PLAN_FEATURES[planName] || []).map((f) => (
+        {describePlanFeatures(plan?.features, planName).map((f) => (
           <li
             key={f}
             className="flex items-center gap-2 text-xs"
@@ -357,14 +305,17 @@ function EditPlanModal({
   saving,
   error,
 }) {
+  const setFeature = (key, value) =>
+    setEditForm((p) => ({ ...p, features: { ...(p.features || {}), [key]: value } }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div
-        className="rounded-2xl shadow-xl w-full max-w-md"
+        className="rounded-2xl shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col"
         style={{ backgroundColor: "var(--bg-secondary)" }}
       >
         <div
-          className="flex items-center justify-between p-6 border-b"
+          className="flex items-center justify-between p-6 border-b flex-shrink-0"
           style={{ borderColor: "var(--border-color)" }}
         >
           <div>
@@ -392,7 +343,7 @@ function EditPlanModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
               <AlertCircle size={15} /> {error}
@@ -482,6 +433,157 @@ function EditPlanModal({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Funciones incluidas */}
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Funciones incluidas
+            </label>
+            <div
+              className="rounded-xl border divide-y"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              {TOGGLE_FEATURES.map(({ key, label }) => {
+                const on = !!editForm.features?.[key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setFeature(key, !on)}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left"
+                    style={{ borderColor: "var(--border-color)" }}
+                    role="switch"
+                    aria-checked={on}
+                  >
+                    <span className="text-sm" style={{ color: "var(--text-primary)" }}>
+                      {label}
+                    </span>
+                    <span
+                      className="relative w-10 h-6 rounded-full flex-shrink-0 transition-colors"
+                      style={{ backgroundColor: on ? "var(--color-primary)" : "var(--border-color)" }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                        style={{ left: on ? "18px" : "2px" }}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {LIMIT_FEATURES.map(({ key, label }) => {
+              const value = editForm.features?.[key];
+              const unlimited = value === null;
+              return (
+                <div key={key}>
+                  <label
+                    className="block text-xs font-semibold uppercase tracking-wide mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {label}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={unlimited ? "" : (value ?? "")}
+                    disabled={unlimited}
+                    onChange={(e) => setFeature(key, e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder={unlimited ? "Ilimitado" : "Ej: 50"}
+                    className="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 disabled:opacity-50"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                  <label className="flex items-center gap-2 mt-1.5 text-xs cursor-pointer" style={{ color: "var(--text-secondary)" }}>
+                    <input
+                      type="checkbox"
+                      checked={unlimited}
+                      onChange={(e) =>
+                        setFeature(
+                          key,
+                          e.target.checked ? null : (DEFAULT_FEATURES[plan.name]?.[key] ?? 10) || 10,
+                        )
+                      }
+                    />
+                    Ilimitado
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Soporte
+            </label>
+            <select
+              value={editForm.features?.soporte || "ninguno"}
+              onChange={(e) => setFeature("soporte", e.target.value)}
+              className="w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+              }}
+            >
+              {SUPPORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label
+            className="flex items-start gap-2 text-xs rounded-lg p-3 cursor-pointer"
+            style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-secondary)" }}
+          >
+            <input
+              type="checkbox"
+              checked={editForm.applyBoth}
+              onChange={(e) => setEditForm((p) => ({ ...p, applyBoth: e.target.checked }))}
+              className="mt-0.5"
+            />
+            <span>
+              Aplicar las funciones también al plan {PLAN_META[plan.name]?.label}{" "}
+              {plan.billing_cycle === "monthly" ? "anual" : "mensual"} (recomendado: así ambos
+              ciclos incluyen lo mismo). El precio solo cambia en este plan.
+            </span>
+          </label>
+
+          <div
+            className="rounded-xl p-4 border"
+            style={{
+              backgroundColor: "var(--bg-primary)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            <p
+              className="text-xs font-semibold mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Así lo verán las instituciones
+            </p>
+            <ul className="space-y-1">
+              {describePlanFeatures(editForm.features, plan.name).map((f) => (
+                <li key={f} className="flex items-center gap-2 text-xs" style={{ color: "var(--text-primary)" }}>
+                  <CheckCircle size={11} className="text-green-500 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div
@@ -724,7 +826,12 @@ export default function AdminPlans() {
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [editForm, setEditForm] = useState({ price: "", is_active: true });
+  const [editForm, setEditForm] = useState({
+    price: "",
+    is_active: true,
+    features: {},
+    applyBoth: true,
+  });
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: "free",
@@ -767,19 +874,31 @@ export default function AdminPlans() {
     setEditForm({
       price: (plan.price / 100).toString(),
       is_active: plan.is_active,
+      features: featuresWithDefaults(plan.name, plan.features),
+      applyBoth: true,
     });
     setError("");
   };
 
   const handleSave = async () => {
+    // Los límites deben ser un número mayor que 0 o "Ilimitado"
+    for (const { key, label } of LIMIT_FEATURES) {
+      const v = editForm.features?.[key];
+      if (v !== null && !(Number.isInteger(v) && v >= 1)) {
+        setError(`${label}: escribe un número mayor que 0 o marca "Ilimitado".`);
+        return;
+      }
+    }
     setSaving(true);
     setError("");
     try {
       await api.put(`/plans/${editingPlan.id}`, {
-        price: Math.round(parseFloat(editForm.price) * 100),
+        price: Math.round(parseFloat(editForm.price || 0) * 100),
         is_active: editForm.is_active,
+        features: editForm.features,
+        apply_features_to_all_cycles: editForm.applyBoth,
       });
-      setSuccess(`Plan ${editingPlan.name} actualizado correctamente.`);
+      setSuccess(`Plan ${PLAN_META[editingPlan.name]?.label || editingPlan.name} actualizado correctamente.`);
       setEditingPlan(null);
       fetchPlans();
       setTimeout(() => setSuccess(""), 3000);
@@ -864,7 +983,9 @@ export default function AdminPlans() {
             </div>
           </div>
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
-            <NotificationBell />
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
+              <Bell size={20} />
+            </button>
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-8 h-8 bg-yellow-500 rounded-full items-center justify-center flex-shrink-0 hidden xs:flex">
                 <Shield size={14} className="text-white" />

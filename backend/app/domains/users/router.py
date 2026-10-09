@@ -31,6 +31,8 @@ from app.domains.users.services import (
     request_email_change,
     confirm_email_change,
     list_users,
+    get_user_limit,
+    check_user_limit,
 )
 from app.domains.users.models import User, UserRole, PasswordResetToken, LoginAttempt
 from app.domains.institutions.schemas import InstitutionCreate
@@ -136,12 +138,31 @@ def verify_google_token(data: GoogleAuthRequest, db: Session = Depends(get_db)):
     )
 
 
+# Roles que el representante puede crear desde "Usuarios"
+STAFF_ROLES = {UserRole.teacher, UserRole.secretary}
+
+
 @router.post("/users/", response_model=UserResponse, status_code=201)
 def register_user(
     data: UserCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.role != UserRole.representative:
+        raise HTTPException(
+            status_code=403,
+            detail="Solo el representante de la institución puede crear usuarios.",
+        )
+    if data.role not in STAFF_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se pueden crear usuarios de Docente o Secretaría.",
+        )
+    # El usuario siempre queda en la institución de quien lo crea,
+    # sin importar el institution_id que llegue desde el navegador.
+    data = data.model_copy(update={"institution_id": current_user.institution_id})
+
+    check_user_limit(db, current_user.institution_id)
     return create_user(db, data)
 
 
@@ -150,6 +171,16 @@ def get_users(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     return list_users(db, current_user.institution_id)
+
+
+@router.get("/users/limit")
+def get_users_limit(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """Usuarios activos vs. máximo del plan, para el contador de la pantalla."""
+    if not current_user.institution_id:
+        return {"used": 0, "limit": None, "can_add": True}
+    return get_user_limit(db, current_user.institution_id)
 
 
 @router.get("/users/me", response_model=UserResponse)

@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from fastapi import HTTPException
 from datetime import datetime
 import secrets
-from app.domains.users.models import User, TwoFactorCode, KnownDevice
+from app.domains.users.models import User, UserRole, TwoFactorCode, KnownDevice
 from app.domains.users.schemas import UserCreate
 from app.core.auth import hash_password, verify_password, create_access_token
 from app.core.email import send_2fa_code_email, send_new_device_email
@@ -113,6 +113,65 @@ def list_users(db: Session, institution_id: str) -> list[User]:
         db.execute(select(User).where(User.institution_id == institution_id))
         .scalars()
         .all()
+    )
+
+
+# --- Límite de usuarios del plan (Plan.features["usuarios_maximos"]) ---------
+def get_user_limit(db: Session, institution_id: str) -> dict:
+    # Import local para no crear un import circular entre dominios
+    from app.domains.subscriptions.models import Subscription, Plan
+
+    used = db.execute(
+        select(func.count()).where(
+            User.institution_id == institution_id,
+            User.is_active == True,
+            User.role != UserRole.superadmin,
+        )
+    ).scalar()
+
+    limit = None
+    subscription = (
+        db.execute(
+            select(Subscription).where(
+                Subscription.institution_id == institution_id,
+                Subscription.is_active == True,
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if subscription:
+        plan = db.execute(
+            select(Plan).where(Plan.id == subscription.plan_id)
+        ).scalar_one_or_none()
+        if plan:
+            limit = (plan.features or {}).get("usuarios_maximos")
+
+    return {
+        "used": used,
+        "limit": limit,
+        "can_add": limit is None or used < limit,
+    }
+
+
+def check_user_limit(db: Session, institution_id: str) -> None:
+    """Lanza 403 si la institución ya llegó al máximo de usuarios de su plan."""
+    info = get_user_limit(db, institution_id)
+    if info["can_add"]:
+        return
+    limit = info["limit"]
+    plural = "s" if limit != 1 else ""
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "message": (
+                f"Llegaste al límite de {limit} usuario{plural} activo{plural} de tu plan. "
+                "Mejora tu plan para agregar más usuarios."
+            ),
+            "limit_reached": True,
+            "limit": limit,
+            "used": info["used"],
+        },
     )
 
 

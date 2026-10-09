@@ -6,6 +6,7 @@ import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import { describePlanFeatures } from "../utils/planFeatures";
 import {
   CreditCard,
   CheckCircle,
@@ -39,26 +40,6 @@ const PLAN_COLORS = {
   },
   professional: { bg: "#faf5ff", color: "#9333ea", border: "#9333ea" },
   enterprise: { bg: "#fefce8", color: "#ca8a04", border: "#ca8a04" },
-};
-
-const PLAN_FEATURES = {
-  free: ["LR001 – LR009", "1 usuario", "10 documentos / mes"],
-  basic: ["LR001 – LR009", "3 usuarios", "50 documentos / mes"],
-  professional: [
-    "LR001 – LR009",
-    "Certificados Capítulo II",
-    "10 usuarios",
-    "200 documentos / mes",
-    "EduBot IA",
-  ],
-  enterprise: [
-    "LR001 – LR009",
-    "Certificados Capítulo II",
-    "Usuarios ilimitados",
-    "Documentos ilimitados",
-    "EduBot IA",
-    "Transcripción de audio IA",
-  ],
 };
 
 const PLAN_ORDER = ["free", "basic", "professional", "enterprise"];
@@ -612,7 +593,7 @@ export default function Subscription() {
                       </div>
 
                       <ul className="space-y-2.5 mb-6 flex-1">
-                        {(PLAN_FEATURES[planName] || []).map((f) => (
+                        {describePlanFeatures(plan?.features, planName).map((f) => (
                           <li
                             key={f}
                             className="flex items-start gap-2 text-sm"

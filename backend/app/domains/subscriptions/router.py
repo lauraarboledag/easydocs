@@ -185,9 +185,60 @@ def change_plan(
     return request_plan_change(db, current_user.institution_id, data.plan_id)
 
 
+# Funciones que se pueden configurar por plan desde AdminPlans.
+# bool = incluida o no; int/None = límite (None = ilimitado); str = opción.
+PLAN_FEATURE_SPEC = {
+    "documentos_lr001_lr009": bool,
+    "certificados_capitulo_ii": bool,
+    "edubot": bool,
+    "transcripcion_audio": bool,
+    "usuarios_maximos": "limit",
+    "documentos_por_mes": "limit",
+    "mensajes_edubot_por_mes": "limit",
+    "soporte": ("ninguno", "email", "email_chat", "prioritario"),
+}
+
+
+def _clean_features(raw: dict) -> dict:
+    """Valida las funciones recibidas; ignora claves desconocidas."""
+    clean = {}
+    for key, value in (raw or {}).items():
+        spec = PLAN_FEATURE_SPEC.get(key)
+        if spec is None:
+            continue
+        if spec is bool:
+            if not isinstance(value, bool):
+                raise HTTPException(
+                    status_code=400, detail=f"'{key}' debe ser sí o no."
+                )
+            clean[key] = value
+        elif spec == "limit":
+            if value is None:
+                clean[key] = None  # ilimitado
+            elif isinstance(value, int) and not isinstance(value, bool) and value >= 1:
+                clean[key] = value
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"'{key}' debe ser un número mayor que 0 o ilimitado.",
+                )
+        else:
+            if value not in spec:
+                raise HTTPException(
+                    status_code=400, detail=f"Valor no válido para '{key}'."
+                )
+            clean[key] = value
+    return clean
+
+
 class PlanUpdate(BaseModel):
     price: Optional[int] = None
     is_active: Optional[bool] = None
+    description: Optional[str] = None
+    # Solo se cambian las claves enviadas; el resto se conserva
+    features: Optional[dict] = None
+    # Copia las funciones al plan del otro ciclo (mensual/anual) con el mismo nombre
+    apply_features_to_all_cycles: bool = True
 
 
 @router.put("/plans/{plan_id}", response_model=PlanResponse)
@@ -201,9 +252,27 @@ def update_plan(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan no encontrado.")
     if data.price is not None:
+        if data.price < 0:
+            raise HTTPException(
+                status_code=400, detail="El precio no puede ser negativo."
+            )
         plan.price = data.price
     if data.is_active is not None:
         plan.is_active = data.is_active
+    if data.description is not None:
+        plan.description = data.description.strip() or None
+
+    if data.features is not None:
+        changes = _clean_features(data.features)
+        targets = [plan]
+        if data.apply_features_to_all_cycles:
+            targets = (
+                db.execute(select(Plan).where(Plan.name == plan.name)).scalars().all()
+            )
+        for target in targets:
+            # Se reasigna el dict para que SQLAlchemy detecte el cambio en la columna JSON
+            target.features = {**(target.features or {}), **changes}
+
     db.commit()
     db.refresh(plan)
     return plan

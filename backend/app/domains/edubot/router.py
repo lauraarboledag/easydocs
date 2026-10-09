@@ -24,6 +24,11 @@ from app.domains.edubot.drafting import (
     draftable_fields,
     parse_response,
 )
+from app.domains.edubot.usage import (
+    check_chat_quota,
+    get_chat_usage,
+    record_chat_message,
+)
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -61,7 +66,9 @@ def _clean_history(history: Optional[list]) -> list[dict]:
     cleaned = []
     for msg in history or []:
         if not isinstance(msg, dict):
-            continue
+            raise HTTPException(
+                status_code=400, detail="Formato de historial inválido."
+            )
         role, content = msg.get("role"), msg.get("content")
         if (
             role in ("user", "assistant")
@@ -86,6 +93,7 @@ async def chat(
 ):
     if not is_configured():
         raise _ai_unavailable()
+    check_chat_quota(db, current_user)  # 403 si ya gastó las consultas del mes
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages += _clean_history(data.history)
@@ -108,7 +116,19 @@ async def chat(
         raise HTTPException(
             status_code=502, detail="EduBot no pudo responder. Intenta de nuevo."
         )
-    return {"reply": reply}
+
+    # Solo se cuenta la consulta cuando EduBot sí respondió
+    usage = record_chat_message(db, current_user)
+    return {"reply": reply, "usage": usage}
+
+
+@router.get("/edubot/chat/usage")
+def chat_usage(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Consultas usadas este mes y tope del plan (limit null = ilimitado)."""
+    return get_chat_usage(db, current_user)
 
 
 # --- Borrador con IA ---------------------------------------------------------

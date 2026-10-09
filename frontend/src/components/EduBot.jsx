@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import {
@@ -25,6 +26,7 @@ import {
   Users,
   CreditCard,
   Shield,
+  Lock,
 } from "lucide-react";
 
 // Debe coincidir el enlace con el correo que se muestra
@@ -65,7 +67,7 @@ const ARTICLE_CATEGORIES = [
         id: "plan-free",
         title: "¿Qué incluye el plan Free y cuándo necesito actualizar?",
         content:
-          "El plan Free incluye acceso a los libros reglamentarios LR001-LR009, 1 usuario y un límite de 10 documentos por mes. Si tu institución necesita generar certificados del Capítulo II, agregar más usuarios o superar el límite mensual de documentos, te recomendamos actualizar a un plan superior desde la sección Suscripción.",
+          "El plan Free incluye acceso a los libros reglamentarios LR001-LR009, 1 usuario, un límite de documentos por mes y algunas consultas mensuales al chat de EduBot. Si tu institución necesita generar certificados del Capítulo II, agregar más usuarios, redactar documentos con IA o superar los límites mensuales, te recomendamos actualizar a un plan superior desde la sección Suscripción.",
       },
       {
         id: "verificar-institucion",
@@ -96,7 +98,7 @@ const ARTICLE_CATEGORIES = [
         id: "borrador-ia",
         title: "¿Cómo redacta EduBot un acta, el PEI o la autoevaluación?",
         content:
-          'En las Actas (LR003 y LR004), el PEI (LR001) y la Autoevaluación (LR006) verás la opción "Redactar con EduBot". Escribe notas sencillas de lo que pasó o de cómo es tu institución, elige los campos y EduBot los redacta en lenguaje formal. EduBot solo usa tus notas: lo que falte lo marca como [COMPLETAR]. No escribas nombres ni documentos de estudiantes. Antes de generar debes revisar el texto y confirmar que corresponde a lo ocurrido; mientras tanto el documento queda como "Borrador IA". Incluido en los planes con EduBot IA (Profesional y Empresarial).',
+          'En las Actas (LR003 y LR004), el PEI (LR001) y la Autoevaluación (LR006) verás la opción "Redactar con EduBot". Escribe notas sencillas de lo que pasó o de cómo es tu institución, elige los campos y EduBot los redacta en lenguaje formal. EduBot solo usa tus notas: lo que falte lo marca como [COMPLETAR]. No escribas nombres ni documentos de estudiantes. Antes de generar debes revisar el texto y confirmar que corresponde a lo ocurrido; mientras tanto el documento queda como "Borrador IA". Incluido en los planes con "Borrador de documentos con IA" (Profesional y Empresarial).',
       },
       {
         id: "editar-documento",
@@ -241,6 +243,7 @@ const TAB_BAR = [
 
 export default function EduBot() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("home");
   const [activeCategory, setActiveCategory] = useState(null);
@@ -251,6 +254,8 @@ export default function EduBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Consultas del mes: { used, limit, remaining }. limit null = ilimitado
+  const [usage, setUsage] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -266,8 +271,21 @@ export default function EduBot() {
     }
   }, [open, activeTab]);
 
+  const fetchUsage = async () => {
+    try {
+      const res = await api.get("/edubot/chat/usage");
+      setUsage(res.data);
+    } catch {
+      // Si falla no bloqueamos el chat: el backend igual valida el tope
+    }
+  };
+
+  const limitReached = usage?.limit != null && usage.remaining <= 0;
+  const isRepresentative = user?.role === "representative";
+
   const handleOpen = () => {
     setOpen(true);
+    fetchUsage();
     if (messages.length === 0) {
       setMessages([
         {
@@ -281,7 +299,7 @@ export default function EduBot() {
 
   const handleSend = async (text) => {
     const message = text || input.trim();
-    if (!message || loading) return;
+    if (!message || loading || limitReached) return;
 
     const userMsg = { role: "user", content: message, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
@@ -303,12 +321,17 @@ export default function EduBot() {
           timestamp: new Date(),
         },
       ]);
+      if (res.data.usage) setUsage(res.data.usage);
     } catch (err) {
       const detail = err.response?.data?.detail;
+      if (detail?.limit_reached) {
+        // Se acabaron las consultas: se muestra el aviso en lugar del error
+        setUsage({ used: detail.used, limit: detail.limit, remaining: 0 });
+        return;
+      }
       setError(
-        typeof detail === "string" && detail
-          ? detail
-          : "No se pudo conectar con EduBot. Intenta de nuevo.",
+        (typeof detail === "string" ? detail : detail?.message) ||
+        "No se pudo conectar con EduBot. Intenta de nuevo.",
       );
     } finally {
       setLoading(false);
@@ -703,7 +726,7 @@ export default function EduBot() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {messages.length <= 1 && (
+                {messages.length <= 1 && !limitReached && (
                   <div
                     className="px-4 py-2 border-t flex-shrink-0"
                     style={{
@@ -742,39 +765,79 @@ export default function EduBot() {
                     backgroundColor: "var(--bg-secondary)",
                   }}
                 >
-                  <div className="flex items-end gap-2">
-                    <textarea
-                      ref={inputRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Pregunta sobre normativa ETDH..."
-                      maxLength={2000}
-                      rows={1}
-                      className="flex-1 border rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
-                      style={{
-                        minHeight: "40px",
-                        maxHeight: "80px",
-                        borderColor: "var(--border-color)",
-                        backgroundColor: "var(--bg-primary)",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                    <button
-                      onClick={() => handleSend()}
-                      disabled={!input.trim() || loading}
-                      className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 text-white disabled:opacity-40"
-                      style={{ backgroundColor: "var(--color-primary)" }}
+                  {limitReached ? (
+                    <div
+                      className="rounded-xl border p-3"
+                      style={{ backgroundColor: "#fffbeb", borderColor: "#fde68a" }}
                     >
-                      <Send size={16} />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5">
+                      <div className="flex items-start gap-2">
+                        <Lock
+                          size={14}
+                          className="flex-shrink-0 mt-0.5"
+                          style={{ color: "#b45309" }}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold" style={{ color: "#92400e" }}>
+                            Usaste las {usage.limit} consultas de este mes
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: "#b45309" }}>
+                            Se renuevan el día 1 del próximo mes.{" "}
+                            {isRepresentative
+                              ? "Si necesitas más, mejora tu plan."
+                              : "Si necesitas más, habla con el representante de tu institución."}
+                          </p>
+                        </div>
+                      </div>
+                      {isRepresentative && (
+                        <button
+                          onClick={() => {
+                            setOpen(false);
+                            navigate("/suscripcion");
+                          }}
+                          className="mt-2 w-full text-white text-xs font-semibold py-2 rounded-lg"
+                          style={{ backgroundColor: "var(--color-primary)" }}
+                        >
+                          Ver planes
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Pregunta sobre normativa ETDH..."
+                        maxLength={2000}
+                        rows={1}
+                        className="flex-1 border rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
+                        style={{
+                          minHeight: "40px",
+                          maxHeight: "80px",
+                          borderColor: "var(--border-color)",
+                          backgroundColor: "var(--bg-primary)",
+                          color: "var(--text-primary)",
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSend()}
+                        disabled={!input.trim() || loading}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 text-white disabled:opacity-40"
+                        style={{ backgroundColor: "var(--color-primary)" }}
+                      >
+                        <Send size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2 mt-1.5">
                     <p
                       className="text-xs"
                       style={{ color: "var(--text-secondary)", opacity: 0.7 }}
                     >
-                      EduBot orienta pero no reemplaza la ley
+                      {usage?.limit != null && !limitReached
+                        ? `Te quedan ${usage.remaining} de ${usage.limit} consultas este mes`
+                        : "EduBot orienta pero no reemplaza la ley"}
                     </p>
                     <button
                       onClick={handleNewChat}

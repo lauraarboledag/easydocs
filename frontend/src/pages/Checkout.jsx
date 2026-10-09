@@ -6,6 +6,7 @@ import Sidebar from "../components/layout/Sidebar";
 import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
+import { describePlanFeatures } from "../utils/planFeatures";
 import {
   ChevronLeft,
   CreditCard,
@@ -31,26 +32,6 @@ const PLAN_META = {
   basic: { label: "Básico", icon: Zap, color: "#2952cc" },
   professional: { label: "Profesional", icon: Star, color: "#9333ea" },
   enterprise: { label: "Empresarial", icon: Building2, color: "#ca8a04" },
-};
-
-const PLAN_FEATURES = {
-  free: ["LR001 – LR009", "1 usuario", "10 documentos / mes"],
-  basic: ["LR001 – LR009", "3 usuarios", "50 documentos / mes"],
-  professional: [
-    "LR001 – LR009",
-    "Certificados Capítulo II",
-    "10 usuarios",
-    "200 documentos / mes",
-    "EduBot IA",
-  ],
-  enterprise: [
-    "LR001 – LR009",
-    "Certificados Capítulo II",
-    "Usuarios ilimitados",
-    "Documentos ilimitados",
-    "EduBot IA",
-    "Transcripción de audio IA",
-  ],
 };
 
 // Comprobante de pago: foto, captura o PDF de hasta 5 MB
@@ -524,7 +505,7 @@ export default function Checkout() {
                         Incluye
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {(PLAN_FEATURES[selectedPlan.name] || []).map((f) => (
+                        {describePlanFeatures(selectedPlan.features, selectedPlan.name).map((f) => (
                           <div
                             key={f}
                             className="flex items-center gap-1.5 text-xs"
@@ -722,7 +703,7 @@ export default function Checkout() {
                           className="text-xs font-semibold mb-1"
                           style={{ color: "var(--text-primary)" }}
                         >
-                          Comprobante de pago
+                          Comprobante de pago (opcional)
                         </p>
                         <p
                           className="text-xs mb-2"

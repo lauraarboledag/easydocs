@@ -20,6 +20,7 @@ import {
   isValidPhone,
   formatApiError,
 } from "../utils/institutionFields";
+import { isTemplateLocked } from "../utils/planFeatures";
 import {
   FileText,
   ChevronLeft,
@@ -298,6 +299,9 @@ export default function DocumentNew() {
   const draftLoaded = useRef(false);
   // Borrador con IA (EduBot redacta campos de texto largo)
   const [aiConfig, setAiConfig] = useState(null);
+  // Funciones del plan activo (para marcar plantillas no incluidas)
+  const [planFeatures, setPlanFeatures] = useState(null);
+  const [lockedTemplate, setLockedTemplate] = useState(null);
   const [aiFields, setAiFields] = useState([]); // campos con texto de EduBot
   const [aiReviewed, setAiReviewed] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
@@ -365,6 +369,10 @@ export default function DocumentNew() {
       }
     };
     fetchAiConfig();
+    api
+      .get("/subscriptions/my")
+      .then((res) => setPlanFeatures(res.data?.plan?.features || null))
+      .catch(() => setPlanFeatures(null));
   }, []);
 
   useEffect(() => {
@@ -987,70 +995,85 @@ export default function DocumentNew() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {getTemplatesByChapter(CHAPTER_GROUPS[activeChapter]).map(
-                  (template) => (
-                    <button
-                      key={template.id}
-                      onClick={() => handleSelectTemplate(template)}
-                      className="flex items-center justify-between p-5 border rounded-xl transition-all text-left group hover:shadow-sm"
-                      style={{
-                        backgroundColor: "var(--bg-secondary)",
-                        borderColor: "var(--border-color)",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor =
-                          "var(--color-primary)";
-                        e.currentTarget.style.backgroundColor =
-                          "var(--color-primary-light)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor =
-                          "var(--border-color)";
-                        e.currentTarget.style.backgroundColor =
-                          "var(--bg-secondary)";
-                      }}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{
-                            backgroundColor: "var(--color-primary-light)",
-                          }}
-                        >
-                          <FileText
-                            size={18}
-                            style={{ color: "var(--color-icon)" }}
-                          />
-                        </div>
-                        <div>
-                          <p
-                            className="text-sm font-semibold"
-                            style={{ color: "var(--text-primary)" }}
+                  (template) => {
+                    const locked = isTemplateLocked(template.document_type, planFeatures);
+                    return (
+                      <button
+                        key={template.id}
+                        onClick={() =>
+                          locked ? setLockedTemplate(template) : handleSelectTemplate(template)
+                        }
+                        className="flex items-center justify-between p-5 border rounded-xl transition-all text-left group hover:shadow-sm"
+                        style={{
+                          backgroundColor: "var(--bg-secondary)",
+                          borderColor: "var(--border-color)",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "var(--color-primary)";
+                          e.currentTarget.style.backgroundColor =
+                            "var(--color-primary-light)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "var(--border-color)";
+                          e.currentTarget.style.backgroundColor =
+                            "var(--bg-secondary)";
+                        }}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div
+                            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{
+                              backgroundColor: "var(--color-primary-light)",
+                            }}
                           >
-                            {template.name}
-                          </p>
-                          {template.description && (
+                            <FileText
+                              size={18}
+                              style={{ color: "var(--color-icon)" }}
+                            />
+                          </div>
+                          <div>
                             <p
-                              className="text-xs mt-0.5 line-clamp-1"
-                              style={{ color: "var(--text-secondary)" }}
+                              className="text-sm font-semibold"
+                              style={{ color: "var(--text-primary)" }}
                             >
-                              {template.description}
+                              {template.name}
                             </p>
-                          )}
-                          <p
-                            className="text-xs mt-1"
-                            style={{ color: "var(--color-primary)" }}
-                          >
-                            {template.required_fields.length} campos requeridos
-                          </p>
+                            {template.description && (
+                              <p
+                                className="text-xs mt-0.5 line-clamp-1"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {template.description}
+                              </p>
+                            )}
+                            {locked ? (
+                              <p className="text-xs mt-1 flex items-center gap-1 font-medium text-amber-600">
+                                <Lock size={11} /> No incluido en tu plan
+                              </p>
+                            ) : (
+                              <p
+                                className="text-xs mt-1"
+                                style={{ color: "var(--color-primary)" }}
+                              >
+                                {template.required_fields.length} campos requeridos
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <ChevronRight
-                        size={16}
-                        style={{ color: "var(--text-secondary)" }}
-                        className="flex-shrink-0"
-                      />
-                    </button>
-                  ),
+                        {locked ? (
+                          <Lock size={16} className="flex-shrink-0 text-amber-600" />
+                        ) : (
+                          <ChevronRight
+                            size={16}
+                            style={{ color: "var(--text-secondary)" }}
+                            className="flex-shrink-0"
+                          />
+                        )}
+                      </button>
+                    );
+                  },
                 )}
               </div>
             </div>
@@ -1762,6 +1785,42 @@ export default function DocumentNew() {
           )}
         </div>
       </main>
+
+      {lockedTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div
+            className="w-full max-w-sm rounded-2xl shadow-xl p-6 text-center"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+              <Lock size={20} className="text-amber-600" />
+            </div>
+            <p className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+              {lockedTemplate.name}
+            </p>
+            <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
+              Este documento no está incluido en tu plan actual. Mejora tu plan para
+              generarlo.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLockedTemplate(null)}
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg border"
+                style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => navigate("/suscripcion")}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
+                Ver planes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAiModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">

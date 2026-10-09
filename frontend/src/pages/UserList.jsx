@@ -7,7 +7,6 @@ import Sidebar from "../components/layout/Sidebar";
 import EduBot from "../components/EduBot";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
-import NotificationBell from "../components/NotificationBell";
 import {
   Users,
   Plus,
@@ -21,6 +20,7 @@ import {
   Eye,
   EyeOff,
   UserCircle,
+  Lock,
 } from "lucide-react";
 
 const ROLE_CONFIG = {
@@ -56,6 +56,8 @@ export default function UserList() {
   const [creating, setCreating] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
   const [showInactivity, setShowInactivity] = useState(false);
+  // Cupo de usuarios del plan: { used, limit, can_add }. limit null = ilimitado
+  const [userLimit, setUserLimit] = useState(null);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -65,7 +67,20 @@ export default function UserList() {
 
   useEffect(() => {
     fetchUsers();
+    fetchLimit();
   }, []);
+
+  const fetchLimit = async () => {
+    try {
+      const res = await api.get("/users/limit");
+      setUserLimit(res.data);
+    } catch {
+      setUserLimit(null); // si falla, no bloqueamos nada: el backend igual valida
+    }
+  };
+
+  const atLimit = userLimit ? !userLimit.can_add : false;
+  const isRepresentative = user?.role === "representative";
 
   useInactivity({
     timeout: 30,
@@ -113,9 +128,15 @@ export default function UserList() {
       setForm({ full_name: "", email: "", password: "", role: "teacher" });
       setShowModal(false);
       fetchUsers();
+      fetchLimit();
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      setError(err.response?.data?.detail || "Error al crear el usuario.");
+      const detail = err.response?.data?.detail;
+      if (detail?.limit_reached) fetchLimit();
+      setError(
+        (typeof detail === "string" ? detail : detail?.message) ||
+        "Error al crear el usuario.",
+      );
     } finally {
       setCreating(false);
     }
@@ -157,7 +178,9 @@ export default function UserList() {
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-              <NotificationBell />
+            <button className="p-2" style={{ color: "var(--text-secondary)" }}>
+              <Bell size={20} />
+            </button>
             <div className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -199,17 +222,70 @@ export default function UserList() {
                 {users.length} usuario{users.length !== 1 ? "s" : ""} —
                 ordenados alfabéticamente
               </p>
+              {userLimit && (
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium mt-2"
+                  style={{
+                    backgroundColor: atLimit
+                      ? "#fef3c7"
+                      : "var(--color-primary-light)",
+                    color: atLimit ? "#b45309" : "var(--color-primary)",
+                  }}
+                >
+                  <Users size={12} />
+                  {userLimit.limit == null
+                    ? `${userLimit.used} activo${userLimit.used !== 1 ? "s" : ""} · usuarios ilimitados`
+                    : `${userLimit.used} de ${userLimit.limit} usuarios activos de tu plan`}
+                </span>
+              )}
             </div>
-            {user?.role === "representative" && (
+            {isRepresentative && (
               <button
-                onClick={() => setShowModal(true)}
-                className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                onClick={() => !atLimit && setShowModal(true)}
+                disabled={atLimit}
+                title={atLimit ? "Llegaste al límite de usuarios de tu plan" : undefined}
+                className="text-white font-semibold px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
-                <Plus size={18} /> Nuevo usuario
+                {atLimit ? <Lock size={18} /> : <Plus size={18} />} Nuevo
+                usuario
               </button>
             )}
           </div>
+
+          {/* Aviso de límite del plan */}
+          {isRepresentative && atLimit && (
+            <div
+              className="rounded-xl border px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              style={{ backgroundColor: "#fffbeb", borderColor: "#fde68a" }}
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <Lock
+                  size={18}
+                  className="flex-shrink-0 mt-0.5"
+                  style={{ color: "#b45309" }}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: "#92400e" }}>
+                    Llegaste al límite de usuarios de tu plan
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: "#b45309" }}>
+                    Tu plan incluye {userLimit.limit} usuario
+                    {userLimit.limit !== 1 ? "s" : ""} activo
+                    {userLimit.limit !== 1 ? "s" : ""}. Mejora tu plan para
+                    sumar más personas al equipo.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/suscripcion")}
+                className="text-white text-sm font-semibold px-4 py-2 rounded-lg flex-shrink-0"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
+                Ver planes
+              </button>
+            </div>
+          )}
 
           {/* Resumen por roles */}
           <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
@@ -290,7 +366,7 @@ export default function UserList() {
                 >
                   Agrega docentes y secretaría a tu institución
                 </p>
-                {user?.role === "representative" && (
+                {isRepresentative && !atLimit && (
                   <button
                     onClick={() => setShowModal(true)}
                     className="mt-4 text-sm font-medium hover:underline"

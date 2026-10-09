@@ -176,12 +176,72 @@ def check_monthly_quota(db: Session, institution_id: str) -> None:
             print(f"Error creando notificación de límite: {e}")
 
 
+# --- Funciones del plan por tipo de plantilla ---------------------------------
+CHAPTER_II_TYPES = {
+    "certificado_aptitud_laboral",
+    "certificado_aptitud_salud",
+    "certificado_conocimientos",
+    "constancia_asistencia",
+    "constancia_estudio",
+}
+
+
+def _template_feature(document_type):
+    """Qué función del plan habilita este tipo de plantilla (o None)."""
+    value = getattr(document_type, "value", document_type) or ""
+    if value.startswith("LR"):
+        return "documentos_lr001_lr009"
+    if value in CHAPTER_II_TYPES:
+        return "certificados_capitulo_ii"
+    return None  # personalizadas: siempre disponibles
+
+
+def ensure_template_in_plan(db: Session, user: User, template) -> None:
+    """403 si el plan activo de la institución no incluye este tipo de documento."""
+    if getattr(user.role, "value", user.role) == "superadmin" or template is None:
+        return
+    feature = _template_feature(template.document_type)
+    if not feature:
+        return
+    subscription = db.execute(
+        select(Subscription).where(
+            Subscription.institution_id == user.institution_id,
+            Subscription.is_active == True,
+        )
+    ).scalar_one_or_none()
+    if not subscription:
+        return
+    plan = db.execute(
+        select(Plan).where(Plan.id == subscription.plan_id)
+    ).scalar_one_or_none()
+    features = (plan.features if plan else None) or {}
+    # Solo se bloquea si el plan lo desactiva explícitamente
+    if features.get(feature) is False:
+        label = (
+            "los certificados y constancias del Capítulo II"
+            if feature == "certificados_capitulo_ii"
+            else "los libros reglamentarios LR001 – LR009"
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": f"Tu plan no incluye {label}. Mejora tu plan para usarlos.",
+                "feature_locked": True,
+                "feature": feature,
+            },
+        )
+
+
 @router.post("/documents/", response_model=DocumentResponse, status_code=201)
 def new_document(
     data: DocumentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    template = db.execute(
+        select(DocumentTemplate).where(DocumentTemplate.id == data.template_id)
+    ).scalar_one_or_none()
+    ensure_template_in_plan(db, current_user, template)
     if not data.save_as_draft:
         check_monthly_quota(db, current_user.institution_id)
     return create_document(db, data, current_user.institution_id, current_user.id)
@@ -203,6 +263,8 @@ def edit_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    document = get_document(db, document_id, current_user.institution_id)
+    ensure_template_in_plan(db, current_user, document.template)
     if not data.save_as_draft:
         check_monthly_quota(db, current_user.institution_id)
     return update_document(
