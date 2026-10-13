@@ -27,6 +27,12 @@ from app.domains.users.models import User, UserRole
 from app.domains.notifications.services import create_notification
 from app.domains.institutions.services import get_institution
 from app.core.email import send_invoice_email
+from app.domains.subscriptions.wompi import (
+    CURRENCY,
+    integrity_signature,
+    is_test_mode,
+    wompi_setting,
+)
 
 
 def create_plan(db: Session, data: PlanCreate) -> Plan:
@@ -158,12 +164,18 @@ def _deactivate_current(
         sub.status = SubscriptionStatus.cancelled
 
 
-def request_plan_change(db: Session, institution_id: str, plan_id: str) -> Subscription:
+def request_plan_change(
+    db: Session,
+    institution_id: str,
+    plan_id: str,
+    payment_method: str = "transfer",
+    notify_admins: bool = True,
+) -> Subscription:
     """Cambio de plan pedido por la institución.
 
     - Plan gratuito: se aplica de inmediato.
     - Plan de pago: queda como solicitud pendiente; el plan actual sigue vigente
-      hasta que se confirme el pago.
+      hasta que se confirme el pago (la administración, o Wompi por webhook).
     """
     plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
     if not plan:
@@ -209,9 +221,13 @@ def request_plan_change(db: Session, institution_id: str, plan_id: str) -> Subsc
         subscription_id=subscription.id,
         amount=plan.price,
         status=TransactionStatus.pending,
+        payment_method=payment_method,
     )
     db.add(transaction)
     db.commit()
+
+    if not notify_admins:
+        return subscription
 
     institution = get_institution(db, institution_id)
     superadmins = (
@@ -281,6 +297,17 @@ def has_receipt(db: Session, transaction_id: str) -> bool:
 def pending_has_receipt(db: Session, subscription: Subscription) -> bool:
     tx = _pending_transaction(db, subscription)
     return bool(tx and has_receipt(db, tx.id))
+
+
+def pending_payment_method(db: Session, subscription: Subscription):
+    tx = _pending_transaction(db, subscription)
+    return (tx.payment_method or "transfer") if tx else None
+
+
+def wompi_enabled() -> bool:
+    return bool(
+        wompi_setting("WOMPI_PUBLIC_KEY") and wompi_setting("WOMPI_INTEGRITY_KEY")
+    )
 
 
 def attach_receipt(
@@ -402,6 +429,8 @@ def list_transactions(db: Session) -> list[dict]:
                     sub.plan.billing_cycle.value if sub and sub.plan else None
                 ),
                 "has_receipt": tx.id in with_receipt,
+                "payment_method": tx.payment_method,
+                "provider_payment_type": tx.provider_payment_type,
             }
         )
     return result
@@ -485,10 +514,6 @@ def confirm_transaction(
             status_code=400, detail="Esta transacción ya fue procesada."
         )
 
-    transaction.status = TransactionStatus.confirmed
-    transaction.notes = data.notes
-    transaction.confirmed_by = confirmed_by_id
-
     subscription = db.execute(
         select(Subscription).where(Subscription.id == transaction.subscription_id)
     ).scalar_one_or_none()
@@ -499,6 +524,30 @@ def confirm_transaction(
             status_code=400, detail="La institución canceló o reemplazó esta solicitud."
         )
 
+    transaction.status = TransactionStatus.confirmed
+    transaction.notes = data.notes
+    transaction.confirmed_by = confirmed_by_id
+    _activate_paid_request(
+        db,
+        transaction,
+        subscription,
+        payment_method=transaction.payment_method or "transfer",
+    )
+    db.refresh(transaction)
+    return transaction
+
+
+def _activate_paid_request(
+    db: Session,
+    transaction: Transaction,
+    subscription: Subscription,
+    payment_method: str,
+) -> Invoice:
+    """Activa una solicitud de plan ya pagada y genera su factura.
+
+    La usan la confirmación manual (transferencia) y el webhook de Wompi.
+    El estado de `transaction` lo deja listo quien llama.
+    """
     plan = db.execute(select(Plan).where(Plan.id == subscription.plan_id)).scalar_one()
 
     # Duración según ciclo de facturación
@@ -512,19 +561,20 @@ def confirm_transaction(
         note="Reemplazada: se confirmó otra solicitud.",
         exclude_id=subscription.id,
     )
+    now = datetime.utcnow()
     subscription.status = SubscriptionStatus.active
     subscription.is_active = True
-    subscription.starts_at = datetime.utcnow()
-    subscription.expires_at = datetime.utcnow() + timedelta(days=days)
-
+    subscription.starts_at = now
+    subscription.expires_at = now + timedelta(days=days)
     db.commit()
-    db.refresh(transaction)
 
-    _generate_and_send_invoice(
-        db, subscription, plan, payment_method="transfer", transaction_id=transaction.id
+    return _generate_and_send_invoice(
+        db,
+        subscription,
+        plan,
+        payment_method=payment_method,
+        transaction_id=transaction.id,
     )
-
-    return transaction
 
 
 def reject_transaction(
@@ -592,7 +642,11 @@ def activate_subscription_with_invoice(
     transaction_id: str = None,
 ):
     """
-    Activa una suscripción automáticamente (pago confirmado vía Wompi) y genera su factura.
+    Activa una suscripción sin pasar por una solicitud pendiente.
+
+    Ya no la usa el webhook de Wompi (ver process_wompi_event). Se deja para
+    activaciones manuales; `transaction_id` debe ser un id de la tabla
+    transactions o None.
     """
     plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
     if not plan:
@@ -628,3 +682,169 @@ def activate_subscription_with_invoice(
     )
 
     return subscription, invoice
+
+
+# --- Pago en línea con Wompi --------------------------------------------------
+# 1. start_wompi_checkout crea la solicitud pendiente (como una transferencia)
+#    y devuelve la referencia y la firma de integridad para abrir el widget.
+# 2. Wompi avisa por webhook; process_wompi_event busca la transacción por la
+#    referencia, revisa monto y moneda, y activa el plan.
+# El plan nunca se activa desde el navegador: solo con el aviso firmado.
+
+
+def start_wompi_checkout(db: Session, user: User, plan_id: str) -> dict:
+    if user.role != UserRole.representative:
+        raise HTTPException(
+            status_code=403,
+            detail="Solo el representante de la institución puede pagar el plan.",
+        )
+    public_key = wompi_setting("WOMPI_PUBLIC_KEY")
+    if not wompi_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="El pago en línea no está disponible en este momento. Usa transferencia.",
+        )
+
+    plan = db.execute(select(Plan).where(Plan.id == plan_id)).scalar_one_or_none()
+    if not plan or not plan.is_active:
+        raise HTTPException(status_code=404, detail="Plan no encontrado.")
+    if plan.price <= 0:
+        raise HTTPException(status_code=400, detail="Este plan no requiere pago.")
+
+    subscription = request_plan_change(
+        db, user.institution_id, plan.id, payment_method="wompi", notify_admins=False
+    )
+    transaction = _pending_transaction(db, subscription)
+    transaction.reference = f"easydocs-{transaction.id}"
+    db.commit()
+
+    return {
+        "public_key": public_key,
+        "currency": CURRENCY,
+        "amount_in_cents": transaction.amount,
+        "reference": transaction.reference,
+        "signature": integrity_signature(transaction.reference, transaction.amount),
+        "customer_email": user.email,
+        "customer_name": user.full_name,
+        "test_mode": is_test_mode(),
+    }
+
+
+WOMPI_FAILED_STATUSES = {"DECLINED", "VOIDED", "ERROR"}
+
+
+def _notify_superadmins(db: Session, title: str, message: str) -> None:
+    superadmins = (
+        db.execute(select(User).where(User.role == UserRole.superadmin)).scalars().all()
+    )
+    for admin in superadmins:
+        create_notification(db, title=title, message=message, user_id=admin.id)
+
+
+def process_wompi_event(db: Session, event: dict) -> dict:
+    """Procesa un evento transaction.updated ya verificado.
+
+    Siempre responde (sin lanzar error) para que Wompi no reintente un
+    evento que ya se manejó; los casos raros se avisan al superadmin.
+    """
+    if event.get("event") != "transaction.updated":
+        return {"message": "Evento ignorado."}
+
+    wompi_tx = (event.get("data") or {}).get("transaction") or {}
+    status = wompi_tx.get("status")
+    reference = wompi_tx.get("reference") or ""
+
+    transaction = db.execute(
+        select(Transaction).where(Transaction.reference == reference)
+    ).scalar_one_or_none()
+    if not transaction:
+        print(f"Wompi: referencia desconocida {reference!r} ({status})")
+        return {"message": "Referencia desconocida."}
+
+    if status == "PENDING":
+        return {"message": "Pago en proceso."}
+
+    subscription = transaction.subscription
+    institution_name = (
+        subscription.institution.name
+        if subscription and subscription.institution
+        else "Institución"
+    )
+
+    # Ya procesada (Wompi puede mandar el mismo aviso más de una vez)
+    if transaction.status != TransactionStatus.pending:
+        if status == "APPROVED" and transaction.status != TransactionStatus.confirmed:
+            # Pagó una solicitud que ya había sido reemplazada o cancelada
+            _notify_superadmins(
+                db,
+                "Pago en línea para revisar",
+                f"{institution_name} pagó en Wompi una solicitud que ya estaba "
+                f"cancelada (referencia {reference}). Revísalo en Transacciones.",
+            )
+        return {"message": "Transacción ya procesada."}
+
+    transaction.provider_transaction_id = str(wompi_tx.get("id") or "")[:100] or None
+    transaction.provider_payment_type = (wompi_tx.get("payment_method_type") or "")[
+        :30
+    ] or None
+
+    if status == "APPROVED":
+        amount = wompi_tx.get("amount_in_cents")
+        currency = wompi_tx.get("currency")
+        if amount != transaction.amount or currency != CURRENCY:
+            transaction.status = TransactionStatus.rejected
+            transaction.notes = (
+                f"Wompi aprobó un monto distinto: {amount} {currency} "
+                f"(esperado {transaction.amount} {CURRENCY}). Revisar."
+            )
+            db.commit()
+            _notify_superadmins(
+                db,
+                "Pago en línea con monto distinto",
+                f"{institution_name} — referencia {reference}: el monto pagado no "
+                "coincide con el plan. No se activó. Revísalo en Transacciones.",
+            )
+            return {"message": "Monto no coincide."}
+
+        if not subscription or subscription.status != SubscriptionStatus.pending:
+            transaction.status = TransactionStatus.rejected
+            transaction.notes = "Pago aprobado en Wompi, pero la solicitud ya no estaba pendiente. Revisar."
+            db.commit()
+            _notify_superadmins(
+                db,
+                "Pago en línea para revisar",
+                f"{institution_name} pagó en Wompi una solicitud que ya no estaba "
+                f"pendiente (referencia {reference}). Revísalo en Transacciones.",
+            )
+            return {"message": "Solicitud no pendiente."}
+
+        transaction.status = TransactionStatus.confirmed
+        transaction.notes = (
+            f"Pago en línea aprobado ({transaction.provider_payment_type or 'Wompi'})."
+        )
+        invoice = _activate_paid_request(
+            db, transaction, subscription, payment_method="wompi"
+        )
+        return {
+            "message": "Suscripción activada.",
+            "invoice_number": invoice.invoice_number,
+        }
+
+    if status in WOMPI_FAILED_STATUSES:
+        transaction.status = TransactionStatus.rejected
+        transaction.notes = f"Wompi no aprobó el pago ({status})."
+        if subscription and subscription.status == SubscriptionStatus.pending:
+            subscription.status = SubscriptionStatus.cancelled
+            subscription.is_active = False
+        db.commit()
+        if subscription:
+            create_notification(
+                db,
+                title="Pago no aprobado",
+                message="Tu pago en línea no fue aprobado. Sigues con tu plan actual; "
+                "puedes intentarlo de nuevo o pagar por transferencia.",
+                institution_id=subscription.institution_id,
+            )
+        return {"message": f"Pago no aprobado ({status})."}
+
+    return {"message": f"Estado ignorado: {status}"}

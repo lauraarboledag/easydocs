@@ -11,10 +11,7 @@ from app.core.features import (
 )
 from app.domains.users.models import User
 from app.domains.subscriptions.models import Subscription, Plan
-from app.domains.subscriptions.wompi import (
-    verify_wompi_signature,
-    map_plan_from_reference,
-)
+from app.domains.subscriptions.wompi import verify_wompi_signature
 from pydantic import BaseModel
 from typing import Optional
 from app.domains.subscriptions.schemas import (
@@ -34,12 +31,15 @@ from app.domains.subscriptions.services import (
     confirm_transaction,
     get_institution_subscription,
     list_transactions,
-    activate_subscription_with_invoice,
     request_plan_change,
+    start_wompi_checkout,
+    process_wompi_event,
     reject_transaction,
     attach_receipt,
     get_receipt,
     pending_has_receipt,
+    pending_payment_method,
+    wompi_enabled,
     MAX_RECEIPT_BYTES,
     get_pending_request,
     cancel_pending_request,
@@ -88,6 +88,7 @@ def my_pending_request(
         return None
     response = SubscriptionResponse.model_validate(pending)
     response.receipt_uploaded = pending_has_receipt(db, pending)
+    response.payment_method = pending_payment_method(db, pending)
     return response
 
 
@@ -278,42 +279,43 @@ def update_plan(
     return plan
 
 
+class WompiCheckoutRequest(BaseModel):
+    plan_id: str
+
+
+@router.get("/payments/wompi/config")
+def wompi_config(current_user: User = Depends(get_current_user)):
+    """Si el pago en línea está disponible (hay llaves de Wompi configuradas)."""
+    from app.domains.subscriptions.wompi import is_test_mode
+
+    enabled = wompi_enabled()
+    return {"enabled": enabled, "test_mode": enabled and is_test_mode()}
+
+
+@router.post("/payments/wompi/checkout")
+def wompi_checkout(
+    data: WompiCheckoutRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Crea la solicitud de plan y devuelve lo necesario para abrir el widget.
+
+    El monto sale del plan en la base de datos y va firmado con el secreto de
+    integridad: desde el navegador no se puede cambiar.
+    """
+    return start_wompi_checkout(db, current_user, data.plan_id)
+
+
 @router.post("/webhooks/wompi")
 async def wompi_webhook(request: Request, db: Session = Depends(get_db)):
-    event_data = await request.json()
-
-    if not verify_wompi_signature(event_data):
+    """Aviso de Wompi cuando cambia el estado de un pago."""
+    try:
+        event_data = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Cuerpo inválido.")
+    if not isinstance(event_data, dict) or not verify_wompi_signature(event_data):
         raise HTTPException(status_code=401, detail="Firma inválida.")
-
-    event_type = event_data.get("event")
-    if event_type != "transaction.updated":
-        return {"message": "Evento ignorado."}
-
-    transaction = event_data.get("data", {}).get("transaction", {})
-    status = transaction.get("status")
-    reference = transaction.get("reference", "")
-
-    if status != "APPROVED":
-        return {"message": f"Transacción no aprobada, estado: {status}"}
-
-    parsed = map_plan_from_reference(reference)
-    if not parsed:
-        raise HTTPException(status_code=400, detail="Referencia de pago inválida.")
-
-    institution_id, plan_id = parsed
-
-    subscription, invoice = activate_subscription_with_invoice(
-        db,
-        institution_id=institution_id,
-        plan_id=plan_id,
-        payment_method="wompi",
-        transaction_id=transaction.get("id"),
-    )
-
-    return {
-        "message": "Suscripción activada.",
-        "invoice_number": invoice.invoice_number,
-    }
+    return process_wompi_event(db, event_data)
 
 
 @router.get("/invoices/", response_model=list[dict])

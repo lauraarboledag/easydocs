@@ -6,6 +6,7 @@ import LogoutModal from "../components/LogoutModal";
 import Sidebar from "../components/layout/Sidebar";
 import useInactivity from "../hooks/useInactivity";
 import InactivityModal from "../components/InactivityModal";
+import PlanCard, { PLAN_GRADIENTS } from "../components/PlanCard";
 import { describePlanFeatures } from "../utils/planFeatures";
 import {
   CreditCard,
@@ -19,27 +20,18 @@ import {
   Bell,
   AlertCircle,
   X,
-  TrendingUp,
   Hourglass,
   Paperclip,
+  Landmark,
+  RefreshCw,
+  CalendarDays,
 } from "lucide-react";
 
 const PLAN_META = {
-  free: { label: "Free", icon: Shield, highlight: false },
-  basic: { label: "Básico", icon: Zap, highlight: false },
-  professional: { label: "Profesional", icon: Star, highlight: true },
-  enterprise: { label: "Empresarial", icon: Building2, highlight: false },
-};
-
-const PLAN_COLORS = {
-  free: { bg: "#f3f4f6", color: "#6b7280", border: "#e5e7eb" },
-  basic: {
-    bg: "var(--color-primary-light)",
-    color: "var(--color-primary)",
-    border: "var(--color-primary)",
-  },
-  professional: { bg: "#faf5ff", color: "#9333ea", border: "#9333ea" },
-  enterprise: { bg: "#fefce8", color: "#ca8a04", border: "#ca8a04" },
+  free: { label: "Free", icon: Shield, color: "#6b7280", bg: "#f3f4f6" },
+  basic: { label: "Básico", icon: Zap, color: "#2952cc", bg: "#eef2ff" },
+  professional: { label: "Profesional", icon: Star, color: "#9333ea", bg: "#faf5ff" },
+  enterprise: { label: "Empresarial", icon: Building2, color: "#ca8a04", bg: "#fefce8" },
 };
 
 const PLAN_ORDER = ["free", "basic", "professional", "enterprise"];
@@ -93,11 +85,18 @@ function groupPlans(plans) {
   return grouped;
 }
 
+const panelStyle = {
+  backgroundColor: "var(--bg-secondary)",
+  borderColor: "var(--border-color)",
+};
+
 export default function Subscription() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [subscription, setSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
+  const [institution, setInstitution] = useState(null);
+  const [wompiEnabled, setWompiEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [requesting, setRequesting] = useState(null);
@@ -109,7 +108,6 @@ export default function Subscription() {
   const [pending, setPending] = useState(null);
   const [cancelingPending, setCancelingPending] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const [error, setError] = useState("");
 
   const loadSubscription = async () => {
     const [subRes, pendingRes] = await Promise.all([
@@ -123,19 +121,29 @@ export default function Subscription() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [, plansRes] = await Promise.all([
+        const [, plansRes, instRes, wompiRes] = await Promise.all([
           loadSubscription(),
           api.get("/plans/"),
+          user?.institution_id
+            ? api.get(`/institutions/${user.institution_id}`).catch(() => ({ data: null }))
+            : Promise.resolve({ data: null }),
+          api.get("/payments/wompi/config").catch(() => ({ data: { enabled: false } })),
         ]);
         setPlans(plansRes.data);
-      } catch (err) {
-        setError("Error al cargar los planes. Intenta de nuevo más tarde");
+        setInstitution(instRes.data);
+        setWompiEnabled(!!wompiRes.data?.enabled);
+      } catch {
+        setErrorMsg("Error al cargar los planes. Intenta de nuevo más tarde.");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (subscription?.plan?.billing_cycle) setBillingCycle(subscription.plan.billing_cycle);
+  }, [subscription?.plan?.billing_cycle]);
 
   const handleReceiptSelected = async (file) => {
     const problem = validateReceipt(file);
@@ -180,38 +188,39 @@ export default function Subscription() {
     },
   });
 
-  const handleRequestUpgrade = (plan) => {
+  const handleChoosePlan = async (plan) => {
     if (plan.name === "free") {
-      // Plan free — cambio directo sin checkout
-      api
-        .post("/subscriptions/change-plan", {
-          plan_id: plan.id,
-          institution_id: user.institution_id,
-        })
-        .then(async () => {
-          setSuccessMsg("Plan Free activado exitosamente.");
-          await loadSubscription();
-        })
-        .catch((err) => {
-          setErrorMsg(
-            err.response?.data?.detail || "No se pudo procesar la solicitud.",
-          );
-        });
-    } else {
-      // Planes de pago — ir a checkout con el plan y suscripción actual
-      navigate("/checkout", {
-        state: { plan, currentSubscription: subscription },
-      });
+      // Plan free: cambio directo, sin checkout
+      setRequesting(plan.id);
+      try {
+        await api.post("/subscriptions/change-plan", { plan_id: plan.id });
+        setSuccessMsg("Plan Free activado.");
+        await loadSubscription();
+      } catch (err) {
+        setErrorMsg(err.response?.data?.detail || "No se pudo procesar la solicitud.");
+      } finally {
+        setRequesting(null);
+      }
+      return;
     }
+    // Planes de pago: al checkout con el plan elegido
+    navigate("/checkout", { state: { plan, currentSubscription: subscription } });
   };
 
   // Suscripciones antiguas podían quedar "pendientes" como si fueran el plan
   // actual; en ese caso no se presentan como plan activo.
   const isCurrentActive = subscription?.status === "active";
-  const currentPlanName = subscription?.plan?.name;
+  const currentPlan = subscription?.plan;
+  const currentPlanName = currentPlan?.name;
+  const currentMeta = PLAN_META[currentPlanName];
   const pendingPlanName = pending?.plan?.name;
+  const pendingIsWompi = pending?.payment_method === "wompi";
   const currentPlanIndex = PLAN_ORDER.indexOf(currentPlanName);
   const daysLeft = daysUntilExpiry(subscription?.expires_at);
+  const totalDays = currentPlan?.billing_cycle === "annual" ? 365 : 30;
+  const percentLeft =
+    daysLeft === null ? null : Math.max(0, Math.min(100, Math.round((daysLeft / totalDays) * 100)));
+  const expiringSoon = daysLeft !== null && daysLeft <= 7;
   const grouped = groupPlans(plans);
 
   return (
@@ -224,17 +233,16 @@ export default function Subscription() {
       <main className="md:ml-56 flex-1 flex flex-col min-w-0">
         <header
           className="border-b pl-16 pr-4 md:px-8 py-4 flex items-center justify-between gap-3 sticky top-0 z-10"
-          style={{
-            backgroundColor: "var(--bg-secondary)",
-            borderColor: "var(--border-color)",
-          }}
+          style={panelStyle}
         >
-          <h1
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Suscripción
-          </h1>
+          <div>
+            <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+              Suscripción
+            </h1>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Tu plan y los planes disponibles
+            </p>
+          </div>
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <button className="p-2" style={{ color: "var(--text-secondary)" }}>
               <Bell size={20} />
@@ -248,20 +256,12 @@ export default function Subscription() {
                   {user?.full_name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="hidden md:block">
-                <p
-                  className="text-sm font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {user?.full_name}
-                </p>
-                <p
-                  className="text-xs capitalize"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {user?.role}
-                </p>
-              </div>
+              <p
+                className="hidden md:block text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {user?.full_name}
+              </p>
             </div>
           </div>
         </header>
@@ -287,153 +287,194 @@ export default function Subscription() {
           )}
 
           {loading ? (
-            <div
-              className="text-center py-24 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <div className="text-center py-24 text-sm" style={{ color: "var(--text-secondary)" }}>
               Cargando planes...
             </div>
           ) : (
             <>
-              {/* Banner plan activo */}
-              {subscription && currentPlanName ? (
-                <div
-                  className="mb-6 rounded-2xl p-5 md:p-6 flex items-center justify-between flex-wrap gap-4"
-                  style={{
-                    background: `linear-gradient(to right, var(--color-banner-from), var(--color-banner-to))`,
-                  }}
+              {/* ---- Tu plan ---- */}
+              {currentPlan ? (
+                <section
+                  className="mb-6 rounded-2xl border p-4 md:p-6 grid grid-cols-1 lg:grid-cols-[minmax(0,22rem)_1fr] gap-6 items-center"
+                  style={panelStyle}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
-                      <CreditCard size={22} className="text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white/70 text-xs mb-0.5">
-                        {isCurrentActive ? "Plan activo" : "Pendiente de activación"}
-                      </p>
-                      <p className="text-white font-bold text-lg">
-                        Plan{" "}
-                        {PLAN_META[currentPlanName]?.label || currentPlanName}
-                      </p>
-                      <p className="text-white/60 text-xs">
-                        {!isCurrentActive
-                          ? "Esperando confirmación del pago"
-                          : subscription.expires_at
-                            ? `Vigente hasta ${formatDate(subscription.expires_at)}`
-                            : "Sin fecha de vencimiento"}
-                      </p>
-                    </div>
+                  <div className="flex justify-center">
+                    <PlanCard
+                      plan={currentPlan}
+                      cycle={currentPlan.billing_cycle}
+                      institutionName={institution?.name}
+                      caption={isCurrentActive ? "Plan activo" : "Pendiente de activación"}
+                    />
                   </div>
-                  <div className="flex items-center gap-2 md:gap-4 flex-wrap">
-                    {isCurrentActive && daysLeft !== null && (
-                      <div
-                        className={`text-center px-4 py-2 rounded-xl ${daysLeft <= 7 ? "bg-red-500/20" : "bg-white/10"}`}
+
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+                        Plan {currentMeta?.label || currentPlanName}
+                      </h2>
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${isCurrentActive
+                            ? "bg-green-100 text-green-700"
+                            : "bg-amber-100 text-amber-700"
+                          }`}
                       >
-                        <p
-                          className={`text-2xl font-bold ${daysLeft <= 7 ? "text-red-300" : "text-white"}`}
+                        {isCurrentActive ? "Activo" : "Pendiente"}
+                      </span>
+                    </div>
+                    <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+                      {currentPlan.price > 0
+                        ? `${formatPrice(currentPlan.price)} ${currentPlan.billing_cycle === "annual" ? "al año" : "al mes"
+                        }`
+                        : "Plan gratuito, sin fecha de vencimiento"}
+                    </p>
+
+                    {isCurrentActive && daysLeft !== null && (
+                      <div className="mb-5">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span
+                            className="flex items-center gap-1.5 font-medium"
+                            style={{ color: expiringSoon ? "#dc2626" : "var(--text-primary)" }}
+                          >
+                            <CalendarDays size={13} />
+                            {daysLeft > 0
+                              ? `Quedan ${daysLeft} día${daysLeft !== 1 ? "s" : ""}`
+                              : "Tu plan venció"}
+                          </span>
+                          <span style={{ color: "var(--text-secondary)" }}>
+                            Vigente hasta {formatDate(subscription.expires_at)}
+                          </span>
+                        </div>
+                        <div
+                          className="h-2 rounded-full overflow-hidden"
+                          style={{ backgroundColor: "var(--bg-primary)" }}
                         >
-                          {daysLeft}
-                        </p>
-                        <p className="text-xs text-white/60">días restantes</p>
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${percentLeft}%`,
+                              backgroundColor: expiringSoon ? "#dc2626" : "var(--color-primary)",
+                            }}
+                          />
+                        </div>
+                        {expiringSoon && (
+                          <p className="text-xs text-red-600 mt-1.5">
+                            Renueva antes del vencimiento para no perder acceso a la generación de documentos.
+                          </p>
+                        )}
                       </div>
                     )}
-                    <div className="text-center px-4 py-2 bg-white/10 rounded-xl">
-                      <p className="text-2xl font-bold text-white">
-                        {formatPrice(subscription.plan?.price)}
-                      </p>
-                      <p className="text-xs text-white/60">
-                        {subscription.plan?.billing_cycle === "monthly"
-                          ? "/ mes"
-                          : "/ año"}
-                      </p>
-                    </div>
-                    <div className="text-center px-4 py-2 bg-white/10 rounded-xl">
-                      <TrendingUp
-                        size={20}
-                        className="text-white mx-auto mb-1"
-                      />
-                      <p className="text-xs text-white/60">
-                        Plan {PLAN_META[currentPlanName]?.label}
-                      </p>
-                    </div>
+
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wide mb-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Tu plan incluye
+                    </p>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                      {describePlanFeatures(currentPlan.features, currentPlanName).map((f) => (
+                        <li
+                          key={f}
+                          className="flex items-start gap-1.5 text-xs"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          <CheckCircle size={12} className="text-green-500 flex-shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </div>
+                </section>
               ) : (
-                <div
-                  className="mb-8 border-2 border-dashed rounded-2xl p-6 text-center"
-                  style={{
-                    backgroundColor: "var(--bg-secondary)",
-                    borderColor: "var(--border-color)",
-                  }}
+                <section
+                  className="mb-6 border-2 border-dashed rounded-2xl p-6 text-center"
+                  style={panelStyle}
                 >
-                  <CreditCard
-                    size={28}
-                    className="mx-auto mb-2"
-                    style={{ color: "var(--text-secondary)" }}
-                  />
-                  <p
-                    className="font-medium"
-                    style={{ color: "var(--text-primary)" }}
-                  >
+                  <CreditCard size={28} className="mx-auto mb-2" style={{ color: "var(--text-secondary)" }} />
+                  <p className="font-medium" style={{ color: "var(--text-primary)" }}>
                     Sin suscripción activa
                   </p>
-                  <p
-                    className="text-sm mt-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Selecciona un plan para comenzar
+                  <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                    Elige un plan para comenzar
                   </p>
-                </div>
+                </section>
               )}
 
-              {/* Solicitud de cambio pendiente */}
+              {/* ---- Solicitud pendiente ---- */}
               {pending && pendingPlanName && (
-                <div
-                  className="mb-8 rounded-xl border px-4 md:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
-                  style={{ backgroundColor: "#fffbeb", borderColor: "#f59e0b" }}
+                <section
+                  className="mb-8 rounded-2xl border px-4 md:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                  style={{ backgroundColor: "#fffbeb", borderColor: "#fcd34d" }}
                 >
-                  <Hourglass size={20} className="flex-shrink-0 text-amber-600" />
-                  <div className="flex-1 text-sm text-amber-800">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    {pendingIsWompi ? (
+                      <CreditCard size={18} className="text-amber-700" />
+                    ) : (
+                      <Hourglass size={18} className="text-amber-700" />
+                    )}
+                  </div>
+                  <div className="flex-1 text-sm text-amber-900 min-w-0">
                     <p className="font-semibold">
-                      Solicitaste el Plan {PLAN_META[pendingPlanName]?.label || pendingPlanName} (
+                      {pendingIsWompi ? "Pago en línea en proceso" : "Solicitud pendiente"}: Plan{" "}
+                      {PLAN_META[pendingPlanName]?.label || pendingPlanName} (
                       {pending.plan?.billing_cycle === "annual" ? "anual" : "mensual"},{" "}
                       {formatPrice(pending.plan?.price)})
                     </p>
-                    <p className="text-xs mt-1 flex items-center gap-1 font-medium">
-                      <Paperclip size={12} />
-                      {pending.receipt_uploaded
-                        ? "Comprobante adjunto ✓"
-                        : "Aún no has adjuntado el comprobante de pago."}
-                    </p>
-                    <p className="text-xs mt-0.5">
-                      Mientras confirmamos tu pago sigues con{" "}
-                      {currentPlanName && isCurrentActive
-                        ? `tu Plan ${PLAN_META[currentPlanName]?.label || currentPlanName}`
-                        : "tu plan actual"}
-                      . El cambio se aplica en cuanto el pago quede confirmado.
-                    </p>
+                    {pendingIsWompi ? (
+                      <p className="text-xs mt-1">
+                        Si ya pagaste, tu plan se activa en cuanto Wompi confirme el pago. Si cerraste
+                        la ventana sin pagar, puedes intentarlo de nuevo.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs mt-1 flex items-center gap-1 font-medium">
+                          <Paperclip size={12} />
+                          {pending.receipt_uploaded
+                            ? "Comprobante adjunto ✓"
+                            : "Aún no has adjuntado el comprobante de pago."}
+                        </p>
+                        <p className="text-xs mt-0.5">
+                          Mientras confirmamos tu pago sigues con{" "}
+                          {currentPlanName && isCurrentActive
+                            ? `tu Plan ${currentMeta?.label || currentPlanName}`
+                            : "tu plan actual"}
+                          .
+                        </p>
+                      </>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 flex-shrink-0">
-                    <label
-                      className={`text-xs font-semibold px-3 py-2 rounded-lg text-white bg-amber-600 cursor-pointer flex items-center gap-1 ${uploadingReceipt ? "opacity-50 pointer-events-none" : ""}`}
-                    >
-                      <Paperclip size={12} />
-                      {uploadingReceipt
-                        ? "Subiendo..."
-                        : pending.receipt_uploaded
-                          ? "Cambiar comprobante"
-                          : "Adjuntar comprobante"}
-                      <input
-                        type="file"
-                        accept={RECEIPT_ACCEPT}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = "";
-                          if (file) handleReceiptSelected(file);
-                        }}
-                      />
-                    </label>
+                    {pendingIsWompi ? (
+                      <button
+                        onClick={() =>
+                          navigate("/checkout", { state: { plan: pending.plan } })
+                        }
+                        className="text-xs font-semibold px-3 py-2 rounded-lg text-white bg-amber-600 flex items-center gap-1"
+                      >
+                        <RefreshCw size={12} /> Reintentar pago
+                      </button>
+                    ) : (
+                      <label
+                        className={`text-xs font-semibold px-3 py-2 rounded-lg text-white bg-amber-600 cursor-pointer flex items-center gap-1 ${uploadingReceipt ? "opacity-50 pointer-events-none" : ""
+                          }`}
+                      >
+                        <Paperclip size={12} />
+                        {uploadingReceipt
+                          ? "Subiendo..."
+                          : pending.receipt_uploaded
+                            ? "Cambiar comprobante"
+                            : "Adjuntar comprobante"}
+                        <input
+                          type="file"
+                          accept={RECEIPT_ACCEPT}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) handleReceiptSelected(file);
+                          }}
+                        />
+                      </label>
+                    )}
                     <button
                       onClick={handleCancelPending}
                       disabled={cancelingPending}
@@ -442,31 +483,22 @@ export default function Subscription() {
                       {cancelingPending ? "Cancelando..." : "Cancelar solicitud"}
                     </button>
                   </div>
-                </div>
+                </section>
               )}
-              {!(pending && pendingPlanName) && <div className="mb-2" />}
 
-              {/* Toggle */}
-              <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+              {/* ---- Planes ---- */}
+              <div className="flex items-end justify-between mb-5 flex-wrap gap-4 mt-8">
                 <div>
-                  <h2
-                    className="text-xl font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
+                  <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
                     {currentPlanName ? "Planes disponibles" : "Elige tu plan"}
                   </h2>
-                  <p
-                    className="text-sm mt-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {currentPlanName
-                      ? "Mejora tu plan para desbloquear más funcionalidades"
-                      : "Empieza gratis o elige el plan que mejor se adapte a tu institución"}
+                  <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                    Compara y cambia de plan cuando lo necesites.
                   </p>
                 </div>
                 <div
-                  className="flex items-center rounded-xl p-1"
-                  style={{ backgroundColor: "var(--bg-primary)" }}
+                  className="flex items-center rounded-xl p-1 border"
+                  style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
                 >
                   {["monthly", "annual"].map((cycle) => (
                     <button
@@ -474,26 +506,21 @@ export default function Subscription() {
                       onClick={() => setBillingCycle(cycle)}
                       className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                       style={{
-                        backgroundColor:
-                          billingCycle === cycle
-                            ? "var(--bg-secondary)"
-                            : "transparent",
-                        color:
-                          billingCycle === cycle
-                            ? "var(--text-primary)"
-                            : "var(--text-secondary)",
-                        boxShadow:
-                          billingCycle === cycle
-                            ? "0 1px 3px rgba(0,0,0,0.1)"
-                            : "none",
+                        backgroundColor: billingCycle === cycle ? "var(--color-primary)" : "transparent",
+                        color: billingCycle === cycle ? "#ffffff" : "var(--text-secondary)",
                       }}
                     >
                       {cycle === "monthly" ? (
                         "Mensual"
                       ) : (
                         <>
-                          Anual{" "}
-                          <span className="text-xs bg-green-100 text-green-600 font-semibold px-1.5 py-0.5 rounded-full">
+                          Anual
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${billingCycle === "annual"
+                                ? "bg-white/20 text-white"
+                                : "bg-green-100 text-green-700"
+                              }`}
+                          >
                             −17%
                           </span>
                         </>
@@ -503,199 +530,190 @@ export default function Subscription() {
                 </div>
               </div>
 
-              {/* Grid de planes */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 {PLAN_ORDER.map((planName) => {
                   const planGroup = grouped[planName];
                   if (!planGroup) return null;
-                  const plan = planGroup[billingCycle] || planGroup["monthly"];
+                  // El plan Free solo existe en un ciclo
+                  const plan = planGroup[billingCycle] || planGroup.monthly || planGroup.annual;
+                  if (!plan) return null;
                   const meta = PLAN_META[planName];
-                  const colors = PLAN_COLORS[planName];
                   const PlanIcon = meta.icon;
-                  const isCurrent = isCurrentActive && planName === currentPlanName;
-                  const isPendingPlan = !!plan && pending?.plan_id === plan.id;
+                  const isCurrent =
+                    isCurrentActive &&
+                    planName === currentPlanName &&
+                    (plan.price === 0 || plan.billing_cycle === currentPlan?.billing_cycle);
+                  const isPendingPlan = pending?.plan_id === plan.id;
                   const planIndex = PLAN_ORDER.indexOf(planName);
-                  const isDowngrade = planIndex < currentPlanIndex;
-                  const isRequesting = requesting === plan?.id;
+                  const isDowngrade = currentPlanIndex >= 0 && planIndex < currentPlanIndex;
+                  const isRequesting = requesting === plan.id;
 
                   return (
                     <div
                       key={planName}
-                      className="relative rounded-2xl border-2 p-6 flex flex-col transition-all hover:shadow-md"
+                      className="relative rounded-2xl border-2 flex flex-col overflow-hidden transition-shadow hover:shadow-md"
                       style={{
                         backgroundColor: "var(--bg-secondary)",
-                        borderColor: isCurrent
-                          ? "var(--color-primary)"
-                          : meta.highlight
-                            ? colors.border
-                            : "var(--border-color)",
-                        boxShadow: isCurrent
-                          ? "0 4px 12px rgba(0,0,0,0.1)"
-                          : "",
+                        borderColor: isCurrent ? "var(--color-primary)" : "var(--border-color)",
                       }}
                     >
-                      {isCurrent && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <span
-                            className="text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap"
-                            style={{ backgroundColor: "var(--color-primary)" }}
+                      {/* Franja del color del plan (la misma de su tarjeta) */}
+                      <div className="h-1.5" style={{ background: PLAN_GRADIENTS[planName] }} />
+
+                      <div className="p-5 flex flex-col flex-1">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: meta.bg }}
+                          >
+                            <PlanIcon size={19} style={{ color: meta.color }} />
+                          </div>
+                          <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+                            {meta.label}
+                          </p>
+                          {isCurrent && (
+                            <span
+                              className="ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full text-white"
+                              style={{ backgroundColor: "var(--color-primary)" }}
+                            >
+                              Actual
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mb-5">
+                          <p className="whitespace-nowrap">
+                            <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+                              {plan.price > 0
+                                ? `$${(plan.price / 100).toLocaleString("es-CO")}`
+                                : "Gratis"}
+                            </span>
+                            {plan.price > 0 && (
+                              <span className="text-xs ml-1" style={{ color: "var(--text-secondary)" }}>
+                                COP {plan.billing_cycle === "monthly" ? "/ mes" : "/ año"}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs font-medium mt-1 h-4 text-green-600">
+                            {plan.price > 0 && plan.billing_cycle === "annual"
+                              ? `Equivale a ${formatPrice(Math.round(plan.price / 12))} / mes`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <ul className="space-y-2 mb-6 flex-1">
+                          {describePlanFeatures(plan.features, planName).map((f) => (
+                            <li
+                              key={f}
+                              className="flex items-start gap-2 text-sm"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              <CheckCircle size={14} className="text-green-500 flex-shrink-0 mt-0.5" />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+
+                        {isPendingPlan ? (
+                          <div className="w-full py-2.5 rounded-xl text-sm font-semibold text-center border flex items-center justify-center gap-2 bg-amber-50 border-amber-300 text-amber-700">
+                            <Hourglass size={14} /> Solicitud pendiente
+                          </div>
+                        ) : isCurrent ? (
+                          <div
+                            className="w-full py-2.5 rounded-xl text-sm font-semibold text-center"
+                            style={{
+                              backgroundColor: "var(--color-primary-light)",
+                              color: "var(--color-primary)",
+                            }}
                           >
                             Tu plan actual
-                          </span>
-                        </div>
-                      )}
-                      {!isCurrent && meta.highlight && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <span className="bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                            Más popular
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-3 mb-4 mt-2">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: colors.bg }}
-                        >
-                          <PlanIcon size={20} style={{ color: colors.color }} />
-                        </div>
-                        <p
-                          className="font-bold"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          Plan {meta.label}
-                        </p>
-                      </div>
-
-                      <div className="mb-5">
-                        <span
-                          className="text-3xl font-bold"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {plan ? formatPrice(plan.price) : "—"}
-                        </span>
-                        {plan && plan.price > 0 && (
-                          <span
-                            className="text-sm ml-1"
-                            style={{ color: "var(--text-secondary)" }}
+                          </div>
+                        ) : isDowngrade ? (
+                          <button
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `¿Deseas cambiar al Plan ${meta.label}? Perderás las funciones de tu plan actual.`,
+                                )
+                              ) {
+                                handleChoosePlan(plan);
+                              }
+                            }}
+                            disabled={isRequesting}
+                            className="w-full py-2.5 rounded-xl text-sm font-medium text-center border transition-colors disabled:opacity-50"
+                            style={{
+                              borderColor: "var(--border-color)",
+                              color: "var(--text-secondary)",
+                            }}
                           >
-                            {billingCycle === "monthly" ? "/ mes" : "/ año"}
-                          </span>
+                            {isRequesting ? "Cambiando..." : `Cambiar a ${meta.label}`}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleChoosePlan(plan)}
+                            disabled={isRequesting}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: "var(--color-primary)" }}
+                          >
+                            {isRequesting ? <Clock size={15} /> : <ArrowRight size={15} />}
+                            {isRequesting
+                              ? "Cambiando..."
+                              : planName === "free"
+                                ? "Empezar gratis"
+                                : currentPlanName === planName
+                                  ? `Cambiar a ${billingCycle === "annual" ? "anual" : "mensual"}`
+                                  : `Mejorar a ${meta.label}`}
+                          </button>
                         )}
-                        {billingCycle === "annual" &&
-                          plan &&
-                          plan.price > 0 && (
-                            <p className="text-xs text-green-600 font-medium mt-1">
-                              Equivale a{" "}
-                              {formatPrice(Math.round(plan.price / 12))} / mes
-                            </p>
-                          )}
                       </div>
-
-                      <ul className="space-y-2.5 mb-6 flex-1">
-                        {describePlanFeatures(plan?.features, planName).map((f) => (
-                          <li
-                            key={f}
-                            className="flex items-start gap-2 text-sm"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            <CheckCircle
-                              size={14}
-                              className="text-green-500 flex-shrink-0 mt-0.5"
-                            />
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-
-                      {isPendingPlan ? (
-                        <div className="w-full py-2.5 rounded-xl text-sm font-semibold text-center border flex items-center justify-center gap-2 bg-amber-50 border-amber-400 text-amber-700">
-                          <Hourglass size={14} /> Solicitud pendiente
-                        </div>
-                      ) : isCurrent ? (
-                        <div
-                          className="w-full py-2.5 rounded-xl text-sm font-semibold text-center border"
-                          style={{
-                            backgroundColor: "var(--color-primary-light)",
-                            color: "var(--color-primary)",
-                            borderColor: "var(--color-primary)",
-                          }}
-                        >
-                          Plan actual ✓
-                        </div>
-                      ) : isDowngrade ? (
-                        <button
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `¿Deseas cambiar al Plan ${meta.label}? Perderás las funcionalidades de tu plan actual.`,
-                              )
-                            ) {
-                              plan && handleRequestUpgrade(plan);
-                            }
-                          }}
-                          disabled={isRequesting || !plan}
-                          className="w-full py-2.5 rounded-xl text-sm font-medium text-center border transition-colors"
-                          style={{
-                            borderColor: "var(--border-color)",
-                            color: "var(--text-secondary)",
-                            backgroundColor: "var(--bg-primary)",
-                          }}
-                        >
-                          Cambiar a este plan
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => plan && handleRequestUpgrade(plan)}
-                          disabled={isRequesting || !plan}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-                          style={{
-                            backgroundColor: meta.highlight
-                              ? "#9333ea"
-                              : colors.bg,
-                            color: meta.highlight ? "#ffffff" : colors.color,
-                          }}
-                        >
-                          {isRequesting ? (
-                            <Clock size={15} />
-                          ) : (
-                            <ArrowRight size={15} />
-                          )}
-                          {isRequesting
-                            ? "Enviando..."
-                            : planName === "free"
-                              ? "Seleccionar"
-                              : "Solicitar upgrade"}
-                        </button>
-                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Nota */}
-              <div
-                className="mt-8 rounded-xl px-5 py-4 flex items-start gap-3 border"
-                style={{
-                  backgroundColor: "var(--color-primary-light)",
-                  borderColor: "var(--color-primary)",
-                }}
-              >
-                <AlertCircle
-                  size={18}
-                  className="flex-shrink-0 mt-0.5"
-                  style={{ color: "var(--color-primary)" }}
-                />
-                <div
-                  className="text-sm"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  <strong>¿Cómo funciona el proceso de upgrade?</strong> Al
-                  solicitar un plan, un administrador de EduDynamis verificará
-                  tu pago y activará el nuevo plan en menos de 24 horas.
-                  Próximamente integraremos pagos en línea con Wompi.
+              {/* ---- Cómo se paga ---- */}
+              <section className="mt-8 rounded-2xl border p-5" style={panelStyle}>
+                <p className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                  ¿Cómo se paga un plan?
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: "var(--color-primary-light)" }}
+                    >
+                      <CreditCard size={16} style={{ color: "var(--color-primary)" }} />
+                    </div>
+                    <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <p className="font-medium flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                        Pago en línea
+                        {!wompiEnabled && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            Próximamente
+                          </span>
+                        )}
+                      </p>
+                      Tarjeta, PSE, Nequi o Botón Bancolombia a través de Wompi. Tu plan se activa
+                      apenas se aprueba el pago.
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: "var(--color-primary-light)" }}
+                    >
+                      <Landmark size={16} style={{ color: "var(--color-primary)" }} />
+                    </div>
+                    <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                        Transferencia bancaria
+                      </p>
+                      Adjunta el comprobante y el equipo de EduDynamis activa tu plan en menos de 24
+                      horas hábiles.
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </section>
             </>
           )}
         </div>
@@ -720,7 +738,6 @@ export default function Subscription() {
           }}
         />
       )}
-
     </div>
   );
 }

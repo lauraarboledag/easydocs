@@ -7,6 +7,7 @@ import LogoutModal from "../components/LogoutModal";
 import InactivityModal from "../components/InactivityModal";
 import useInactivity from "../hooks/useInactivity";
 import { describePlanFeatures } from "../utils/planFeatures";
+import PlanCard from "../components/PlanCard";
 import {
   ChevronLeft,
   CreditCard,
@@ -25,6 +26,10 @@ import {
   Hourglass,
   Paperclip,
   X,
+  Lock,
+  Smartphone,
+  ArrowLeftRight,
+  Loader2,
 } from "lucide-react";
 
 const PLAN_META = {
@@ -60,54 +65,98 @@ function formatPrice(price) {
   return `$${(price / 100).toLocaleString("es-CO")} COP`;
 }
 
-function WompiWidget({ plan, institution, onPending }) {
-  useEffect(() => {
-    if (!window.WidgetCheckout) {
-      const script = document.createElement("script");
-      script.src = "https://checkout.wompi.co/widget.js";
+// --- Wompi ---------------------------------------------------------------------
+// El monto, la referencia y la firma los arma el backend (POST /payments/wompi/checkout).
+// El plan solo se activa cuando Wompi avisa al backend por webhook; lo que
+// devuelve el widget aquí solo sirve para mostrar el mensaje correcto.
+const WOMPI_SCRIPT = "https://checkout.wompi.co/widget.js";
+
+function loadWompiScript() {
+  if (window.WidgetCheckout) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    let script = document.querySelector(`script[src="${WOMPI_SCRIPT}"]`);
+    if (!script) {
+      script = document.createElement("script");
+      script.src = WOMPI_SCRIPT;
       script.async = true;
       document.body.appendChild(script);
     }
+    script.addEventListener("load", () => resolve());
+    script.addEventListener("error", () => reject(new Error("wompi")));
+    // Por si ya había terminado de cargar antes de escuchar
+    setTimeout(() => (window.WidgetCheckout ? resolve() : null), 0);
+  });
+}
+
+function WompiButton({ plan, onResult, onError }) {
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    loadWompiScript().catch(() => { }); // precarga
   }, []);
 
-  const handlePay = () => {
-    if (!window.WidgetCheckout) {
-      alert(
-        "El widget de pago aún está cargando. Intenta de nuevo en un momento.",
+  const handlePay = async () => {
+    setOpening(true);
+    onError("");
+    try {
+      const { data } = await api.post("/payments/wompi/checkout", {
+        plan_id: plan.id,
+      });
+      await loadWompiScript();
+      const checkout = new window.WidgetCheckout({
+        currency: data.currency,
+        amountInCents: data.amount_in_cents,
+        reference: data.reference,
+        publicKey: data.public_key,
+        signature: { integrity: data.signature },
+        redirectUrl: `${window.location.origin}/suscripcion`,
+        customerData: {
+          email: data.customer_email,
+          fullName: data.customer_name,
+        },
+      });
+      checkout.open((result) => onResult(result?.transaction));
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      onError(
+        typeof detail === "string"
+          ? detail
+          : err.message === "wompi"
+            ? "No se pudo cargar Wompi. Revisa tu conexión e intenta de nuevo."
+            : "No se pudo iniciar el pago. Intenta de nuevo.",
       );
-      return;
+    } finally {
+      setOpening(false);
     }
-
-    const reference = `easydocs_${institution.id}_${plan.id}_${Date.now()}`;
-
-    const checkout = new window.WidgetCheckout({
-      currency: "COP",
-      amountInCents: plan.price,
-      reference,
-      publicKey: import.meta.env.VITE_WOMPI_PUBLIC_KEY,
-      redirectUrl: `${window.location.origin}/suscripcion`,
-    });
-
-    checkout.open((result) => {
-      const transaction = result.transaction;
-      if (
-        transaction?.status === "APPROVED" ||
-        transaction?.status === "PENDING"
-      ) {
-        onPending();
-      }
-    });
   };
 
   return (
     <button
       onClick={handlePay}
-      className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
+      disabled={opening}
+      style={{ backgroundColor: "var(--color-primary)" }}
+      className="w-full hover:opacity-90 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
     >
-      <CreditCard size={18} /> Pagar con Wompi
+      {opening ? (
+        <>
+          <Loader2 size={18} className="animate-spin" /> Abriendo Wompi...
+        </>
+      ) : (
+        <>
+          <Lock size={16} /> Pagar con Wompi
+        </>
+      )}
     </button>
   );
 }
+
+// Medios que ofrece Wompi (informativo: se eligen dentro de la ventana de Wompi)
+const ONLINE_METHODS = [
+  { label: "Tarjeta", icon: CreditCard },
+  { label: "PSE", icon: ArrowLeftRight },
+  { label: "Nequi", icon: Smartphone },
+  { label: "Bancolombia", icon: Landmark },
+];
 
 export default function Checkout() {
   const { user, logout } = useAuth();
@@ -119,7 +168,9 @@ export default function Checkout() {
   const [institution, setInstitution] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState("monthly");
-  const [paymentMethod, setPaymentMethod] = useState("wompi");
+  const [paymentMethod, setPaymentMethod] = useState("transfer");
+  // ¿Wompi tiene llaves configuradas? Sin llaves, "Pago en línea" sale como Próximamente
+  const [wompiEnabled, setWompiEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -131,6 +182,8 @@ export default function Checkout() {
   const [receiptError, setReceiptError] = useState("");
   // Resultado del comprobante tras enviar la solicitud: "ok" | "failed" | null
   const [receiptResult, setReceiptResult] = useState(null);
+  // Resultado que devuelve el widget: "approved" | "pending"
+  const [wompiOutcome, setWompiOutcome] = useState(null);
 
   useInactivity({
     timeout: 30,
@@ -145,12 +198,15 @@ export default function Checkout() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [plansRes, instRes, pendingRes] = await Promise.all([
+        const [plansRes, instRes, pendingRes, wompiRes] = await Promise.all([
           api.get("/plans/"),
           api.get(`/institutions/${user.institution_id}`),
           api.get("/subscriptions/pending").catch(() => ({ data: null })),
+          api.get("/payments/wompi/config").catch(() => ({ data: { enabled: false } })),
         ]);
         setPlans(plansRes.data);
+        setWompiEnabled(!!wompiRes.data?.enabled);
+        if (wompiRes.data?.enabled) setPaymentMethod("wompi");
         setInstitution(instRes.data);
         setPending(pendingRes.data);
 
@@ -224,8 +280,20 @@ export default function Checkout() {
     }
   };
 
-  const handleWompiPending = () => {
-    setSuccess(true);
+  // Lo que devuelve el widget al cerrarse. El plan lo activa el webhook,
+  // esto solo decide qué mensaje mostrar.
+  const handleWompiResult = (transaction) => {
+    const status = transaction?.status;
+    if (!status) return; // cerró el widget sin pagar
+    if (status === "APPROVED" || status === "PENDING") {
+      setWompiOutcome(status === "APPROVED" ? "approved" : "pending");
+      setSuccess(true);
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setError(
+      "Tu pago no fue aprobado. No se hizo ningún cobro; puedes intentarlo de nuevo con otro medio o pagar por transferencia.",
+    );
   };
 
   const copyReference = () => {
@@ -257,7 +325,9 @@ export default function Checkout() {
               style={{ color: "var(--text-primary)" }}
             >
               {paymentMethod === "wompi"
-                ? "¡Pago en proceso!"
+                ? wompiOutcome === "approved"
+                  ? "¡Pago aprobado!"
+                  : "¡Pago en proceso!"
                 : "Solicitud enviada"}
             </h2>
             <p
@@ -265,15 +335,16 @@ export default function Checkout() {
               style={{ color: "var(--text-secondary)" }}
             >
               {paymentMethod === "wompi"
-                ? "Cuando el pago se confirme, tu plan se activará automáticamente y recibirás tu factura por correo."
-                : "El equipo de EduDynamis confirmará tu transferencia y activará tu plan en breve."}{" "}
-              Mientras tanto sigues con tu plan actual, sin perder nada.
+                ? wompiOutcome === "approved"
+                  ? "Estamos activando tu plan: en unos segundos lo verás en Suscripción y te llegará la factura por correo."
+                  : "Cuando el pago se confirme, tu plan se activará automáticamente y recibirás tu factura por correo. Mientras tanto sigues con tu plan actual, sin perder nada."
+                : "El equipo de EduDynamis confirmará tu transferencia y activará tu plan en breve. Mientras tanto sigues con tu plan actual, sin perder nada."}
             </p>
             {paymentMethod === "transfer" && (
               <p
                 className={`text-xs mb-6 rounded-lg px-3 py-2 ${receiptResult === "ok"
-                    ? "bg-green-50 text-green-700"
-                    : "bg-amber-50 text-amber-700"
+                  ? "bg-green-50 text-green-700"
+                  : "bg-amber-50 text-amber-700"
                   }`}
               >
                 {receiptResult === "ok"
@@ -286,7 +357,8 @@ export default function Checkout() {
 
             <button
               onClick={() => navigate("/suscripcion")}
-              className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] text-white font-semibold py-3 rounded-xl transition-colors"
+              style={{ backgroundColor: "var(--color-primary)" }}
+              className="w-full hover:opacity-90 text-white font-semibold py-3 rounded-xl transition-colors"
             >
               Volver a Suscripción
             </button>
@@ -538,89 +610,147 @@ export default function Checkout() {
                     2. Método de pago
                   </h2>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                    <button
-                      onClick={() => setPaymentMethod("wompi")}
-                      className="flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left"
-                      style={{
-                        borderColor:
-                          paymentMethod === "wompi"
-                            ? "var(--color-primary)"
-                            : "var(--border-color)",
-                        backgroundColor:
-                          paymentMethod === "wompi"
-                            ? "var(--color-primary-light)"
-                            : "var(--bg-primary)",
-                      }}
-                    >
-                      <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{
-                          backgroundColor: "var(--color-primary-light)",
-                        }}
-                      >
-                        <CreditCard
-                          size={16}
-                          style={{ color: "var(--color-primary)" }}
-                        />
-                      </div>
-                      <div>
-                        <p
-                          className="text-sm font-semibold"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          Pago en línea
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          Tarjeta, PSE, Nequi
-                        </p>
-                      </div>
-                    </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center mb-6">
+                    <div className="flex justify-center">
+                      <PlanCard
+                        plan={selectedPlan}
+                        cycle={billingCycle}
+                        institutionName={institution?.name}
+                        method={paymentMethod}
+                      />
+                    </div>
 
-                    <button
-                      onClick={() => setPaymentMethod("transfer")}
-                      className="flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left"
+                    <div className="space-y-3">
+                      {[
+                        {
+                          id: "wompi",
+                          icon: CreditCard,
+                          title: "Pago en línea",
+                          subtitle: wompiEnabled
+                            ? "Se activa apenas se aprueba el pago"
+                            : "Muy pronto podrás pagar en línea",
+                          disabled: !wompiEnabled,
+                        },
+                        {
+                          id: "transfer",
+                          icon: Landmark,
+                          title: "Transferencia",
+                          subtitle: "Confirmación manual del equipo",
+                        },
+                      ].map(({ id, icon: Icon, title, subtitle, disabled }) => {
+                        const active = paymentMethod === id;
+                        return (
+                          <button
+                            key={id}
+                            disabled={disabled}
+                            onClick={() => {
+                              setPaymentMethod(id);
+                              setError("");
+                            }}
+                            className="w-full flex items-start gap-3 p-4 rounded-xl border-2 transition-all text-left disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{
+                              borderColor: active
+                                ? "var(--color-primary)"
+                                : "var(--border-color)",
+                              backgroundColor: active
+                                ? "var(--color-primary-light)"
+                                : "var(--bg-primary)",
+                            }}
+                          >
+                            <div
+                              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{
+                                backgroundColor: "var(--color-primary-light)",
+                              }}
+                            >
+                              <Icon
+                                size={16}
+                                style={{ color: "var(--color-primary)" }}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p
+                                  className="text-sm font-semibold"
+                                  style={{ color: "var(--text-primary)" }}
+                                >
+                                  {title}
+                                </p>
+                                {disabled && (
+                                  <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                    Próximamente
+                                  </span>
+                                )}
+                                {active && (
+                                  <CheckCircle
+                                    size={14}
+                                    className="ml-auto"
+                                    style={{ color: "var(--color-primary)" }}
+                                  />
+                                )}
+                              </div>
+                              <p
+                                className="text-xs"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {subtitle}
+                              </p>
+                              {id === "wompi" && (
+                                // Informativo: el medio se elige dentro de Wompi
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {ONLINE_METHODS.map(({ label, icon: MIcon }) => (
+                                    <span
+                                      key={label}
+                                      className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border"
+                                      style={{
+                                        borderColor: "var(--border-color)",
+                                        color: "var(--text-secondary)",
+                                        backgroundColor: "var(--bg-secondary)",
+                                      }}
+                                    >
+                                      <MIcon size={11} /> {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {paymentMethod === "wompi" && (
+                    <div
+                      className="rounded-xl p-4 flex items-start gap-3 text-xs"
                       style={{
-                        borderColor:
-                          paymentMethod === "transfer"
-                            ? "var(--color-primary)"
-                            : "var(--border-color)",
-                        backgroundColor:
-                          paymentMethod === "transfer"
-                            ? "var(--color-primary-light)"
-                            : "var(--bg-primary)",
+                        backgroundColor: "var(--bg-primary)",
+                        color: "var(--text-secondary)",
                       }}
                     >
-                      <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{
-                          backgroundColor: "var(--color-primary-light)",
-                        }}
-                      >
-                        <Landmark
-                          size={16}
+                      <ShieldCheck
+                        size={16}
+                        className="flex-shrink-0 mt-0.5"
+                        style={{ color: "#16a34a" }}
+                      />
+                      <p>
+                        Al dar <strong>Pagar con Wompi</strong> se abre la ventana segura
+                        de Wompi (Bancolombia), donde eliges tarjeta, PSE, Nequi o Botón
+                        Bancolombia. EasyDocs no ve ni guarda los datos de tu tarjeta o
+                        de tu cuenta. Al pagar aceptas el{" "}
+                        <a
+                          href="https://wompi.com/assets/downloadble/reglamento-Usuarios-Colombia.pdf"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline font-medium"
                           style={{ color: "var(--color-primary)" }}
-                        />
-                      </div>
-                      <div>
-                        <p
-                          className="text-sm font-semibold"
-                          style={{ color: "var(--text-primary)" }}
                         >
-                          Transferencia
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          Confirmación manual
-                        </p>
-                      </div>
-                    </button>
-                  </div>
+                          reglamento de usuarios de Wompi
+                        </a>
+                        .
+                      </p>
+                    </div>
+                  )}
 
                   {paymentMethod === "transfer" && (
                     <div
@@ -868,16 +998,28 @@ export default function Checkout() {
                       </div>
 
                       {paymentMethod === "wompi" ? (
-                        <WompiWidget
-                          plan={selectedPlan}
-                          institution={institution}
-                          onPending={handleWompiPending}
-                        />
+                        <>
+                          <WompiButton
+                            plan={selectedPlan}
+                            onResult={handleWompiResult}
+                            onError={(message) => {
+                              setError(message);
+                              if (message) window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                          />
+                          <p
+                            className="text-[11px] text-center mt-2 flex items-center justify-center gap-1"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            <Lock size={10} /> Pago procesado por Wompi
+                          </p>
+                        </>
                       ) : (
                         <button
                           onClick={handleTransferRequest}
                           disabled={submitting}
-                          className="w-full bg-[#2952cc] hover:bg-[#1e3fa8] disabled:opacity-40 text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                          style={{ backgroundColor: "var(--color-primary)" }}
+                          className="w-full hover:opacity-90 disabled:opacity-40 text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors"
                         >
                           {submitting ? (
                             "Enviando..."

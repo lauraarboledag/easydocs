@@ -44,7 +44,11 @@ class SubscriptionResponse(BaseModel):
     is_active: bool
     created_at: datetime
     plan: Optional[PlanResponse] = None
+    # Solo en /subscriptions/pending: si ya se adjuntó el comprobante
     receipt_uploaded: bool = False
+    # Solo en /subscriptions/pending: "transfer" o "wompi"
+    payment_method: Optional[str] = None
+
     model_config = {"from_attributes": True}
 
 
@@ -56,14 +60,20 @@ class TransactionResponse(BaseModel):
     notes: Optional[str]
     confirmed_by: Optional[str]
     created_at: datetime
+    # Datos para que la administración sepa de quién es el pago
     institution_name: Optional[str] = None
     plan_name: Optional[str] = None
     billing_cycle: Optional[str] = None
     has_receipt: bool = False
+    payment_method: Optional[str] = None  # "transfer" | "wompi"
+    provider_payment_type: Optional[str] = None  # CARD, PSE, NEQUI...
+
     model_config = {"from_attributes": True}
+
 
 class ConfirmTransaction(BaseModel):
     notes: Optional[str] = None
+
 
 class ReceiptInfo(BaseModel):
     transaction_id: str

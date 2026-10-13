@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "https://easydocs-kappa.vercel.app/"
     GOOGLE_CLIENT_ID: Optional[str] = None
     HCAPTCHA_SECRET_KEY: Optional[str] = None
+    WOMPI_INTEGRITY_KEY: str = ""
     WOMPI_PUBLIC_KEY: Optional[str] = None
     WOMPI_PRIVATE_KEY: Optional[str] = None
     WOMPI_EVENTS_KEY: Optional[str] = None

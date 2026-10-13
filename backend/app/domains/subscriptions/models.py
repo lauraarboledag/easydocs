@@ -1,6 +1,16 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, func, Enum, Integer, JSON, LargeBinary
+from sqlalchemy import (
+    String,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    func,
+    Enum,
+    Integer,
+    JSON,
+    LargeBinary,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 import enum
@@ -93,6 +103,13 @@ class Transaction(Base):
     confirmed_by: Mapped[str] = mapped_column(
         String, ForeignKey("users.id"), nullable=True
     )
+    # "transfer" (transferencia con comprobante) o "wompi" (pago en línea)
+    payment_method: Mapped[str] = mapped_column(String(20), nullable=True)
+    # Referencia que se le entrega a Wompi; con ella el webhook encuentra el pago
+    reference: Mapped[str] = mapped_column(String(100), nullable=True, unique=True)
+    # Id de la transacción en Wompi y medio usado (CARD, PSE, NEQUI...)
+    provider_transaction_id: Mapped[str] = mapped_column(String(100), nullable=True)
+    provider_payment_type: Mapped[str] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
